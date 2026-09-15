@@ -1,0 +1,460 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head><title>
+
+</title><link href="../Styles/Site.css" rel="stylesheet" type="text/css" />
+       <link rel="stylesheet" href="../Scripts/jquery/jquery-ui.css" />
+     <link href="../Styles/AutoComplete.css" rel="stylesheet" type="text/css" />
+    <script src="../Scripts/jquery/jquery-1.10.2.js" type="text/javascript"></script>
+    <script src="../Scripts/jquery/jquery-ui.js" type="text/javascript"></script>
+    <link href="/WebResource.axd?d=a7LLKp2LSlmQZ9YxpNQYKX37TXDfcPD3OY7WM2lk8r_mU3cXv14-O-pPVzQ2YSMFz7DwevBCSveaKMgo1-MAafU-sTyJ4BtTP49dIAZFF6WSoP-HUp-IbSUaTw1u7021cHlIqHZhJIFYMobd21W_LQ2&amp;t=634092602420000000" type="text/css" rel="stylesheet" /></head>
+<body onload="document.getElementById('div_navigation').style.display=''">
+    <form method="post" action="CRM_Activepipeline.aspx" id="Form1">
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="/wEPDwUKLTg4Mzk1NzY1Mw9kFgJmD2QWAgIDD2QWCAIHDw8WAh4EVGV4dAUaV2VkbmVzZGF5LCBBdWd1c3QgMTIsIDIwMjZkZAIJDw8WAh8ABfkCPG1hcnF1ZWUgIGhlaWdodD0yMCBzY3JvbGxhbW91bnQ9MyBoZWlnaHQ9MjAgPlRoaXMgd2VlayBGbGlnaHQgU2NoZWR1bGUgUkEgS1RNLURYQiBNb24gKDMzMCksIFdlZCwgVGh1IChTZXAgOSksIFNBVCAoU2VwIDkpLCBSZWd1bGFyIEc5LURYQiAobWluICszMDAgS2cpLCANClNjYW0gQWxlcnQ6IFBsZWFzZSBkb24ndCBvcGVuIGFueSBhbm5pdmVyc2FyeSBsaW5rIG9uIG1lc3NlbmdlciB3aGljaCBzYXlzIHlvdSBoYXZlIHdvbiBzY29vdGVyIG9yIHNvbWV0aGluZyBlbHNlLiBTdWNoIHNjYW1zIHRha2UgYXdheSB5b3VyIGxvZ2luIGRldGFpbHMsIHBhc3N3b3JkIGV0YyBhbmQgbWF5IHJlc3VsdCBpbiBhY2NvdW50cyBiZWluZyBoYWNrZWQuIDwvbWFycXVlZT5kZAIPD2QWCgIBDw8WAh4JTWF4TGVuZ3RoZmRkAgMPFhoeIEN1bHR1cmVDdXJyZW5jeVN5bWJvbFBsYWNlaG9sZGVyBQEkHhZDdWx0dXJlVGltZVBsYWNlaG9sZGVyBQE6Hg5JbnB1dERpcmVjdGlvbgsphgFBamF4Q29udHJvbFRvb2xraXQuTWFza2VkRWRpdElucHV0RGlyZWN0aW9uLCBBamF4Q29udHJvbFRvb2xraXQsIFZlcnNpb249NC4xLjQwNDEyLjAsIEN1bHR1cmU9bmV1dHJhbCwgUHVibGljS2V5VG9rZW49MjhmMDFiMGU4NGI2ZDUzZQAeG0N1bHR1cmVUaG91c2FuZHNQbGFjZWhvbGRlcgUBLB4RQ3VsdHVyZURhdGVGb3JtYXQFA01EWR4WQ3VsdHVyZURhdGVQbGFjZWhvbGRlcgUBLx4MRGlzcGxheU1vbmV5CymCAUFqYXhDb250cm9sVG9vbGtpdC5NYXNrZWRFZGl0U2hvd1N5bWJvbCwgQWpheENvbnRyb2xUb29sa2l0LCBWZXJzaW9uPTQuMS40MDQxMi4wLCBDdWx0dXJlPW5ldXRyYWwsIFB1YmxpY0tleVRva2VuPTI4ZjAxYjBlODRiNmQ1M2UAHg5BY2NlcHROZWdhdGl2ZQsrBQAeE092ZXJyaWRlUGFnZUN1bHR1cmVoHhlDdWx0dXJlRGVjaW1hbFBsYWNlaG9sZGVyBQEuHhZDdWx0dXJlQU1QTVBsYWNlaG9sZGVyBQVBTTtQTR4LQ3VsdHVyZU5hbWUFBWVuLVVTHgpBY2NlcHRBbVBtaGQCBw8PFgIfAWZkZAIJDxYaHwIFASQfAwUBOh8ECysEAB8FBQEsHwYFA01EWR8HBQEvHwgLKwUAHwkLKwUAHwpoHwsFAS4fDAUFQU07UE0fDQUFZW4tVVMfDmhkAg0PEA8WBh4NRGF0YVRleHRGaWVsZAUIVXNlck5hbWUeDkRhdGFWYWx1ZUZpZWxkBQZVc2VySUQeC18hRGF0YUJvdW5kZ2QQFQoLW1NFTEVDVCBBRV0QQWtyaXQgSm9zaGkgKEFKKRNBbmtpdCBTaHJlc3RoYSAoQVMpFERpbmVzaCAgTmV1cGFuZSAoRE4pFE5hbXVuYSBUYW1yYWthciAoTlQpE1ByYWthc2ggIFJlZ21pIChQUikUUHJhdGlrICBTaXBraGFuIChQUykNUmV0YWlsICAoUlRMKRVSdXBlc2ggVGltaWxzaW5hIChSVCkVU2hhbmdyaSBMYSBUb3VyIChTTFIpFQoBMAI3NgI3NQE3AzEwMQI5MwI4OQIxOAI1NwIxNhQrAwpnZ2dnZ2dnZ2dnZGQCEQ8PFgIfAAUXTG9nZ2VkIEJZIDogQWtyaXQgSm9zaGlkZGTAzHWknMUCvzSU9TflWraUZexFVsJiXCVUvn7pulXRFw==" />
+
+
+<script src="/ScriptResource.axd?d=XPtC1RMBj5AWm2XTQfaBvnQkmbEMcb0PZhZ1KWEUWQJTZJodpOOb3t6bHh9eKVKdcPP2aqnxxs3hSf4Nob7X-zYbFVLmW3nB9Uioy7S_nOijHX9rkzZkHgHwyQ0nRKuXdXmZ_naiivny3v_qRRgroQ2&amp;t=ffffffffb2e917fb" type="text/javascript"></script>
+<script src="/ScriptResource.axd?d=H1kti-bd6SVI7xOvnV1hixQjFr1cZkGIUw4aredZiAOms37bJ0WR3Yp_43doj0x-BLwZSShk8LlC5tOB9Pd6ty1_49P2ZtIfcQrjNltbrrYrc6_kiWMsGEYNjpNekpY2qSuJSNdM4oLPGHLv71CcUw2&amp;t=f2cd5c5" type="text/javascript"></script>
+<script type="text/javascript">
+//<![CDATA[
+if (typeof(Sys) === 'undefined') throw new Error('ASP.NET Ajax client-side framework failed to load.');
+//]]>
+</script>
+
+<script src="/ScriptResource.axd?d=cW54p9KjMGRPfvDnDXEcBnlnpfIoML0tSRW4_0NA7HhVG0wsgOFnEEkuVc50NG9mgZa2Gr8PhzJJMwkOU8zD0Y4RZRpXz_-QbdUYeoZcxswrQ3YfW2R1fBOVCe_b4GxxEKKE4FpX317AT8euwo1ehQ2&amp;t=f2cd5c5" type="text/javascript"></script>
+<script src="/ScriptResource.axd?d=n0ABcXQOryEoE_PJxNnGaQV-q_FHKw5qeqSqO-r7woVZ18myRGzw3qXeuoAd3iNr0QNKTmNvEF7nLMKqz5MPFW1cjM6EOQc7OhNPtKSSUdbAy6Xjp7D1HaA7C6b6XM1leKG_BQ4HpEtPAA-rVESQ-Q2&amp;t=f2cd5c5" type="text/javascript"></script>
+<script src="/ScriptResource.axd?d=Rj5d2NXAoU4QO5S_actvWipALazdPiyJL1RvCYQevZOxQVQEoDO4r5bfH1eQ-vyjbxO8angkgdsRXYbt50c7c9GuWGVZfmB5loP50xZ7D0RCXsDeezO6FGNFrjLD0JkwmFhkFIRz0NUgrFtxq5J1EQ2&amp;t=f2cd5c5" type="text/javascript"></script>
+<script src="/ScriptResource.axd?d=pUbnijkK5XZ5ssTYRnrTdfCFZAdmumAfYd3vTJkAblPQP5p4If7mlsAsgGRVihInG9TtFDdtfz94pImMlGS2pKs_5ZJClYDzi9GwtLOqbweOKS_YLM26y8BBNx1P2lGYmWgZHmHiGs6dFlGk8KJSQnb8OL-ZcY-2qT236GteXKU1&amp;t=f2cd5c5" type="text/javascript"></script>
+<script src="/ScriptResource.axd?d=9osotmLJbA7QiHUHwcTr_ur0alYI7hTl3qprpB6r3B5umiJC7P-mbo1xga0rVGPKr_YeO6nosOwmib_sNiWUCRh2IQY6LP_vth1fKZVZwXm43veKI_j8Poo_M1Fdo9prfo5iGOvxN390uGzV4s2ENiCqz0EeaJFFSKArDhqhCSI1&amp;t=f2cd5c5" type="text/javascript"></script>
+<script src="/ScriptResource.axd?d=mNi4Hr50fK_vBDoP9QjA-YZbMwDCxoF3ZHegiOp7ZVVU1p5t3HKw_kjW4F8YUWQennq1NF22k6ctCfqgWT7ZbW8v4zrvRXDGLfwOQ-I1q4XC1geEnsgojmEYZcDoKIz5U6SqkADwyKq_RU4zkclWSQ2&amp;t=f2cd5c5" type="text/javascript"></script>
+<script src="/ScriptResource.axd?d=4WeYCAAnln_8FnkFjQdQKaUntx4dPAcCcYVd1HDRqygf-Vy9yoXbx1YO11cjH2l1M7xOpJm9OlNbVS8wASedVwc2x6HNIbXGEB9nLGYBE5PRAck_1xXisUAT04kCVY8Hkv7A1Ehe2_EYxQhzCgA1iQ2&amp;t=f2cd5c5" type="text/javascript"></script>
+<script src="/ScriptResource.axd?d=SOws3hN1itNYMjAqPvQOhiikxJk7WXZFZ8fVfgmu62p-Nw9AExJ4rcirVFsN8eGJzCzbjZEph9RqTG9XpiDYhTMOySLWQSgnJ5r4QQkoO8xS2ONMwqVYX7N5pIaY6u5-zkUF5e43vC2WSen6f03GMRw3N0DINCXt5YkQGus92HA1&amp;t=f2cd5c5" type="text/javascript"></script>
+<script src="/ScriptResource.axd?d=Mz2QVsoMsM7RBwm3F4pv4fZdLnrgUaQcfGs_IzRR1yTsoDiMIYKaQ54z3ZosY2NlqLOIwk7EiLwvH0Pp0n90n18_dB8wBdaCn35vQQuXdIhcDrmY37AfW-lU5QRLs7zYlGsCIi61vucA0z0VyTPpzNsw3nc8fkao3GbfyvCo4tg1&amp;t=f2cd5c5" type="text/javascript"></script>
+<script src="/ScriptResource.axd?d=cMEUlMf3sUDEIlKFjxQO1QXPSJ7bqeJ4swBVK-m12ZsCd556at_by0FOPkUO-v2Gf3sMZQrdhGxdUaay5tm40ZOg4Umqb6QV1-UD8s0xCOjsGWOoX3n3h63aSCFK19eAAqDVRlgaeKy3nklqX7Aq2g2&amp;t=f2cd5c5" type="text/javascript"></script>
+<script src="/ScriptResource.axd?d=tER70vbizqQUT3KBbHOailmoCUdBVmt9KPJJSpXe3UfNFdy181ZzTXQyJkv-2J-6fUHeDf8SYfNvKOl0JODN-b5dlqUvDPyGch1sPMUbJg9OJsZ3i166LDM-yQ8SwIldFCUHlJxTPR588ALXApqCHA2&amp;t=f2cd5c5" type="text/javascript"></script>
+<input type="hidden" name="__VIEWSTATEGENERATOR" id="__VIEWSTATEGENERATOR" value="C0D10A77" />
+    
+    <style>
+        .header
+        {
+            background-color: #E38E12; /* Dark Navy */
+            color: #ffffff;
+            width: 100%;
+            margin: 0 auto;
+            font-family: font-family: 'Recoleta', 'Georgia', serif;
+        }
+        .header-table
+        {
+            
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .header-left
+        {
+            width: 30%;
+            text-align: left;
+            padding: 10px 15px;
+            color: #ffffff; /* Gold */
+        }
+        .header-left span
+        {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        .header-center
+        {
+            font-family: font-family: 'Recoleta', 'Georgia', serif;
+            text-align: center;
+            color: #ffffff;
+            font-size: 1.8rem;
+            font-weight: 700;
+            padding: 10px 0;
+        }
+        .header-right
+        {
+            width: 10%;
+            text-align: right;
+            padding: 10px 15px;
+        }
+        .header-right a, .header-right .logout-button
+        {
+            color: #80c7ff; /* Light blue */
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .header-right a:hover, .header-right .logout-button:hover
+        {
+            color: #cce6ff;
+            text-decoration: underline;
+        }
+        .header-lower-row
+        {
+            background-color: #f4f6f8; /* Light grey */
+            color: #0b2545; /* Dark navy text */
+            font-style: italic;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+        .header-lower-row td
+        {
+            padding: 5px 8px;
+        }
+        #div_navigation
+        {
+            padding: 10px 0;
+            background-color: #e9ecef; /* Slightly lighter grey */
+        }
+    </style>
+    <div class="page">
+        <div class="header" align="center">
+            <table class="header-table" cellpadding="0" cellspacing="0">
+                <tr>
+                    <td class="header-left" valign="middle" >
+                        <img id="Image1" src="/images/UPS-Logo.jpg" src="" alt="UPS Logo" height="73" width="94" />
+                        <br />
+                        <span>Shangri La Tours Pvt. Ltd.</span>
+                    </td>
+                    <td class="header-center" valign="middle">
+                        Customer Relation Management
+                    </td>
+                    <td class="header-right" valign="bottom">
+                        <a id="LnkBtn_Logout" class="logout-button" href="javascript:__doPostBack(&#39;ctl00$LnkBtn_Logout&#39;,&#39;&#39;)">LogOut</a>
+                        <br />
+                        <br />
+                        <br />
+                        <br />
+                        <a href="https://www.nrb.org.np/fxmexchangerate.php/" target="_blank" rel="noopener noreferrer">
+                            <strong>Exchange Rate</strong></a>
+                    </td>
+                </tr>
+                <tr class="header-lower-row">
+                    <td>
+                        <span id="lbl_Date"><b><font face="Courier New" color="#0B2545" size="4">Wednesday, August 12, 2026</font></b></span>
+                    </td>
+                    <td>
+                        <span id="lbl_Notice"><b><font face="Courier New" color="#0B2545" size="4"><marquee  height=20 scrollamount=3 height=20 >This week Flight Schedule RA KTM-DXB Mon (330), Wed, Thu (Sep 9), SAT (Sep 9), Regular G9-DXB (min +300 Kg), 
+Scam Alert: Please don't open any anniversary link on messenger which says you have won scooter or something else. Such scams take away your login details, password etc and may result in accounts being hacked. </marquee></font></b></span>
+                    </td>
+                    <td>
+                        
+ <link rel="stylesheet" href="../Scripts/jquery/jquery-ui.css" />
+<table width="100%">
+    <tr>
+        <td align="right">
+            <input name="ctl00$Search$txt_searchBox" type="text" id="Search_txt_searchBox" placeholder="Search..." />
+                
+            <span id="Search_lbl_errorS" style="font-weight: 700"><font color="White"></font></span>
+
+        </td>
+    </tr>
+</table>
+
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="3">
+                        <div id='div_navigation' style='display: none;'>
+                            
+<style type="text/css">
+    .style1
+    {
+        text-align: center;
+    }
+</style>
+<div id="Main_Tour_Menu1_upd_pnl_Form">
+	
+        <table width="100%" cellpadding="0" cellspacing="0" bgcolor="#ffffff">
+            <tr>
+                <td>
+                    <a href="#Main_Tour_Menu1_NavigationMenu_SkipLink"><img alt="Skip Navigation Links" src="/WebResource.axd?d=O863amsaWtMC22KT0vWT71slwydQ5mgYAfrnWQRo0vowJZPnHTNH892stAkhvoGlBcDQVZSM1r4U8F5noEJF8zjpO7Ke3NadKbcpx-k70kk1&amp;t=635328527960000000" width="0" height="0" border="0" /></a><div class="menu" id="Main_Tour_Menu1_NavigationMenu">
+		<ul class="level1">
+			<li><a class="level1" href="T_MainBoardSupervisor.aspx">Home</a></li><li><a class="level1" href="S_Entry2.aspx">Customer</a></li><li><a class="popout level1">Daily call Logs</a><ul class="level2">
+				<li><a class="level2" href="CRM_DailyCallSuper.aspx">Existing Customer</a></li><li><a class="level2" href="DailyCallNewAdd_SuperCom.aspx">Contact Activity</a></li>
+			</ul></li><li><a class="level1" href="S_WeeklyCallScheduleList.aspx">Weekly Schedule</a></li><li><a class="level1" href="Setup_BillingPage.aspx">Setup</a></li><li><a class="popout level1">Reports</a><ul class="level2">
+				<li><a class="popout level2">Churn Reduction</a><ul class="level3">
+					<li><a class="level3" href="ChurnReduction.aspx">LA</a></li><li><a class="level3" href="ChurnReduction(SMS).aspx">SME</a></li><li><a class="level3" href="ChurnReduction(RECO).aspx">RE/CO</a></li><li><a class="level3" href="ChurnReduction(IFC).aspx">IFC</a></li><li><a class="level3" href="ChurnReduction(RE).aspx">RE</a></li>
+				</ul></li><li><a class="level2" href="monthlypw.aspx">Monthly Report</a></li><li><a class="level2" href="CRM_RevVolPcsTracker.aspx">Average per month(Psc, Vol and Wt)</a></li><li><a class="popout level2" href="#" onclick="__doPostBack(&#39;ctl00$Main_Tour_Menu1$NavigationMenu&#39;,&#39;Reports\\Manifest&#39;)">Manifest</a><ul class="level3">
+					<li><a class="level3" href="Rep_ManifestOption.aspx">Export</a></li><li><a class="level3" href="Rep_ManifestOptionImport.aspx">Import</a></li>
+				</ul></li><li><a class="level2" href="CRM_FollowupList.aspx">Follow Up</a></li><li><a class="level2" href="CRM_Customer_Info.aspx">Customer Information</a></li><li><a class="level2" href="CRM_DairyAEList.aspx">Daily Call Logs</a></li><li><a class="level2" href="CRM_CompanyClosed.aspx">Closed Customers</a></li><li><a class="level2" href="Setup_ReportPage.aspx">Other</a></li>
+			</ul></li><li><a class="popout level1">Account</a><ul class="level2">
+				<li><a class="popout level2">Profit & Loss</a><ul class="level3">
+					<li><a class="level3" href="MenifestPreview_UPS.aspx">Export</a></li><li><a class="level3" href="MenifestPreview_UPSImp.aspx">Import</a></li>
+				</ul></li><li><a class="level2" href="MenifestPreview_UPSProLossTot.aspx">Total Profit/Loss (Export)</a></li><li><a class="popout level2">Dispute Tracker</a><ul class="level3">
+					<li><a class="level3" href="CRM_DisputeNew.aspx">Add/Edit</a></li><li><a class="level3" href="CRM_DisputeTrackerList.aspx">Lists</a></li>
+				</ul></li><li><a class="level2" href="Billing_RfadDisRate.aspx">Customer Offering</a></li><li><a class="popout level2">Insurance</a><ul class="level3">
+					<li><a class="level3" href="Insurance_PolicyManagement.aspx">Entry</a></li><li><a class="level3" href="Insurance_PolicyManagementList.aspx">List</a></li><li><a class="level3" href="Insurance_CompanyList.aspx">Company List</a></li>
+				</ul></li>
+			</ul></li><li><a class="popout level1">Operations</a><ul class="level2">
+				<li><a class="popout level2">Manifest</a><ul class="level3">
+					<li><a class="popout level3" href="#" onclick="__doPostBack(&#39;ctl00$Main_Tour_Menu1$NavigationMenu&#39;,&#39;Operations\\Manifest\\Export&#39;)">Export</a><ul class="level4">
+						<li><a class="level4" href="S_MenifestEntryForm.aspx">New</a></li><li><a class="level4" href="MenifestPreview.aspx">Lists</a></li>
+					</ul></li><li><a class="popout level3" href="#" onclick="__doPostBack(&#39;ctl00$Main_Tour_Menu1$NavigationMenu&#39;,&#39;Operations\\Manifest\\Import&#39;)">Import</a><ul class="level4">
+						<li><a class="level4" href="S_MenifestImportEntry.aspx">New</a></li><li><a class="level4" href="MenifestPreviewImport.aspx">Lists</a></li>
+					</ul></li>
+				</ul></li><li><a class="level2" href="SwasticBillToSqlUpd.aspx">Upload Swastic Report</a></li><li><a class="level2" href="CustomerCmpliance.aspx">Compliance</a></li>
+			</ul></li><li><a class="popout level1">Utilities</a><ul class="level2">
+				<li><a class="popout level2">Get Rate</a><ul class="level3">
+					<li><a class="level3" href="CRM_GetRateCN.aspx">Billing Rate</a></li><li><a class="level3" href="Billing_Retail.aspx">Billing Rate (Retail)</a></li>
+				</ul></li><li><a class="level2" href="Billing_DiscPage.aspx">Discount Rate</a></li><li><a class="level2" href="Upload_CompanyFiles.aspx">Company Files Upload</a></li><li><a class="level2" href="http://192.168.101.3:8000/LoginPage.aspx/LoginPage.aspx?ID=guest&amp;ID1=guest123">Phone Book</a></li><li><a class="level2" href="CRM_HolidayLists.aspx">Holidays</a></li>
+			</ul></li>
+		</ul>
+	</div><a id="Main_Tour_Menu1_NavigationMenu_SkipLink"></a>
+                   
+                </td>
+            </tr>
+        </table>
+    
+</div>
+
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <div class="main">
+            
+     
+    <h3>
+        active pipeline List......
+    </h3>
+    <script language="Javascript" type="text/javascript">
+
+
+        function divScrollR() {
+            var Right = document.getElementById('Av');
+            var Left = document.getElementById('Bv');
+            Left.scrollLeft = Right.scrollLeft;
+        }
+
+
+        function divScrollL() {
+            var Right = document.getElementById('Av');
+            var Left = document.getElementById('Bv');
+            Right.scrollLeft = Left.scrollLeft;
+        }
+
+        function StartProgressBar() {
+            var myExtender = $find('ProgressBarModalPopupExtender');
+            myExtender.show();
+            return true;
+        }
+
+        //  Autocomplete....From here
+
+
+        $(document).ready(function () {
+            var prm = Sys.WebForms.PageRequestManager.getInstance();
+            prm.add_initializeRequest(InitializeRequest);
+            prm.add_endRequest(EndRequest);
+
+            // Place here the first init of the autocomplete
+            SearchText();
+        });
+
+        function InitializeRequest(sender, args) {
+        }
+
+        function EndRequest(sender, args) {
+            // after update occur on UpdatePanel re-init the Autocomplete
+            SearchText();
+        }
+
+
+        function SearchText() {
+            $(".autosuggest").autocomplete({
+                source: function (request, response) {
+                    $.ajax({
+                        type: "POST",
+                        contentType: "application/json; charset=utf-8",
+                        url: "CRM_Activepipeline.aspx/GetAutoCompleteData",
+                        //                              data: "{'CompanyNames':'" + $("[id$=txtSearch]").val() + "'}",
+                        data: "{'CompanyNames':'" + $("[id$=txtSearch]").val() + "', 'date1':'" + $("[id$=txt_dateFrom ]").val() + "','date2':'" + $("[id$=txt_dateTo]").val() + "'}",
+                        dataType: "json",
+                        success: function (data) {
+                            if (data.d.length > 0) {
+                                response($.map(data.d, function (item) {
+                                    return {
+                                        label: item.split('/')[0],
+                                        val: item.split('/')[1]
+                                    }
+                                }));
+                            }
+                            else {
+                                response([{ label: 'No Records Found', val: -1}]);
+                                $("[id$=hfCustomerId]").val(0);
+
+                            }
+                        },
+                        error: function (result) {
+                            alert("Error");
+                        }
+                    });
+                },
+                select: function (event, ui) {
+                    if (ui.item.val == -1) {
+                        return false;
+                    }
+                    $("[id$=hfCustomerId]").val(ui.item.val);
+                }
+            });
+        }
+
+
+            </script>
+
+
+ <fieldset class="fieldsetCss">
+     <table width="100%">
+     <tr>
+         <td>
+                                                                                                                                                                                                                                                                                                             <table>
+      <tr>
+                                    <td>
+                                        Date
+                                    </td>
+                                    <td>
+                                        
+<input name="ctl00$MainContent$txt_dateFrom" type="text" value="8/12/2026" id="MainContent_txt_dateFrom" class="txtbox" placeholder="mm/dd/yyyy" />
+                                              <input type="hidden" name="ctl00$MainContent$mskExtn1_ClientState" id="MainContent_mskExtn1_ClientState" />
+                                        
+                                    </td>
+                         
+                                    <td>
+                                        to</td>
+                         
+                                    <td>
+                                       
+                                    <input name="ctl00$MainContent$txt_DateTo" type="text" value="2/8/2027" id="MainContent_txt_DateTo" class="txtbox" placeholder="mm/dd/yyyy" />
+                                              <input type="hidden" name="ctl00$MainContent$mskExtn2_ClientState" id="MainContent_mskExtn2_ClientState" />
+                                        
+                                    </td>
+                                    <td>
+                                                    <select name="ctl00$MainContent$ddl_UserName" id="MainContent_ddl_UserName">
+	<option selected="selected" value="0">[SELECT AE]</option>
+	<option value="76">Akrit Joshi (AJ)</option>
+	<option value="75">Ankit Shrestha (AS)</option>
+	<option value="7">Dinesh  Neupane (DN)</option>
+	<option value="101">Namuna Tamrakar (NT)</option>
+	<option value="93">Prakash  Regmi (PR)</option>
+	<option value="89">Pratik  Sipkhan (PS)</option>
+	<option value="18">Retail  (RTL)</option>
+	<option value="57">Rupesh Timilsina (RT)</option>
+	<option value="16">Shangri La Tour (SLR)</option>
+
+</select>
+                                                </td>
+                                    <td>
+                                        <input type="submit" name="ctl00$MainContent$btn_Preview" value="Show" id="MainContent_btn_Preview" />
+                                        <input type="submit" name="ctl00$MainContent$btn_Export" value="Export" id="MainContent_btn_Export" />
+                                    </td>
+                                    <td>
+                                    
+                                            
+                            
+         <span id="MainContent_lbl_Error" style="font-weight: 700"><font color="#FF3300"></font></span>
+                            
+                                    </td>
+                                 
+                                </tr>
+       </table>
+         </td>
+     
+     </tr>
+     
+     
+ 
+        <tr>
+            <td>
+                <div id="Av" style="overflow: auto; height:30px; width:100%;  overflow-x: hidden; onscroll="divScrollR()"; >
+                    <table id="MainContent_tbl_Header" class="dashboard-table" bordercolor="#C1D5F4" bgcolor="#AFC8E7" width="1200">
+	<tr>
+		<td width="50">S.no.</td><td width="65">Expected Date</td><td width="150">Company Name</td><td width="55">Acc No</td><td width="55">Country</td><td width="55">Weight(kg)</td><td width="55">Revenue($)</td><td width="55">PCS</td><td width="50">Category</td><td width="25">AE</td><td width="150">Win/Loss</td><td width="150">Remarks</td>
+	</tr>
+</table>
+                </div>
+                         
+              
+            </td>
+        </tr>
+        <tr>
+           
+           
+             <td>
+                <div id="Bv" style="overflow: auto; height: 380px; width: 100%;" onscroll="divScrollL();">            
+                    <table id="MainContent_tbl_Quotation" class="aspTable dashboard-table" rules="all" border="1" width="1200">
+	<tr>
+		<td width="50">1</td><td width="65">08/13/2026</td><td width="150"><a href='S_Entry2.aspx?ID2=6321'>Kathmandu Village Rugs</a></td><td width="55"></td><td width="55">US</td><td align="right" width="55">67</td><td align="right" width="55">841</td><td align="right" width="55">1</td><td width="50">SME</td><td width="25">PS</td><td width="150"></td><td width="150"></td>
+	</tr><tr>
+		<td width="50">2</td><td width="65">08/14/2026</td><td width="150"><a href='S_Entry2.aspx?ID2=5286'>UNIQUE GALAINCHA STUDIO</a></td><td width="55">853R8F</td><td width="55">US</td><td align="right" width="55">100</td><td align="right" width="55">800</td><td align="right" width="55">4</td><td width="50">SME</td><td width="25">PR</td><td width="150"></td><td width="150"></td>
+	</tr><tr>
+		<td width="50">3</td><td width="65">08/14/2026</td><td width="150"><a href='S_Entry2.aspx?ID2=6165'>Shepherd carpet</a></td><td width="55"></td><td width="55">US</td><td align="right" width="55">50</td><td align="right" width="55">600</td><td align="right" width="55">2</td><td width="50">SME</td><td width="25">AS</td><td width="150"></td><td width="150"></td>
+	</tr><tr>
+		<td width="50">4</td><td width="65">08/14/2026</td><td width="150"><a href='S_Entry2.aspx?ID2=2528'>Kantipur carpet craft industries</a></td><td width="55">88177F</td><td width="55">GB</td><td align="right" width="55">30</td><td align="right" width="55">322</td><td align="right" width="55">1</td><td width="50">SME</td><td width="25">PS</td><td width="150"></td><td width="150"></td>
+	</tr><tr>
+		<td width="50">5</td><td width="65">08/19/2026</td><td width="150"><a href='S_Entry2.aspx?ID2=1690'>Buy Tibetan Rugs</a></td><td width="55">R11246</td><td width="55">US</td><td align="right" width="55">80</td><td align="right" width="55">963</td><td align="right" width="55">2</td><td width="50">SME</td><td width="25">PR</td><td width="150"></td><td width="150"></td>
+	</tr><tr>
+		<td width="50">6</td><td width="65">08/20/2026</td><td width="150"><a href='S_Entry2.aspx?ID2=244'>Patan karnali carpet ind. pvt ltd</a></td><td width="55">R112X5</td><td width="55">US</td><td align="right" width="55">125</td><td align="right" width="55">1350</td><td align="right" width="55">3</td><td width="50">SME</td><td width="25">PR</td><td width="150"></td><td width="150">rate shared</td>
+	</tr><tr>
+		<td width="50">7</td><td width="65">08/20/2026</td><td width="150"><a href='S_Entry2.aspx?ID2=995'>T t carpet industries</a></td><td width="55">R11074</td><td width="55">US</td><td align="right" width="55">20</td><td align="right" width="55">293</td><td align="right" width="55">1</td><td width="50">SME</td><td width="25">PS</td><td width="150"></td><td width="150"></td>
+	</tr><tr>
+		<td width="50">8</td><td width="65">08/20/2026</td><td width="150"><a href='S_Entry2.aspx?ID2=3709'>Gayatri Pashmina Inc.</a></td><td width="55">74V5R6</td><td width="55">US</td><td align="right" width="55">36</td><td align="right" width="55">456</td><td align="right" width="55">2</td><td width="50">SME</td><td width="25">PR</td><td width="150"></td><td width="150"></td>
+	</tr><tr>
+		<td width="50">9</td><td width="65">08/20/2026</td><td width="150"><a href='S_Entry2.aspx?ID2=4071'>Golden dragon carpets pvt ltd</a></td><td width="55">8A318F</td><td width="55">CA</td><td align="right" width="55">125</td><td align="right" width="55">1350</td><td align="right" width="55">4</td><td width="50">LA</td><td width="25">PR</td><td width="150"></td><td width="150"></td>
+	</tr><tr>
+		<td width="50">10</td><td width="65">08/21/2026</td><td width="150"><a href='S_Entry2.aspx?ID2=1885'>Vegetable carpet manufacturer</a></td><td width="55">R1126F</td><td width="55">JP</td><td align="right" width="55">200</td><td align="right" width="55">1898</td><td align="right" width="55">6</td><td width="50">SME</td><td width="25">AS</td><td width="150"></td><td width="150"></td>
+	</tr><tr>
+		<td width="50">11</td><td width="65">08/21/2026</td><td width="150"><a href='S_Entry2.aspx?ID2=2528'>Kantipur carpet craft industries</a></td><td width="55">88177F</td><td width="55">ES</td><td align="right" width="55">20</td><td align="right" width="55">287.51</td><td align="right" width="55">1</td><td width="50">SME</td><td width="25">PS</td><td width="150"></td><td width="150"></td>
+	</tr><tr>
+		<td width="50">12</td><td width="65">08/26/2026</td><td width="150"><a href='S_Entry2.aspx?ID2=1690'>Buy Tibetan Rugs</a></td><td width="55">R11246</td><td width="55">IT</td><td align="right" width="55">25</td><td align="right" width="55">368</td><td align="right" width="55">1</td><td width="50">SME</td><td width="25">PR</td><td width="150"></td><td width="150"></td>
+	</tr><tr>
+		<td width="50">13</td><td width="65">08/27/2026</td><td width="150"><a href='S_Entry2.aspx?ID2=2941'>Lotus rugs</a></td><td width="55">E0710W</td><td width="55">FR</td><td align="right" width="55">89</td><td align="right" width="55">1125</td><td align="right" width="55">4</td><td width="50">SME</td><td width="25">PR</td><td width="150"></td><td width="150"></td>
+	</tr><tr>
+		<td width="50">14</td><td width="65">08/27/2026</td><td width="150"><a href='S_Entry2.aspx?ID2=6884'>Ace homes nepal</a></td><td width="55">8X68F5</td><td width="55">US</td><td align="right" width="55">130</td><td align="right" width="55">1430</td><td align="right" width="55">2</td><td width="50">SME</td><td width="25">PR</td><td width="150"></td><td width="150"></td>
+	</tr><tr>
+		<td width="50">15</td><td width="65">09/10/2026</td><td width="150"><a href='S_Entry2.aspx?ID2=5247'>Royal hemp enterprises  pvt ltd</a></td><td width="55">A9397T</td><td width="55">TW</td><td align="right" width="55">20</td><td align="right" width="55">312</td><td align="right" width="55">1</td><td width="50">SME</td><td width="25">NT</td><td width="150"></td><td width="150"></td>
+	</tr><tr bgcolor="LightSkyBlue">
+		<td width="50"></td><td width="65"></td><td align="right" width="150"></td><td align="right" width="55"></td><td align="right" width="55"></td><td align="right" width="55">1117.00</td><td align="right" width="55">12395.51</td><td align="right" width="55">35.00</td><td width="50"></td><td width="25"></td><td width="150"></td><td width="150"></td>
+	</tr>
+</table>
+                </div>
+            </td>
+        </tr>   
+     
+        
+   
+     
+    </table>
+            <input type="hidden" name="ctl00$MainContent$hfCustomerId" id="MainContent_hfCustomerId" />
+    </fieldset>
+  
+
+        </div>
+        <div class="clear">
+        </div>
+    </div>
+    <div class="footer">
+        <span id="lbl_Usernames">Logged BY : Akrit Joshi</span>
+    </div>
+    
+<script type='text/javascript'>new Sys.WebForms.Menu({ element: 'Main_Tour_Menu1_NavigationMenu', disappearAfter: 500, orientation: 'horizontal', tabIndex: 0, disabled: false });</script>
+<script type="text/javascript">
+//<![CDATA[
+Sys.Application.add_init(function() {
+    $create(Sys.Extended.UI.MaskedEditBehavior, {"ClientStateFieldID":"MainContent_mskExtn1_ClientState","CultureAMPMPlaceholder":"AM;PM","CultureCurrencySymbolPlaceholder":"$","CultureDateFormat":"MDY","CultureDatePlaceholder":"/","CultureDecimalPlaceholder":".","CultureName":"en-US","CultureThousandsPlaceholder":",","CultureTimePlaceholder":":","Mask":"99/99/9999","MaskType":1,"id":"MainContent_mskExtn1"}, null, null, $get("MainContent_txt_dateFrom"));
+});
+Sys.Application.add_init(function() {
+    $create(Sys.Extended.UI.CalendarBehavior, {"id":"_CalExtn1"}, null, null, $get("MainContent_txt_dateFrom"));
+});
+Sys.Application.add_init(function() {
+    $create(Sys.Extended.UI.MaskedEditBehavior, {"ClientStateFieldID":"MainContent_mskExtn2_ClientState","CultureAMPMPlaceholder":"AM;PM","CultureCurrencySymbolPlaceholder":"$","CultureDateFormat":"MDY","CultureDatePlaceholder":"/","CultureDecimalPlaceholder":".","CultureName":"en-US","CultureThousandsPlaceholder":",","CultureTimePlaceholder":":","Mask":"99/99/9999","MaskType":1,"id":"MainContent_mskExtn2"}, null, null, $get("MainContent_txt_DateTo"));
+});
+Sys.Application.add_init(function() {
+    $create(Sys.Extended.UI.CalendarBehavior, {"id":"_CalExtn2"}, null, null, $get("MainContent_txt_DateTo"));
+});
+//]]>
+</script>
+</form>
+</body>
+</html>

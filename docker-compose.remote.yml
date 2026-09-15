@@ -1,0 +1,22 @@
+# Remote-development overrides. Ports listen only on the server loopback interface
+# and are reached from a developer machine through an SSH tunnel.
+services:
+  db:
+    ports: !override
+      - "127.0.0.1:5432:5432"
+
+  backend:
+    ports: !override
+      - "127.0.0.1:8000:8000"
+    # No --reload on the server. The reloader watches the whole bind-mounted /app
+    # tree, so any file sync restarts uvicorn and every in-flight request 502s
+    # through nginx until it comes back up.
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  frontend:
+    ports: !override
+      - "127.0.0.1:5173:5173"
+
+  pgadmin:
+    ports: !override
+      - "127.0.0.1:5051:80"

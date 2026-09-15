@@ -1,0 +1,2 @@
+Customer 360 generated verification document.
+This safe text file exists only to verify document storage, download, versioning, and archive behavior.

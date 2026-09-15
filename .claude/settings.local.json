@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker exec *)",
+      "Bash(curl -s 'http://localhost:8360/api/v1/companies?status=official&limit=1')",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('total:', d['total']\\)\")",
+      "Bash(curl -s 'http://localhost:8360/api/v1/analytics/executive-dashboard?timeframe=all_time' -o /tmp/exec.json -w \"HTTP %{http_code}\\\\n\")",
+      "Bash(python3 -c ' *)",
+      "Bash(curl -s 'http://localhost:8360/api/v1/analytics/executive-dashboard?timeframe=all_time' -o \"C:/Users/ssrs/AppData/Local/Temp/claude/C--Projects-customer360/b600ad04-29ba-48bc-b6cd-d13b35c3de13/scratchpad/exec.json\" -w \"HTTP %{http_code}\\\\n\")",
+      "Bash(docker compose *)",
+      "Bash(npx --no-install tsc -b --noEmit)",
+      "Bash(npx --no-install oxlint src/pages/BusinessAnalytics.tsx src/pages/CustomerAnalytics.tsx)"
+    ]
+  }
+}

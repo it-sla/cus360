@@ -1,0 +1,77 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-customer360}
+      POSTGRES_USER: ${POSTGRES_USER:-customer360}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-customer360_dev_password}
+    # Host port moved off the default 5432 — this machine also runs an unrelated
+    # project (ratecalculator-postgres) that already binds 5432. Internal
+    # container-to-container traffic (backend/pgadmin -> db:5432) is unaffected,
+    # since that uses the Docker network hostname/port, not this host mapping.
+    ports: ["5433:5432"]
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  backend:
+    build: ./backend
+    env_file: [.env]
+    ports: ["8360:8000"]
+    volumes:
+      - ./backend:/app
+      - ./samples:/samples:ro
+      - company_documents:/data/company-documents
+    depends_on:
+      db: {condition: service_healthy}
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+  frontend:
+    build: ./frontend
+    env_file: [.env]
+    ports: ["5173:5173"]
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    command: npm run dev -- --host 0.0.0.0
+  web:
+    image: nginx:alpine
+    ports: ["3600:80"]
+    volumes:
+      - ./frontend/dist:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+    restart: unless-stopped
+  crm-scraper:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.scraper
+    env_file: [.env]
+    volumes:
+      - ./backend:/app
+      - crm_session:/data/crm-session
+      - crm_snapshots:/data/crm-snapshots
+    depends_on:
+      db: {condition: service_healthy}
+      backend: {condition: service_started}
+    command: python -m app.crm_worker
+    restart: unless-stopped
+    stop_grace_period: 30s
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@customer360.example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin123}
+    # Also moved off the default 5050 — same conflict as db, with ratecalculator-pgadmin.
+    ports: ["5051:80"]
+    volumes: [pgadmin_data:/var/lib/pgadmin]
+    depends_on: [db]
+volumes:
+  postgres_data:
+  company_documents:
+  frontend_node_modules:
+  pgadmin_data:
+  crm_session:
+  crm_snapshots:
