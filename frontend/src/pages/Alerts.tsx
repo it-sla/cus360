@@ -79,6 +79,7 @@ export default function Alerts() {
   const aeListQuery = useQuery({ queryKey: ['accountExecutives'], queryFn: () => api.getAccountExecutives(true) });
 
   const sendTierEmailsMutation = useMutation({ mutationFn: () => api.sendTierAlertEmails() });
+  const sendWeeklyReportMutation = useMutation({ mutationFn: () => api.sendWeeklyReport() });
 
   const allAlerts: Alert[] = data?.alerts || [];
   // SB, RTL, JS excluded from the AE filter dropdown per request — no display name on
@@ -153,6 +154,14 @@ export default function Alerts() {
               <Mail size={14} className={sendTierEmailsMutation.isPending ? 'animate-pulse' : ''} /> Send Tier Alert Emails
             </button>
             <button
+              onClick={() => sendWeeklyReportMutation.mutate()}
+              disabled={sendWeeklyReportMutation.isPending}
+              title="Sends the weekly report email right now, outside its Monday schedule"
+              className="h-9 px-3 flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
+            >
+              <Mail size={14} className={sendWeeklyReportMutation.isPending ? 'animate-pulse' : ''} /> Send Weekly Report Now
+            </button>
+            <button
               onClick={() => refetch()}
               className="h-9 px-3 flex items-center gap-1.5 bg-slate-900 text-white dark:bg-white dark:text-slate-900 rounded-lg text-xs font-semibold hover:opacity-90"
             >
@@ -176,6 +185,18 @@ export default function Alerts() {
         {sendTierEmailsMutation.isError && (
           <div className="text-xs font-medium text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-900 rounded-lg px-3 py-2">
             Could not send tier alert emails.
+          </div>
+        )}
+        {sendWeeklyReportMutation.isSuccess && (
+          <div className={`text-xs font-medium rounded-lg px-3 py-2 border ${sendWeeklyReportMutation.data.enabled ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-900' : 'text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-900'}`}>
+            {sendWeeklyReportMutation.data.enabled
+              ? `Sent: ${sendWeeklyReportMutation.data.ae_emails_sent} AE email(s), ${sendWeeklyReportMutation.data.admin_emails_sent} admin email(s).`
+              : `Not sent — email sending isn't enabled (WEEKLY_REPORT_EMAIL_ENABLED / SMTP_USERNAME / SMTP_PASSWORD).`}
+          </div>
+        )}
+        {sendWeeklyReportMutation.isError && (
+          <div className="text-xs font-medium text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-900 rounded-lg px-3 py-2">
+            Could not send the weekly report.
           </div>
         )}
 

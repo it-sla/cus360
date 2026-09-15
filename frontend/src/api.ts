@@ -823,6 +823,14 @@ export const api = {
     const res = await apiClient.post('/admin/tier-alerts/send-emails');
     return res.data;
   },
+  // Manual trigger for the weekly report email that otherwise fires Monday 10 AM NPT.
+  // Super_admin-only. Returns a summary even if disabled so the UI can show that too.
+  sendWeeklyReport: async (): Promise<{
+    enabled: boolean; ae_emails_sent: number; admin_emails_sent: number;
+  }> => {
+    const res = await apiClient.post('/admin/weekly-report/send');
+    return res.data;
+  },
   // Executive Dashboard endpoint (used for both Overview and Analytics Workspace)
   getExecutiveDashboard: async (params?: AnalyticsFilterParams & {
     destination?: string;
