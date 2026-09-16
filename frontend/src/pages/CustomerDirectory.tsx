@@ -17,11 +17,15 @@ function useDebounce<T>(value: T, delay: number): T {
 
 const PAGE_SIZE = 25;
 
+// Same active/quiet/inactive/dormant palette as Customer360.tsx's INACTIVITY_COLORS, kept in
+// sync so a customer's status badge reads the same color on both pages.
 const STATUS_BADGES: Record<string, { bg: string; text: string; label: string }> = {
   active:   { bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700', label: 'Active' },
+  quiet:    { bg: 'bg-sky-50 border-sky-200', text: 'text-sky-700', label: 'Quiet' },
+  inactive: { bg: 'bg-amber-50 border-amber-200', text: 'text-amber-700', label: 'Inactive' },
+  dormant:  { bg: 'bg-rose-50 border-rose-200', text: 'text-rose-700', label: 'Dormant' },
   prospect: { bg: 'bg-blue-50 border-blue-200', text: 'text-blue-700', label: 'Prospect' },
   vip:      { bg: 'bg-purple-50 border-purple-200', text: 'text-purple-700', label: 'VIP' },
-  inactive: { bg: 'bg-amber-50 border-amber-200', text: 'text-amber-700', label: 'Inactive' },
   blocked:  { bg: 'bg-rose-50 border-rose-200', text: 'text-rose-700', label: 'Blocked' },
 };
 
@@ -45,24 +49,43 @@ function StatusBadge({ status, isProvisional }: { status: string; isProvisional?
 }
 
 function fmt$(v: number) { return `$${v >= 1000 ? (v/1000).toFixed(1) + 'k' : v.toLocaleString()}`; }
-function fmtWeight(v: number) { return v >= 1000 ? `${(v / 1000).toFixed(1)} t` : `${v.toLocaleString()} kg`; }
+function fmtWeight(v: number) { return `${v.toLocaleString()} kg`; }
 
 export default function CustomerDirectory() {
   const navigate = useNavigate();
-  const [page, setPage] = useState(1);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchParams] = useSearchParams();
-  const [filters, setFilters] = useState({
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // URL is the source of truth for filters/search/page so they survive reload and back/forward.
+  const page = Number(searchParams.get('page')) || 1;
+  const filters = {
     inactivityStatus: searchParams.get('inactivityStatus') || '',
     segment: searchParams.get('segment') || '',
     payTerm: searchParams.get('payTerm') || '',
-  });
+  };
+  const updateParams = (updates: Record<string, string>) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      Object.entries(updates).forEach(([k, v]) => (v ? next.set(k, v) : next.delete(k)));
+      return next;
+    }, { replace: true });
+  };
+  const setPage = (updater: number | ((p: number) => number)) => {
+    const next = typeof updater === 'function' ? updater(page) : updater;
+    updateParams({ page: String(next) });
+  };
+  // Resets to page 1 as part of the same URL update — never pair this with a separate setPage
+  // call, or the two updateParams calls race and the second one wins with a stale snapshot.
+  const setFilters = (updater: typeof filters | ((f: typeof filters) => typeof filters)) => {
+    const next = typeof updater === 'function' ? updater(filters) : updater;
+    updateParams({ ...next, page: '' });
+  };
 
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const [sortField, setSortField] = useState<string | null>('company_name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-
   const debouncedSearch = useDebounce(searchQuery, 300);
+  useEffect(() => { updateParams({ q: debouncedSearch, page: '' }); }, [debouncedSearch]);
 
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['companies', debouncedSearch, filters.inactivityStatus, filters.segment, filters.payTerm],
@@ -164,7 +187,7 @@ export default function CustomerDirectory() {
               <input 
                 type="text"
                 value={searchQuery}
-                onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
+                onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search Company Name, ICRIS ID, Contact Name, Email, Country..."
                 className="w-full h-9 pl-9 pr-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 outline-none focus:border-primary focus:bg-white transition-all placeholder:text-slate-400 placeholder:font-medium"
               />
@@ -180,20 +203,20 @@ export default function CustomerDirectory() {
               
               <select 
                 value={filters.inactivityStatus} 
-                onChange={e => { setFilters(prev => ({ ...prev, inactivityStatus: e.target.value })); setPage(1); }}
+                onChange={e => setFilters(prev => ({ ...prev, inactivityStatus: e.target.value }))}
                 className="h-9 px-3 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none hover:bg-slate-50 cursor-pointer"
               >
                 <option value="">All Activity Statuses</option>
                 <option value="active">Active (&lt; 30 days)</option>
                 <option value="quiet">Quiet (30 - 60 days)</option>
-                <option value="inactive">Inactive (60 - 90 days)</option>
+                <option value="inactive">Inactive (61 - 90 days)</option>
                 <option value="dormant">Dormant (&gt; 90 days)</option>
                 <option value="reactivated">Reactivated (This Month)</option>
               </select>
 
               <select 
                 value={filters.segment} 
-                onChange={e => { setFilters(prev => ({ ...prev, segment: e.target.value })); setPage(1); }}
+                onChange={e => setFilters(prev => ({ ...prev, segment: e.target.value }))}
                 className="h-9 px-3 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none hover:bg-slate-50 cursor-pointer"
               >
                 <option value="">All Segments</option>
@@ -206,7 +229,7 @@ export default function CustomerDirectory() {
 
               <select 
                 value={filters.payTerm} 
-                onChange={e => { setFilters(prev => ({ ...prev, payTerm: e.target.value })); setPage(1); }}
+                onChange={e => setFilters(prev => ({ ...prev, payTerm: e.target.value }))}
                 className="h-9 px-3 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none hover:bg-slate-50 cursor-pointer"
               >
                 <option value="">All Pay Terms</option>
@@ -220,7 +243,6 @@ export default function CustomerDirectory() {
                   onClick={() => {
                     setSearchQuery('');
                     setFilters({ inactivityStatus: '', segment: '', payTerm: '' });
-                    setPage(1);
                   }}
                   className="text-xs font-semibold text-rose-500 hover:text-rose-700 px-2 transition-colors"
                 >
@@ -254,7 +276,6 @@ export default function CustomerDirectory() {
                   <th className="px-2.5 py-2.5 text-right cursor-pointer group hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" onClick={() => handleSort('total_weight')}>
                     <div className="flex items-center justify-end gap-1"><SortIcon field="total_weight" /> Weight</div>
                   </th>
-                  <th className="px-2.5 py-2.5 text-right">Repeat</th>
                   <th className="px-2.5 py-2.5 text-left">AE</th>
                   <th className="px-2.5 py-2.5 text-left">Status</th>
                 </tr>
@@ -269,14 +290,13 @@ export default function CustomerDirectory() {
                       <td className="px-2.5 py-3"><div className="h-4 bg-slate-100 rounded w-14 ml-auto" /></td>
                       <td className="px-2.5 py-3"><div className="h-4 bg-slate-100 rounded w-8 ml-auto" /></td>
                       <td className="px-2.5 py-3"><div className="h-4 bg-slate-100 rounded w-14 ml-auto" /></td>
-                      <td className="px-2.5 py-3"><div className="h-4 bg-slate-100 rounded w-10 ml-auto" /></td>
                       <td className="px-2.5 py-3"><div className="h-4 bg-slate-100 rounded w-16" /></td>
                       <td className="px-2.5 py-3"><div className="h-4 bg-slate-100 rounded w-16" /></td>
                     </tr>
                   ))
                 ) : paginatedItems.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-5 py-24 text-center">
+                    <td colSpan={8} className="px-5 py-24 text-center">
                       <div className="flex flex-col items-center justify-center text-slate-400">
                         <Building2 size={36} className="mb-3 text-slate-300" />
                         <p className="text-sm font-bold text-slate-600 mb-1">No Customers Found</p>
@@ -319,10 +339,6 @@ export default function CustomerDirectory() {
 
                         <td className="px-2.5 py-3 text-right font-semibold text-slate-600 dark:text-slate-400 whitespace-nowrap">
                           {fmtWeight(c.total_weight || 0)}
-                        </td>
-
-                        <td className="px-2.5 py-3 text-right font-semibold text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                          {(c.repeat_rate ?? 0).toFixed(1)}%
                         </td>
 
                         <td className="px-2.5 py-3 text-slate-600 dark:text-slate-400 font-medium truncate max-w-[100px]">

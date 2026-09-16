@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -857,19 +857,21 @@ export default function Customer360() {
     if (location.key !== 'default') navigate(-1);
     else navigate('/app/customers');
   };
-  const [urlParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState(() => {
+  const [urlParams, setUrlParams] = useSearchParams();
+  const [activeTab, setActiveTabState] = useState(() => {
     const tab = urlParams.get('tab');
     return tab && TAB_IDS.includes(tab) ? tab : 'overview';
   });
+  // Keep the active tab in the URL so reload / back-forward / sharing a link land on the same tab.
+  const setActiveTab = (tab: string) => {
+    setActiveTabState(tab);
+    setUrlParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('tab', tab);
+      return next;
+    }, { replace: true });
+  };
   const [exportingPdf, setExportingPdf] = useState(false);
-
-  // Deep-link support: /app/customers/{id}?tab=documents opens directly on that tab.
-  useEffect(() => {
-    const tab = urlParams.get('tab');
-    if (tab && TAB_IDS.includes(tab)) setActiveTab(tab);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlParams]);
 
   const { data: company, isLoading } = useQuery({
     queryKey: ['company-detail', id],

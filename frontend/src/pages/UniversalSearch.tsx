@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api';
 import type { SearchResultItem } from '../api';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Search, Building2, Package, FileText,
   Plane, ArrowRight, X, Clock,
@@ -35,8 +35,10 @@ function fmt$(v: number) { return `$${v.toLocaleString()}`; }
 export default function UniversalSearch() {
   const navigate = useNavigate();
   const searchInputRef = useRef<HTMLInputElement>(null);
-  
-  const [query, setQuery] = useState('');
+  const [searchParams] = useSearchParams();
+
+  // Deep-link support: header search's "View all results" links here as /app/search?q=...
+  const [query, setQuery] = useState(() => searchParams.get('q') || '');
   const debouncedQuery = useDebounce(query, 200);
   const [activeFilter, setActiveFilter] = useState('all');
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});

@@ -25,7 +25,7 @@ function fmtDate(d: string | null) {
 }
 
 function fmt$(v: number) { return `$${(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
-function fmtWeight(v: number) { return v >= 1000 ? `${(v / 1000).toFixed(1)} t` : `${(v || 0).toLocaleString()} kg`; }
+function fmtWeight(v: number) { return `${(v || 0).toLocaleString()} kg`; }
 
 // The handful of airlines actually flown — matched against flight_number by IATA
 // designator prefix (e.g. "CX640" matches "CX"). Ordered by real usage volume.
@@ -71,14 +71,32 @@ function linkageDetail(s: any): { text: string; tone: string } | null {
 }
 
 export default function MasterAirWaybills() {
-  const [urlParams] = useSearchParams();
-  const [searchQuery, setSearchQuery] = useState(() => urlParams.get('search') || '');
-  const [filters, setFilters] = useState({
-    flight_number: '',
-    manifest_date_from: '',
-    manifest_date_to: ''
-  });
-  const [page, setPage] = useState(0);
+  // URL is the single source of truth for filters/search/page/dateRange so they survive reload and back/forward.
+  const [urlParams, setUrlParams] = useSearchParams();
+  const updateParams = (updates: Record<string, string>) => {
+    setUrlParams(prev => {
+      const next = new URLSearchParams(prev);
+      Object.entries(updates).forEach(([k, v]) => (v ? next.set(k, v) : next.delete(k)));
+      return next;
+    }, { replace: true });
+  };
+
+  const filters = {
+    flight_number: urlParams.get('flight_number') || '',
+    manifest_date_from: urlParams.get('manifest_date_from') || '',
+    manifest_date_to: urlParams.get('manifest_date_to') || ''
+  };
+  const setFilters = (updater: (f: typeof filters) => typeof filters) => {
+    updateParams({ ...updater(filters), page: '' });
+  };
+  const page = Number(urlParams.get('page')) || 0;
+  const setPage = (updater: number | ((p: number) => number)) => {
+    const next = typeof updater === 'function' ? updater(page) : updater;
+    updateParams({ page: next ? String(next) : '' });
+  };
+  const dateRange = urlParams.get('dateRange') || 'all_time';
+  const setDateRange = (v: string) => updateParams({ dateRange: v, page: '' });
+
   const [selectedMawbId, setSelectedMawbId] = useState<string | null>(() => urlParams.get('mawb') || null);
   // True when this manifest was opened via a deep link (e.g. from Data Quality) rather than by
   // clicking a row in this page's own list — closing the drawer should then return the user to
@@ -86,9 +104,14 @@ export default function MasterAirWaybills() {
   const [openedViaDeepLink] = useState(() => !!urlParams.get('mawb'));
   const navigate = useNavigate();
 
-  const debouncedSearch = useDebounce(searchQuery, 400);
+  // Search input needs its own fast-updating local state for responsive typing; it's debounced
+  // into the URL/query below rather than written on every keystroke.
+  const [searchInput, setSearchInput] = useState(() => urlParams.get('search') || '');
+  const debouncedSearch = useDebounce(searchInput, 400);
+  useEffect(() => { updateParams({ search: debouncedSearch, page: '' }); }, [debouncedSearch]);
+  const setSearchQuery = setSearchInput;
+  const searchQuery = searchInput;
 
-  const [dateRange, setDateRange] = useState('all_time');
   const currentRange = resolveTimeframeDates(dateRange, filters.manifest_date_from, filters.manifest_date_to);
 
   const queryParams = {
@@ -100,18 +123,13 @@ export default function MasterAirWaybills() {
     offset: page * 50
   };
 
-  useEffect(() => {
-    setPage(0);
-  }, [debouncedSearch, filters.flight_number, dateRange, filters.manifest_date_from, filters.manifest_date_to]);
-
-  // Deep-link support: /app/mawb?mawb={id} opens the drawer directly, ?search={text} pre-fills the search box.
+  // Deep-link support: /app/mawb?mawb={id} opens the drawer directly.
+  // (search/filters/page/dateRange are seeded from the URL once on mount above, and kept in sync via updateParams.)
   useEffect(() => {
     const mawbId = urlParams.get('mawb');
     if (mawbId) setSelectedMawbId(mawbId);
-    const q = urlParams.get('search');
-    if (q) setSearchQuery(q);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlParams]);
+  }, []);
 
   const { data: mawbsData, isLoading: isLoadingMawbs } = useQuery({
     queryKey: ['mawbs', queryParams],
@@ -170,7 +188,7 @@ export default function MasterAirWaybills() {
           dateTo={filters.manifest_date_to}
           bounds={currentRange.from && currentRange.to ? { c_start: currentRange.from, c_end: currentRange.to } : undefined}
           onPreset={v => setDateRange(v)}
-          onCustom={(from, to) => { setDateRange('custom'); setFilters(f => ({ ...f, manifest_date_from: from, manifest_date_to: to })); }}
+          onCustom={(from, to) => updateParams({ dateRange: 'custom', manifest_date_from: from, manifest_date_to: to, page: '' })}
           defaultPreset="all_time"
         />
 

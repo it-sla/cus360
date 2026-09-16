@@ -60,11 +60,15 @@ ICRIS_BUFFER_DAYS = 30
 # Per-customer repeat rate: of the calendar months between their first and last shipment
 # (inclusive), what fraction had at least one shipment. A single-shipment customer has no
 # repeat behaviour yet, so it's defined as 0 rather than the degenerate 100% a 1-month span gives.
+# Span is computed from date_trunc('month', ...) calendar arithmetic, not age() — age() is
+# day-aware and can undercount the number of distinct months spanned (e.g. Jan 31 -> Mar 1 is
+# 3 calendar months but age() reports ~1), which let the numerator exceed the denominator and
+# produced rates over 100%.
 REPEAT_RATE_SQL = """(
     SELECT CASE WHEN count(*) <= 1 THEN 0 ELSE round(
         100.0 * count(DISTINCT date_trunc('month', s.shipment_date))
-        / GREATEST(1, (extract(year FROM age(max(s.shipment_date), min(s.shipment_date)))*12
-                       + extract(month FROM age(max(s.shipment_date), min(s.shipment_date))) + 1)), 1)
+        / GREATEST(1, (extract(year FROM max(s.shipment_date)) - extract(year FROM min(s.shipment_date)))*12
+                       + (extract(month FROM max(s.shipment_date)) - extract(month FROM min(s.shipment_date))) + 1), 1)
     END
     FROM shipments s WHERE s.company_id = {alias}.company_id AND s.shipment_date IS NOT NULL
 )"""
@@ -317,9 +321,9 @@ def compute_inactivity(row: dict) -> dict:
         days = (_date.today() - d).days
         if days < 30:
             status = 'active'
-        elif days < 60:
+        elif days <= 60:
             status = 'quiet'
-        elif days < 90:
+        elif days <= 90:
             status = 'inactive'
         else:
             status = 'dormant'

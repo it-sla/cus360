@@ -8,14 +8,29 @@ import {
   BarChart3, Search, Users, Package, FileText,
   ShieldCheck, Globe, ChevronDown, TrendingUp, Trophy, Medal,
   Bell, RefreshCw, CheckSquare, GitBranch, Target, Building2,
-  LogOut, PanelLeftClose, PanelLeftOpen, UserCog, X,
+  LogOut, PanelLeftClose, PanelLeftOpen, UserCog, X, Plane, ArrowRight,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from '@/auth';
 import { api } from '@/api';
-import type { KeyInsight } from '@/api';
+import type { KeyInsight, SearchResultItem } from '@/api';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+}
+
+// Same icon map as UniversalSearch.tsx's result groups, kept minimal — anything not listed
+// (e.g. 'package') falls back to Building2, same fallback UniversalSearch uses.
+const SEARCH_RESULT_ICONS: Record<string, LucideIcon> = {
+  company: Building2, mawb: Plane, shipment: Package, document: FileText,
+};
 
 type NavItem = {
   label: string;
@@ -138,6 +153,41 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [bellOpen, setBellOpen] = useState(false);
   const [insightCategory, setInsightCategory] = useState<string | null>(null);
   const { isSuperAdmin, hasRole, user, logout } = useAuth();
+
+  // Header search: a live type-ahead dropdown over the same api.search() UniversalSearch.tsx
+  // uses, so results here match the full search page exactly.
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const debouncedSearchQuery = useDebounce(searchQuery, 250);
+  const { data: searchData, isFetching: isSearchFetching } = useQuery({
+    queryKey: ['header-search', debouncedSearchQuery],
+    queryFn: () => api.search(debouncedSearchQuery),
+    enabled: debouncedSearchQuery.trim().length >= 2,
+    staleTime: 30000,
+  });
+  const searchResults = (searchData?.items ?? []).slice(0, 8);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSearchSelect = (item: SearchResultItem) => {
+    setSearchQuery('');
+    setSearchOpen(false);
+    navigate(`/app${item.url}`);
+  };
+
+  const handleViewAllResults = () => {
+    setSearchOpen(false);
+    navigate(`/app/search?q=${encodeURIComponent(searchQuery)}`);
+  };
 
   const { data: insights } = useQuery({
     queryKey: ['key-insights', insightCategory],
@@ -399,16 +449,56 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <TooltipContent side="bottom">{sidebarOpen ? 'Collapse navigation' : 'Expand navigation'}</TooltipContent>
             </Tooltip>
 
-            <div className="relative group w-56 hidden lg:block">
+            <div ref={searchContainerRef} className="relative group w-56 hidden lg:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={15} />
               <input
                 type="text"
                 placeholder="Search ICRIS, AWB, MAWB…"
                 aria-label="Search Customer 360"
-                onClick={() => navigate('/app/search')}
-                readOnly
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-md py-1.5 pl-9 pr-3 text-sm text-zinc-50 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-50/30 focus:border-zinc-50 transition-colors cursor-pointer"
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setSearchOpen(true); }}
+                onFocus={() => setSearchOpen(true)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') { setSearchQuery(''); setSearchOpen(false); e.currentTarget.blur(); }
+                  else if (e.key === 'Enter' && searchQuery.trim().length >= 2) handleViewAllResults();
+                }}
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-md py-1.5 pl-9 pr-3 text-sm text-zinc-50 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-50/30 focus:border-zinc-50 transition-colors"
               />
+
+              {searchOpen && searchQuery.trim().length >= 2 && (
+                <div className="absolute left-0 top-full mt-1.5 w-96 bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl overflow-hidden z-50">
+                  {isSearchFetching && searchResults.length === 0 ? (
+                    <div className="px-4 py-6 text-center text-xs text-zinc-500">Searching…</div>
+                  ) : searchResults.length === 0 ? (
+                    <div className="px-4 py-6 text-center text-xs text-zinc-500">No matches for "{searchQuery}"</div>
+                  ) : (
+                    <div className="max-h-96 overflow-y-auto py-1">
+                      {searchResults.map((item) => {
+                        const Icon = SEARCH_RESULT_ICONS[item.result_type] || Building2;
+                        return (
+                          <button
+                            key={item.url}
+                            onClick={() => handleSearchSelect(item)}
+                            className="w-full flex items-start gap-2.5 px-3 py-2 text-left hover:bg-zinc-800 transition-colors"
+                          >
+                            <Icon size={15} className="text-zinc-500 mt-0.5 shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold text-zinc-50 truncate">{item.title}</p>
+                              <p className="text-[11px] text-zinc-500 truncate">{item.subtitle}</p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <button
+                    onClick={handleViewAllResults}
+                    className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-zinc-300 bg-zinc-950 border-t border-zinc-800 hover:bg-zinc-800 transition-colors"
+                  >
+                    View all results for "{searchQuery}" <ArrowRight size={12} />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

@@ -78,26 +78,47 @@ function fmt$(v: number) {
 
 export default function AirWaybills() {
   const navigate = useNavigate();
-  const [urlParams] = useSearchParams();
+  // URL is the single source of truth for filters/search/page so they survive reload and back/forward.
+  const [urlParams, setUrlParams] = useSearchParams();
+  const updateParams = (updates: Record<string, string>) => {
+    setUrlParams(prev => {
+      const next = new URLSearchParams(prev);
+      Object.entries(updates).forEach(([k, v]) => (v ? next.set(k, v) : next.delete(k)));
+      return next;
+    }, { replace: true });
+  };
 
-  const [searchQuery, setSearchQuery] = useState(() => urlParams.get('search') || '');
-  const [filters, setFilters] = useState({
-    destination: '',
-    weightRange: '',
-    dateRange: 'all_time',
-    dateFrom: '',
-    dateTo: ''
-  });
+  const filters = {
+    destination: urlParams.get('destination') || '',
+    weightRange: urlParams.get('weightRange') || '',
+    dateRange: urlParams.get('dateRange') || 'all_time',
+    dateFrom: urlParams.get('dateFrom') || '',
+    dateTo: urlParams.get('dateTo') || ''
+  };
+  const setFilters = (updater: (f: typeof filters) => typeof filters) => {
+    updateParams({ ...updater(filters), page: '' });
+  };
 
-  const [page, setPage] = useState(0);
+  const page = Number(urlParams.get('page')) || 0;
+  const setPage = (updater: number | ((p: number) => number)) => {
+    const next = typeof updater === 'function' ? updater(page) : updater;
+    updateParams({ page: next ? String(next) : '' });
+  };
+
+  // Search input needs its own fast-updating local state for responsive typing; it's debounced
+  // into the URL/query below rather than written on every keystroke.
+  const [searchInput, setSearchInput] = useState(() => urlParams.get('search') || '');
+  const debouncedSearch = useDebounce(searchInput, 300);
+  useEffect(() => { updateParams({ search: debouncedSearch, page: '' }); }, [debouncedSearch]);
+  const setSearchQuery = setSearchInput;
+  const searchQuery = searchInput;
+
   const [selectedShipmentId, setSelectedShipmentId] = useState<string | null>(() => urlParams.get('shipment') || null);
   const [showRowMenuId, setShowRowMenuId] = useState<string | null>(null);
   // True when this shipment was opened via a deep link (e.g. from Data Quality) rather than by
   // clicking a row in this page's own list — closing the drawer should then return the user to
   // wherever they came from instead of stranding them on the AWB list.
   const [openedViaDeepLink] = useState(() => !!urlParams.get('shipment'));
-
-  const debouncedSearch = useDebounce(searchQuery, 300);
 
   const WEIGHT_RANGES: Record<string, { min_weight?: number; max_weight?: number }> = {
     under_10: { max_weight: 10 },
@@ -118,18 +139,13 @@ export default function AirWaybills() {
     offset: page * 50
   };
 
-  useEffect(() => {
-    setPage(0);
-  }, [debouncedSearch, filters.destination, filters.weightRange, filters.dateRange, filters.dateFrom, filters.dateTo]);
-
-  // Deep-link support: /app/awb?shipment={id} opens the drawer directly, ?search={text} pre-fills the search box.
+  // Deep-link support: /app/awb?shipment={id} opens the drawer directly.
+  // (search/filters/page are seeded from the URL once on mount above, and kept in sync via updateParams.)
   useEffect(() => {
     const shipmentId = urlParams.get('shipment');
     if (shipmentId) setSelectedShipmentId(shipmentId);
-    const q = urlParams.get('search');
-    if (q) setSearchQuery(q);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlParams]);
+  }, []);
 
   const { data: shipmentsData, isLoading: isLoadingShipments, refetch } = useQuery({
     queryKey: ['awb-shipments', queryParams],
@@ -234,7 +250,7 @@ export default function AirWaybills() {
 
               {(filters.destination || filters.weightRange || filters.dateRange !== 'all_time' || searchQuery) && (
                 <button
-                  onClick={() => { setSearchQuery(''); setFilters({ destination: '', weightRange: '', dateRange: 'all_time', dateFrom: '', dateTo: '' }); }}
+                  onClick={() => { setSearchQuery(''); setFilters(() => ({ destination: '', weightRange: '', dateRange: 'all_time', dateFrom: '', dateTo: '' })); }}
                   className="text-xs font-semibold text-rose-500 hover:text-rose-700 px-2 transition-colors"
                 >
                   Clear Filters
@@ -516,6 +532,11 @@ export function ShipmentDetailDrawer({
                   <div className="p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
                     <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase">Bill Type</span>
                     <p className="font-bold text-slate-900 dark:text-slate-100 mt-0.5">{shipment.bill_type || '—'}</p>
+                  </div>
+
+                  <div className="p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase">Pay Term</span>
+                    <p className="font-bold text-slate-900 dark:text-slate-100 mt-0.5">{shipment.pay_term || '—'}</p>
                   </div>
                 </div>
               </div>
