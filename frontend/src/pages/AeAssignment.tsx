@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, type AeImportPreview } from '../api';
 import {
   UploadCloud, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle, Users,
-  ArrowRight, X, Loader2, Edit2, Check
+  ArrowRight, X, Loader2, Edit2, Check, Trash2, Plus
 } from 'lucide-react';
 
 const fmtNum = (n: number | null | undefined) => (n ?? 0).toLocaleString();
@@ -26,16 +26,68 @@ function RosterTab() {
   const { data: aes = [], isLoading } = useQuery({ queryKey: ['account-executives'], queryFn: () => api.getAccountExecutives() });
   const [editing, setEditing] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [newCode, setNewCode] = useState('');
+  const [newName, setNewName] = useState('');
+  const [addError, setAddError] = useState<string | null>(null);
 
   const update = useMutation({
     mutationFn: ({ code, data }: { code: string; data: { display_name?: string; is_active?: boolean } }) => api.updateAccountExecutive(code, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['account-executives'] }); setEditing(null); },
   });
 
+  const create = useMutation({
+    mutationFn: (data: { ae_code: string; display_name?: string }) => api.createAccountExecutive(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['account-executives'] });
+      setAdding(false); setNewCode(''); setNewName(''); setAddError(null);
+    },
+    onError: (err: any) => setAddError(err?.response?.data?.detail || 'Failed to create AE.'),
+  });
+
+  const remove = useMutation({
+    mutationFn: ({ code, force }: { code: string; force: boolean }) => api.deleteAccountExecutive(code, force),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['account-executives'] }),
+  });
+
+  const handleDelete = (code: string, name: string) => {
+    if (!window.confirm(`Delete AE ${code}${name ? ` (${name})` : ''}? This cannot be undone.`)) return;
+    remove.mutate({ code, force: false }, {
+      onError: (err: any) => {
+        const detail = err?.response?.data?.detail;
+        if (err?.response?.status === 409 && detail) {
+          const msg = typeof detail === 'string' ? detail : detail.detail;
+          if (window.confirm(`${msg}. Delete anyway? This will orphan those references.`)) {
+            remove.mutate({ code, force: true });
+          }
+        }
+      },
+    });
+  };
+
   if (isLoading) return <div className="text-center p-12 text-slate-400 text-sm">Loading roster…</div>;
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        {adding ? (
+          <div className="flex items-center gap-2 flex-1">
+            <input autoFocus value={newCode} onChange={e => setNewCode(e.target.value)} placeholder="Code"
+              className="h-7 px-2 border border-slate-300 dark:border-slate-700 rounded text-xs bg-white dark:bg-slate-900 outline-none focus:border-indigo-400 w-20 font-mono uppercase" />
+            <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Name (optional)"
+              onKeyDown={e => { if (e.key === 'Enter' && newCode.trim()) create.mutate({ ae_code: newCode, display_name: newName || undefined }); if (e.key === 'Escape') setAdding(false); }}
+              className="h-7 px-2 border border-slate-300 dark:border-slate-700 rounded text-xs bg-white dark:bg-slate-900 outline-none focus:border-indigo-400 w-40" />
+            <button disabled={!newCode.trim() || create.isPending} onClick={() => create.mutate({ ae_code: newCode, display_name: newName || undefined })}
+              className="p-1 text-emerald-600 disabled:opacity-40"><Check size={14} /></button>
+            <button onClick={() => { setAdding(false); setAddError(null); }} className="p-1 text-slate-400"><X size={14} /></button>
+            {addError && <span className="text-[11px] text-rose-600 dark:text-rose-400">{addError}</span>}
+          </div>
+        ) : (
+          <button onClick={() => setAdding(true)} className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400">
+            <Plus size={14} /> Add AE
+          </button>
+        )}
+      </div>
       <table className="w-full text-left text-xs">
         <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
           <tr className="text-[10px] uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">
@@ -85,9 +137,14 @@ function RosterTab() {
                     <button onClick={() => setEditing(null)} className="p-1 text-slate-400"><X size={14} /></button>
                   </div>
                 ) : (
-                  <button onClick={() => { setEditing(ae.ae_code); setDraftName(ae.display_name || ''); }} className="p-1 text-slate-400">
-                    <Edit2 size={13} />
-                  </button>
+                  <div className="flex items-center justify-end gap-1.5">
+                    <button onClick={() => { setEditing(ae.ae_code); setDraftName(ae.display_name || ''); }} className="p-1 text-slate-400">
+                      <Edit2 size={13} />
+                    </button>
+                    <button onClick={() => handleDelete(ae.ae_code, ae.display_name || '')} className="p-1 text-slate-400 hover:text-rose-600">
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 )}
               </td>
             </tr>

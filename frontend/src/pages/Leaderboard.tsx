@@ -15,14 +15,6 @@ const METRIC_META: Record<Metric, { label: string; icon: typeof DollarSign; unit
   wins: { label: 'Wins', icon: Award, unit: '', format: v => `${v.toLocaleString()} ${v === 1 ? 'win' : 'wins'}` },
 };
 
-// A rank number implies real standing — misleading when everyone's tied at zero (e.g.
-// "wins" today, before the CRM ever sends a Win value). Show "—" instead of a rank for
-// any metric where this entry's own value is 0, even though it still sorts/ranks fine
-// internally for anyone who does have a nonzero value on that metric.
-const rankLabel = (e: LeaderboardEntry, m: Metric) => e[m] > 0 ? `#${e.ranks[m]}` : '—';
-const bylineFor = (e: LeaderboardEntry) =>
-  `${rankLabel(e, 'revenue')} Revenue · ${rankLabel(e, 'shipments')} Shipments · ${rankLabel(e, 'weight')} Weight · ${rankLabel(e, 'wins')} Wins`;
-
 function Podium({ entries, metric }: { entries: LeaderboardEntry[]; metric: Metric }) {
   const meta = METRIC_META[metric];
   const [first, second, third] = entries;
@@ -80,7 +72,6 @@ export default function Leaderboard() {
     userName: e.display_name,
     rank: e.rank,
     value: e[metric],
-    byline: bylineFor(e),
   }));
 
   return (

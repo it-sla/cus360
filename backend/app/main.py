@@ -768,6 +768,15 @@ def list_account_executives(active_only:bool=False,db:Session=Depends(get_db)):
     return [serialize(a,{'assigned_customer_count':counts.get(a.ae_code,0)}) for a in aes]
 
 class AccountExecutiveIn(BaseModel): display_name:str|None=None; is_active:bool|None=None
+class AccountExecutiveCreateIn(BaseModel): ae_code:str; display_name:str|None=None
+
+@app.post('/api/v1/account-executives')
+def create_account_executive(body:AccountExecutiveCreateIn,db:Session=Depends(get_db)):
+    code=body.ae_code.strip().upper()
+    if not code:raise HTTPException(422,'ae_code is required')
+    if db.scalar(select(AccountExecutive).where(AccountExecutive.ae_code==code)):raise HTTPException(409,'AE code already exists')
+    ae=AccountExecutive(ae_code=code,display_name=body.display_name,is_active=True)
+    db.add(ae);commit(db);return serialize(ae,{'assigned_customer_count':0})
 
 @app.patch('/api/v1/account-executives/{ae_code}')
 def update_account_executive(ae_code:str,body:AccountExecutiveIn,db:Session=Depends(get_db)):
@@ -776,6 +785,17 @@ def update_account_executive(ae_code:str,body:AccountExecutiveIn,db:Session=Depe
     changes=body.model_dump(exclude_unset=True)
     for k,v in changes.items():setattr(ae,k,v)
     commit(db);return serialize(ae)
+
+@app.delete('/api/v1/account-executives/{ae_code}')
+def delete_account_executive(ae_code:str,force:bool=False,db:Session=Depends(get_db)):
+    code=ae_code.strip().upper()
+    ae=db.scalar(select(AccountExecutive).where(AccountExecutive.ae_code==code))
+    if not ae:raise HTTPException(404,'AE not found')
+    assigned_customer_count=db.scalar(select(func.count()).where(Company.assigned_ae_code==code)) or 0
+    user_count=db.scalar(select(func.count()).where(User.ae_code==code)) or 0
+    if (assigned_customer_count or user_count) and not force:
+        raise HTTPException(409,{'detail':f'{code} is still referenced by {assigned_customer_count} customer(s) and {user_count} user(s)','assigned_customer_count':assigned_customer_count,'user_count':user_count})
+    db.delete(ae);commit(db);return {'status':'deleted','ae_code':code}
 
 async def read_ae_workbook(file:UploadFile):
     if Path(file.filename or '').suffix.casefold() not in {'.xlsx','.xlsm'}:raise HTTPException(415,'AE assignment file must be an .xlsx workbook')
@@ -1698,15 +1718,18 @@ def leaderboard(timeframe:str|None=None,date_from:date|None=None,date_to:date|No
     """
     period_rows=rows(db,period_sql,{'start':c_start,'end':c_end})
 
-    # A "win" is a Daily Call Log row whose stage is exactly 'Win', scoped to the
-    # selected range by call_date. NOT pipeline_items.win_loss — that field is always
-    # blank in practice, because pipeline_items only ever holds the CRM's *active*
-    # (still-open) pipeline; a deal leaves that table once it closes. The stage the
-    # CRM actually records a closed-won call under is 'Win' on the call log itself
-    # (daily_call_logs.stage), which does have real data — thousands of rows across
-    # AEs and months.
+    # A "win" is a unique company (or CRM customer, when known) whose call log
+    # stage is 'Win' at least once in the range, per AE — NOT a raw row count.
+    # AEs frequently log the same won company multiple times (follow-ups, re-logs
+    # of the same closed deal), so COUNT(*) overcounts by 6-11 wins/AE/month in
+    # practice; COUNT(DISTINCT ...) counts each customer's win once. NOT
+    # pipeline_items.win_loss — that field is always blank in practice, because
+    # pipeline_items only ever holds the CRM's *active* (still-open) pipeline; a
+    # deal leaves that table once it closes. The stage the CRM actually records a
+    # closed-won call under is 'Win' on the call log itself (daily_call_logs.stage).
     wins_sql="""
-        SELECT COALESCE(NULLIF(TRIM(d.ae_code), ''), 'UNASSIGNED') AS ae, COUNT(*)::int AS wins
+        SELECT COALESCE(NULLIF(TRIM(d.ae_code), ''), 'UNASSIGNED') AS ae,
+               COUNT(DISTINCT COALESCE(d.crm_customer_id, LOWER(TRIM(d.company_name))))::int AS wins
         FROM daily_call_logs d
         WHERE d.call_date >= :start AND d.call_date <= :end
           AND d.stage = 'Win'

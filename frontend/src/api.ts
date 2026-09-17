@@ -902,6 +902,13 @@ export const api = {
     const response = await apiClient.patch(`/account-executives/${aeCode}`, data);
     return response.data;
   },
+  createAccountExecutive: async (data: { ae_code: string; display_name?: string }): Promise<AccountExecutive> => {
+    const response = await apiClient.post('/account-executives', data);
+    return response.data;
+  },
+  deleteAccountExecutive: async (aeCode: string, force = false): Promise<void> => {
+    await apiClient.delete(`/account-executives/${aeCode}`, { params: { force } });
+  },
   previewAeImport: async (file: File, worksheet?: string): Promise<AeImportPreview> => {
     const formData = new FormData();
     formData.append('file', file);
