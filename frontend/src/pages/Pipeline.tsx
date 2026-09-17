@@ -171,15 +171,17 @@ export default function Pipeline() {
                         item.is_lost ? 'bg-rose-50/60 dark:bg-rose-950/10' : item.is_overdue ? 'bg-amber-50/60 dark:bg-amber-950/10' : ''
                       }`}
                     >
-                      <td className={`px-3 py-2.5 font-medium whitespace-nowrap ${
+                      <td className={`px-3 py-2.5 font-medium ${
                         item.is_lost ? 'text-rose-700 dark:text-rose-400' : item.is_overdue ? 'text-amber-700 dark:text-amber-400' : 'text-slate-700 dark:text-slate-300'
                       }`}>
-                        {formatDate(item.expected_date)}
-                        {item.is_overdue && (
-                          <span className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 align-middle">
-                            Follow up
-                          </span>
-                        )}
+                        <div className="flex flex-col gap-0.5">
+                          <span className="whitespace-nowrap">{formatDate(item.expected_date)}</span>
+                          {item.is_overdue && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 w-fit">
+                              Follow up
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-3 py-2.5 text-slate-900 dark:text-white font-medium">
                         <span className="break-words">{item.company_name}</span>
