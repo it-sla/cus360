@@ -114,10 +114,10 @@ export interface DashboardResponse {
   };
   ae_performance: any[];
   kpi_cards: {
-    active_customers: { value: number; pop_pct: number };
-    new_customers: { value: number; pop_pct: number };
+    active_customers: { value: number; pop_pct: number; prev?: number; list?: { company_id: string; company_name: string; revenue?: number }[] };
+    new_customers: { value: number; pop_pct: number; prev?: number; list?: { company_id: string; company_name: string; revenue?: number }[] };
     returning_customers: { value: number; pop_pct: number };
-    reactivated_customers: { value: number; pop_pct: number };
+    reactivated_customers: { value: number; pop_pct: number; prev?: number; list?: { company_id: string; company_name: string; revenue?: number }[] };
     total_billing: { value: number; pop_pct: number };
     total_invoices: { value: number; pop_pct: number };
     avg_revenue_per_customer: { value: number; pop_pct: number };

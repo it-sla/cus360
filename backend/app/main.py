@@ -1885,7 +1885,7 @@ def executive_dashboard(
 
     comp_first_dates={r['company_id']: r['first_shipment_date'] or r['company_created_at'].date() for r in all_comp_rows if r['company_id']}
     cur_new_companies={cid for cid in cur_company_ids if comp_first_dates.get(cid) and comp_first_dates[cid] >= c_start}
-    cur_new_customers_list=[c['company_name'] for c in all_comp_rows if c['company_id'] in cur_new_companies]
+    cur_new_customers_list=[{'company_id': c['company_id'], 'company_name': c['company_name']} for c in all_comp_rows if c['company_id'] in cur_new_companies]
     cur_new_count=len(cur_new_companies)
     cur_returning_count=cur_active_count - cur_new_count
 
@@ -2233,11 +2233,11 @@ def executive_dashboard(
                 })
 
     cur_reactivated_list = [
-        {'company_name': comp_cur_totals[cid]['company_name'], 'revenue': comp_cur_totals[cid]['revenue']}
+        {'company_id': cid, 'company_name': comp_cur_totals[cid]['company_name'], 'revenue': comp_cur_totals[cid]['revenue']}
         for cid in cur_reactivated_companies if cid in comp_cur_totals
     ]
     cur_active_list = [
-        {'company_name': c['company_name'], 'revenue': c['revenue']}
+        {'company_id': c['company_id'], 'company_name': c['company_name'], 'revenue': c['revenue']}
         for c in comp_cur_list[:200]
     ]
 

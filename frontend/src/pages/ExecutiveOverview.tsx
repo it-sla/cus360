@@ -201,7 +201,7 @@ export default function ExecutiveOverview() {
           icon={Users} 
           trend={cust.pop_pct} 
           className="border-t-2 border-t-zinc-50"
-          onClick={() => setSelectedKpi({ title: 'Active Customers', value: cust.value.toLocaleString(), data: { 'Strategic Accounts': strategicCount, 'Dormant Customers': dormantCount, 'Active Customers List': (cust as any).list || [] } })}
+          onClick={() => setSelectedKpi({ title: 'Active Customers', value: cust.value.toLocaleString(), data: { 'Strategic Accounts': strategicCount, 'Dormant Customers': dormantCount, 'Active Customers List': cust.list || [] } })}
         />
         <KpiCard 
           title="Total Shipments (AWBs)" 
@@ -216,7 +216,7 @@ export default function ExecutiveOverview() {
           icon={UserPlus} 
           trend={newAcct.pop_pct} 
           className="border-t-2 border-t-zinc-50"
-          onClick={() => setSelectedKpi({ title: 'New Customers', value: newAcct.value.toLocaleString(), data: { 'New Customer Count': newAcct.value, 'Previous Period': (newAcct as any).prev, 'Recent Onboards List': (newAcct as any).list || [] } })}
+          onClick={() => setSelectedKpi({ title: 'New Customers', value: newAcct.value.toLocaleString(), data: { 'New Customer Count': newAcct.value, 'Previous Period': newAcct.prev, 'Recent Onboards List': newAcct.list || [] } })}
         />
         <KpiCard 
           title="Reactivated Customers" 
@@ -224,7 +224,7 @@ export default function ExecutiveOverview() {
           icon={Repeat} 
           trend={reactivatedAcct.pop_pct} 
           className="border-t-2 border-t-emerald-500 cursor-pointer"
-          onClick={() => setSelectedKpi({ title: 'Reactivated Customers', value: reactivatedAcct.value.toLocaleString(), data: { 'Reactivated Count': reactivatedAcct.value, 'Previous Period': (reactivatedAcct as any).prev, 'Reactivated Customers List': (reactivatedAcct as any).list || [] } })}
+          onClick={() => setSelectedKpi({ title: 'Reactivated Customers', value: reactivatedAcct.value.toLocaleString(), data: { 'Reactivated Count': reactivatedAcct.value, 'Previous Period': reactivatedAcct.prev, 'Reactivated Customers List': reactivatedAcct.list || [] } })}
         />
         <KpiCard 
           title="Avg Rev per Customer" 
@@ -504,11 +504,13 @@ export default function ExecutiveOverview() {
                         const title = item.name || item.company_name || item.title || item.country || `Item #${idx + 1}`;
                         const countVal = item.value ?? item.shipments ?? item.count ?? item.customer_count;
                         const revVal = item.revenue ?? item.total_revenue;
+                        const companyId = item.company_id;
 
                         return (
-                          <div 
-                            key={idx} 
-                            className="bg-slate-50 dark:bg-zinc-800/80 border border-slate-200/80 dark:border-zinc-700/60 p-3.5 rounded-xl flex items-center justify-between gap-3 shadow-2xs hover:border-slate-300 dark:hover:border-zinc-600 transition-colors"
+                          <div
+                            key={idx}
+                            onClick={companyId ? () => { setSelectedKpi(null); navigate(`/app/customers/${companyId}`); } : undefined}
+                            className={`bg-slate-50 dark:bg-zinc-800/80 border border-slate-200/80 dark:border-zinc-700/60 p-3.5 rounded-xl flex items-center justify-between gap-3 shadow-2xs hover:border-slate-300 dark:hover:border-zinc-600 transition-colors ${companyId ? 'cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-800' : ''}`}
                           >
                             <div className="min-w-0 flex-1">
                               <span className="text-xs font-bold text-slate-800 dark:text-zinc-100 truncate block">
@@ -527,6 +529,7 @@ export default function ExecutiveOverview() {
                                 )}
                               </div>
                             </div>
+                            {companyId && <ArrowRight size={14} className="text-slate-400 dark:text-zinc-500 shrink-0" />}
                           </div>
                         );
                       }
@@ -578,7 +581,7 @@ export default function ExecutiveOverview() {
                           <div key={idx} className="flex justify-between items-center py-2.5 px-3.5 bg-slate-50 dark:bg-zinc-800/50 border border-slate-200/60 dark:border-zinc-700/50 rounded-xl">
                             <span className="text-xs font-medium text-slate-500 dark:text-zinc-400">{formattedKey}</span>
                             <span className="text-xs font-bold text-slate-900 dark:text-zinc-100">
-                              {typeof val === 'number' && formattedKey.toLowerCase().includes('rev') ? formatMoney(val) : String(val)}
+                              {typeof val === 'number' && formattedKey.toLowerCase().includes('revenue') ? formatMoney(val) : String(val)}
                             </span>
                           </div>
                         );
