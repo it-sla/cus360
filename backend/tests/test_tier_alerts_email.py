@@ -24,7 +24,7 @@ def _cleanup(db, tag):
 
 def test_tier_alerts_matches_sla_table():
     from app.tier_alerts import TIER_SHIPPING_SLA_DAYS
-    assert TIER_SHIPPING_SLA_DAYS == {'Key Account': 7, 'Reseller': 7, 'Large Account': 7, 'SME': 15}
+    assert TIER_SHIPPING_SLA_DAYS == {'Key Account': 7, 'Reseller': 7, 'Large Account': 15, 'SME': 30, 'Small Customer': 30}
 
 
 def test_get_tier_shipping_gap_breaches_excludes_never_shipped_and_untiered(client):
@@ -39,7 +39,7 @@ def test_get_tier_shipping_gap_breaches_excludes_never_shipped_and_untiered(clie
     try:
         overdue = _mk_company(db, f'{tag}-OVERDUE', customer_type='Key Account')
         never_shipped = _mk_company(db, f'{tag}-NEVER', customer_type='Key Account')
-        untiered = _mk_company(db, f'{tag}-SMALL', customer_type='Small Customer')
+        untiered = _mk_company(db, f'{tag}-SMALL', customer_type=None)
         db.add(Shipment(shipment_number=f'TAESHIP-{tag}-OVERDUE', source='crm', company_id=overdue.id,
                         pay_term='PP', bill_amount=Decimal('10'), shipment_date=date.today() - timedelta(days=8)))
         db.add(Shipment(shipment_number=f'TAESHIP-{tag}-SMALL', source='crm', company_id=untiered.id,
@@ -159,7 +159,8 @@ def test_send_tier_alert_emails_admin_endpoint_returns_summary(client):
 
 def _mk_breach(tag, ae_code, customer_type, days_since, sla_days):
     return {'company_id': f'id-{tag}', 'company_name': f'Company {tag}', 'customer_type': customer_type,
-            'assigned_ae_code': ae_code, 'days_since': days_since, 'sla_days': sla_days}
+            'assigned_ae_code': ae_code, 'days_since': days_since, 'sla_days': sla_days,
+            'days_overdue': days_since - sla_days}
 
 
 def test_format_ae_digest_contains_html_table_and_company_names():
@@ -187,6 +188,113 @@ def test_format_admin_summary_is_aggregate_not_full_dump(client):
         assert tail_company not in text_body
     finally:
         db.close()
+
+
+def _immediate_notified_state_query():
+    from sqlalchemy import select
+    from app.models import CrmSyncState
+    return select(CrmSyncState).where(CrmSyncState.entity_type == 'tier_breach_immediate_notified')
+
+
+def _snapshot_immediate_notified_state(db):
+    """Immediate-breach notified state is a single shared CrmSyncState row (real DB, not
+    per-test-isolated) -- snapshot/restore it around tests so a test run doesn't
+    permanently mark real companies as already-notified or vice versa."""
+    row = db.scalar(_immediate_notified_state_query())
+    return dict(row.cursor_json) if row and row.cursor_json else None
+
+
+def _restore_immediate_notified_state(db, snapshot):
+    from app.models import CrmSyncState
+    row = db.scalar(_immediate_notified_state_query())
+    if row is None:
+        if snapshot is not None:
+            db.add(CrmSyncState(entity_type='tier_breach_immediate_notified', cursor_json=snapshot))
+    else:
+        row.cursor_json = snapshot
+    db.commit()
+
+
+def test_send_immediate_tier_breach_emails_sends_for_all_tiers(client):
+    import uuid
+    from datetime import date, timedelta
+    from decimal import Decimal
+    from app.db import SessionLocal
+    from app.models import Shipment, User
+    from app.auth import hash_password
+    import app.email_notifications as en
+    db = SessionLocal()
+    tag = uuid.uuid4().hex[:8].upper()
+    snapshot = _snapshot_immediate_notified_state(db)
+    try:
+        ae_user = User(email=f'ae-{tag}@test.example', display_name='Test AE', role='ae',
+                       password_hash=hash_password('x'), is_active=True, ae_code=f'Z{tag[:3]}')
+        db.add(ae_user); db.flush()
+
+        key_acct = _mk_company(db, f'{tag}-KEY', ae_code=ae_user.ae_code, customer_type='Key Account')
+        sme = _mk_company(db, f'{tag}-SME', ae_code=ae_user.ae_code, customer_type='SME')
+        db.add(Shipment(shipment_number=f'TAESHIP-{tag}-KEY', source='crm', company_id=key_acct.id,
+                        pay_term='PP', bill_amount=Decimal('10'), shipment_date=date.today() - timedelta(days=9)))
+        db.add(Shipment(shipment_number=f'TAESHIP-{tag}-SME', source='crm', company_id=sme.id,
+                        pay_term='PP', bill_amount=Decimal('10'), shipment_date=date.today() - timedelta(days=35)))
+        db.commit()
+
+        mock_server = MagicMock()
+        mock_smtp_cm = MagicMock()
+        mock_smtp_cm.__enter__.return_value = mock_server
+        with patch.object(en.settings, 'tier_alert_email_enabled', True), \
+             patch.object(en.settings, 'smtp_username', 'fake@gmail.com'), \
+             patch.object(en.settings.smtp_password, 'get_secret_value', return_value='fake-app-password'), \
+             patch('app.email_notifications.smtplib.SMTP', return_value=mock_smtp_cm) as mock_smtp:
+            result = en.send_immediate_tier_breach_emails(db)
+
+        assert result['enabled'] is True
+        assert result['new_breaches'] >= 2  # both Key Account and SME must be included
+        assert mock_smtp.called
+        sent_to = [call.args[1] for call in mock_server.sendmail.call_args_list]
+        assert [ae_user.email] in sent_to
+        sent_bodies = [call.args[2] for call in mock_server.sendmail.call_args_list]
+        assert any(sme.company_name in body for body in sent_bodies)
+    finally:
+        _restore_immediate_notified_state(db, snapshot)
+        _cleanup(db, tag)
+
+
+def test_send_immediate_tier_breach_emails_does_not_resend_same_breach(client):
+    import uuid
+    from datetime import date, timedelta
+    from decimal import Decimal
+    from app.db import SessionLocal
+    from app.models import Shipment, User
+    from app.auth import hash_password
+    import app.email_notifications as en
+    db = SessionLocal()
+    tag = uuid.uuid4().hex[:8].upper()
+    snapshot = _snapshot_immediate_notified_state(db)
+    try:
+        ae_user = User(email=f'ae-{tag}@test.example', display_name='Test AE', role='ae',
+                       password_hash=hash_password('x'), is_active=True, ae_code=f'Z{tag[:3]}')
+        db.add(ae_user); db.flush()
+        co = _mk_company(db, f'{tag}-RESELLER', ae_code=ae_user.ae_code, customer_type='Reseller')
+        db.add(Shipment(shipment_number=f'TAESHIP-{tag}-RESELLER', source='crm', company_id=co.id,
+                        pay_term='PP', bill_amount=Decimal('10'), shipment_date=date.today() - timedelta(days=9)))
+        db.commit()
+
+        mock_server = MagicMock()
+        mock_smtp_cm = MagicMock()
+        mock_smtp_cm.__enter__.return_value = mock_server
+        with patch.object(en.settings, 'tier_alert_email_enabled', True), \
+             patch.object(en.settings, 'smtp_username', 'fake@gmail.com'), \
+             patch.object(en.settings.smtp_password, 'get_secret_value', return_value='fake-app-password'), \
+             patch('app.email_notifications.smtplib.SMTP', return_value=mock_smtp_cm):
+            first = en.send_immediate_tier_breach_emails(db)
+            second = en.send_immediate_tier_breach_emails(db)
+
+        assert first['new_breaches'] >= 1
+        assert second['new_breaches'] == 0
+    finally:
+        _restore_immediate_notified_state(db, snapshot)
+        _cleanup(db, tag)
 
 
 def test_send_email_builds_multipart_with_text_and_html_parts():

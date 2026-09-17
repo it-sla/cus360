@@ -71,6 +71,9 @@ class Settings(BaseSettings):
     smtp_password: SecretStr = SecretStr("")
     smtp_from_email: str = ""  # falls back to smtp_username if unset
     tier_alert_email_schedule_cron: str = "0 8 * * *"
+    # Checked more often than the daily digest so a Key Account/Reseller crossing its
+    # 7-day SLA gets an urgent one-off email within hours, not the next morning.
+    tier_breach_immediate_check_cron: str = "0 */2 * * *"
     weekly_report_email_enabled: bool = False
     weekly_report_email_schedule_cron: str = "15 4 * * 1"  # Monday 10:00 AM NPT (UTC+5:45)
     model_config = SettingsConfigDict(env_file=".env", extra="ignore",case_sensitive=False)

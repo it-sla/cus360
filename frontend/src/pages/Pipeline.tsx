@@ -3,20 +3,20 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '@/api';
 import type { PipelineItem } from '@/api';
-import { AlertTriangle, XCircle, Clock, MessageSquare } from 'lucide-react';
+import { AlertTriangle, XCircle, Clock, MessageSquare, CheckCircle2 } from 'lucide-react';
 
 function formatMoney(value: number | null) {
   if (value === null || value === undefined) return '—';
-  return `$${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  const n = Number(value);
+  return n === Math.floor(n)
+    ? `$${n.toLocaleString()}`
+    : `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function formatDate(value: string) {
   return new Date(value + 'T00:00:00').toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-// "3h ago" / "2d ago" style label — mirrors relativeDate() in app-shell.tsx, but that one
-// works off a plain YYYY-MM-DD calendar day; this needs sub-day precision for a staleness
-// warning ("last synced 6 hours ago"), so it's its own small function rather than a shared util.
 function hoursAgo(iso: string): number {
   return (Date.now() - new Date(iso).getTime()) / 3600000;
 }
@@ -27,9 +27,6 @@ function relativeSyncTime(iso: string): string {
   return `${Math.round(hrs / 24)}d ago`;
 }
 
-// Pipeline syncs run a few times a day (crm_pipeline_schedule_cron). Twice that interval
-// with no fresh sync means either the schedule is disabled or it's failing silently —
-// worth a visible warning rather than letting stale data pass as current.
 const STALE_AFTER_HOURS = 24;
 
 export default function Pipeline() {
@@ -57,9 +54,14 @@ export default function Pipeline() {
           <div>
             <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Active Pipeline</h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-3xl">
-              CRM Active Pipeline, scraped periodically. Rows flag amber once the Expected Date has passed with no Win/Loss recorded, and red once marked Loss — both surface as alerts on the Alerts page too. Tally against actual shipments manually.
-              {data?.as_of && <span className="ml-1 whitespace-nowrap">Last synced {new Date(data.as_of).toLocaleString()}.</span>}
+              CRM Active Pipeline, scraped periodically. Rows flag amber when overdue, red when lost.
             </p>
+            {data?.as_of && (
+              <p className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500 mt-1.5">
+                <Clock size={11} className="shrink-0" />
+                Last synced {new Date(data.as_of).toLocaleString()}
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
@@ -119,46 +121,42 @@ export default function Pipeline() {
         <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
           <table className="w-full text-sm table-fixed">
             <colgroup>
-              <col className="w-[14%]" />
-              <col className="w-[21%]" />
-              <col className="w-[4%]" />
+              <col className="w-[12%]" />
+              <col className="w-[24%]" />
               <col className="w-[8%]" />
-              <col className="w-[10%]" />
+              <col className="w-[6%]" />
               <col className="w-[9%]" />
-              <col className="w-[10%]" />
+              <col className="w-[11%]" />
               <col className="w-[6%]" />
               <col className="w-[7%]" />
-              <col className="w-[5%]" />
-              <col className="w-[6%]" />
+              <col className="w-[7%]" />
+              <col className="w-[10%]" />
             </colgroup>
             <thead>
-              <tr className="bg-slate-50 dark:bg-slate-900 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                <th className="px-3 py-2.5 truncate">Expected Date</th>
-                <th className="px-3 py-2.5 truncate">Company</th>
-                <th className="px-2 py-2.5 text-center" title="Rows with this icon have remarks — click to view">
-                  <MessageSquare size={13} className="inline-block" />
-                </th>
-                <th className="px-3 py-2.5 truncate">ICRIS</th>
-                <th className="px-3 py-2.5 truncate">Country</th>
-                <th className="px-3 py-2.5 truncate text-right" title="Weight (kg)">Wt (kg)</th>
-                <th className="px-3 py-2.5 truncate text-right">Revenue</th>
-                <th className="px-3 py-2.5 truncate text-right">Pcs</th>
-                <th className="px-3 py-2.5 truncate" title="Category">Cat.</th>
-                <th className="px-3 py-2.5 truncate">AE</th>
-                <th className="px-3 py-2.5 truncate" title="Win/Loss">W/L</th>
+              <tr className="bg-slate-50 dark:bg-slate-900 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 capitalize tracking-wide">
+                <th className="px-3 py-2.5">Expected Date</th>
+                <th className="px-3 py-2.5">Company</th>
+                <th className="px-3 py-2.5">ICRIS</th>
+                <th className="px-3 py-2.5">Country</th>
+                <th className="px-3 py-2.5 text-right">Weight</th>
+                <th className="px-3 py-2.5 text-right">Revenue</th>
+                <th className="px-3 py-2.5 text-right">Pieces</th>
+                <th className="px-3 py-2.5">Tier</th>
+                <th className="px-3 py-2.5">AE</th>
+                <th className="px-3 py-2.5">Status</th>
               </tr>
             </thead>
             <tbody>
               {isLoading && (
-                <tr><td colSpan={11} className="px-4 py-8 text-center text-slate-400">Loading…</td></tr>
+                <tr><td colSpan={10} className="px-4 py-8 text-center text-slate-400">Loading…</td></tr>
               )}
               {isError && (
-                <tr><td colSpan={11} className="px-4 py-8 text-center text-rose-600 dark:text-rose-400 font-semibold">
+                <tr><td colSpan={10} className="px-4 py-8 text-center text-rose-600 dark:text-rose-400 font-semibold">
                   Couldn't load the pipeline — retrying automatically.
                 </td></tr>
               )}
               {!isLoading && !isError && items.length === 0 && (
-                <tr><td colSpan={11} className="px-4 py-8 text-center text-slate-400">
+                <tr><td colSpan={10} className="px-4 py-8 text-center text-slate-400">
                   No pipeline rows. Sync happens from the <button onClick={() => navigate('/app/sync')} className="text-primary font-bold hover:underline">CRM Sync page</button>.
                 </td></tr>
               )}
@@ -173,40 +171,48 @@ export default function Pipeline() {
                         item.is_lost ? 'bg-rose-50/60 dark:bg-rose-950/10' : item.is_overdue ? 'bg-amber-50/60 dark:bg-amber-950/10' : ''
                       }`}
                     >
-                      <td className={`px-3 py-2 font-medium whitespace-nowrap ${
+                      <td className={`px-3 py-2.5 font-medium whitespace-nowrap ${
                         item.is_lost ? 'text-rose-700 dark:text-rose-400' : item.is_overdue ? 'text-amber-700 dark:text-amber-400' : 'text-slate-700 dark:text-slate-300'
                       }`}>
                         {formatDate(item.expected_date)}
-                        {item.is_overdue && <span className="block text-[10px] font-bold uppercase tracking-wide">Follow up</span>}
-                      </td>
-                      <td className="px-3 py-2 text-slate-900 dark:text-white font-medium break-words">{item.company_name}</td>
-                      <td className="px-3 py-2 text-center">
-                        {hasRemark && (
-                          <span title={isExpanded ? 'Hide remarks' : 'View remarks'} className="inline-flex items-center justify-center w-6 h-6 rounded-md text-slate-400 hover:text-primary hover:bg-slate-100 dark:text-slate-500 dark:hover:text-primary dark:hover:bg-slate-800 transition-colors">
-                            <MessageSquare size={14} className={isExpanded ? 'fill-current' : ''} />
+                        {item.is_overdue && (
+                          <span className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 align-middle">
+                            Follow up
                           </span>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-slate-500 dark:text-slate-400 truncate">{item.icris_number ?? '—'}</td>
-                      <td className="px-3 py-2 text-slate-500 dark:text-slate-400 truncate">{item.country ?? '—'}</td>
-                      <td className="px-3 py-2 text-right text-slate-700 dark:text-slate-300">{item.weight_kg ?? '—'}</td>
-                      <td className="px-3 py-2 text-right text-slate-700 dark:text-slate-300">{formatMoney(item.revenue_usd)}</td>
-                      <td className="px-3 py-2 text-right text-slate-700 dark:text-slate-300">{item.pieces ?? '—'}</td>
-                      <td className="px-3 py-2 text-slate-500 dark:text-slate-400 truncate">{item.category ?? '—'}</td>
-                      <td className="px-3 py-2 text-slate-500 dark:text-slate-400 truncate">{item.ae_code ?? '—'}</td>
-                      <td className="px-3 py-2 truncate">
+                      <td className="px-3 py-2.5 text-slate-900 dark:text-white font-medium">
+                        <span className="break-words">{item.company_name}</span>
+                        {hasRemark && (
+                          <span title={isExpanded ? 'Hide remarks' : 'View remarks'} className="inline-flex items-center justify-center w-5 h-5 ml-1.5 rounded text-slate-400 hover:text-primary hover:bg-slate-100 dark:text-slate-500 dark:hover:text-primary dark:hover:bg-slate-800 transition-colors align-middle">
+                            <MessageSquare size={12} className={isExpanded ? 'fill-current' : ''} />
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-slate-500 dark:text-slate-400 truncate">{item.icris_number ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-slate-500 dark:text-slate-400 truncate">{item.country ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-right text-slate-700 dark:text-slate-300">{item.weight_kg ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-right text-slate-700 dark:text-slate-300 font-medium">{formatMoney(item.revenue_usd)}</td>
+                      <td className="px-3 py-2.5 text-right text-slate-700 dark:text-slate-300">{item.pieces ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-slate-500 dark:text-slate-400 truncate">{item.category ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-slate-500 dark:text-slate-400 truncate">{item.ae_code ?? '—'}</td>
+                      <td className="px-3 py-2.5">
                         {item.is_lost ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase text-rose-600 dark:text-rose-400">
-                            <XCircle size={12} /> {item.win_loss}
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400">
+                            <XCircle size={11} /> Loss
+                          </span>
+                        ) : item.win_loss?.toLowerCase() === 'win' ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+                            <CheckCircle2 size={11} /> Win
                           </span>
                         ) : (
-                          <span className="text-slate-500 dark:text-slate-400">{item.win_loss || '—'}</span>
+                          <span className="text-slate-400 dark:text-slate-500">{item.win_loss || '—'}</span>
                         )}
                       </td>
                     </tr>
                     {isExpanded && (
                       <tr className="border-t border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40">
-                        <td colSpan={11} className="px-3 py-2 text-xs text-slate-600 dark:text-slate-300">
+                        <td colSpan={10} className="px-3 py-2.5 text-xs text-slate-600 dark:text-slate-300">
                           <span className="inline-flex items-center gap-1.5">
                             <MessageSquare size={12} className="shrink-0 text-slate-400 dark:text-slate-500" />
                             <span className="font-semibold text-slate-500 dark:text-slate-400">Remarks:</span>

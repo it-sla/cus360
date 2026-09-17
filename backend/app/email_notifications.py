@@ -31,7 +31,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from .core import settings
-from .models import User
+from .models import CrmSyncState, User
 from .tier_alerts import get_tier_shipping_gap_breaches
 
 log = logging.getLogger('email-notifications')
@@ -79,14 +79,14 @@ def _format_ae_digest(breaches: list[dict]) -> tuple[str, str]:
     text_lines = [heading, '']
     for b in breaches:
         text_lines.append(f"- {b['company_name']} ({b['customer_type']}): "
-                           f"{b['days_since']} days since last shipment (SLA {b['sla_days']}d)")
+                           f"{b['days_overdue']} days overdue (SLA {b['sla_days']}d)")
     text_body = '\n'.join(text_lines)
 
     rows = ''.join(
         f'<tr>'
         f'<td style="{_TD_STYLE}">{escape(b["company_name"])}</td>'
         f'<td style="{_TD_STYLE}">{escape(b["customer_type"] or "")}</td>'
-        f'<td style="{_TD_STYLE}font-weight:bold;color:#b91c1c;">{b["days_since"]}</td>'
+        f'<td style="{_TD_STYLE}font-weight:bold;color:#b91c1c;">{b["days_overdue"]}</td>'
         f'<td style="{_TD_STYLE}">{b["sla_days"]}</td>'
         f'</tr>'
         for b in breaches
@@ -97,7 +97,7 @@ def _format_ae_digest(breaches: list[dict]) -> tuple[str, str]:
         f'<thead><tr>'
         f'<th style="{_TH_STYLE}">Customer</th>'
         f'<th style="{_TH_STYLE}">Tier</th>'
-        f'<th style="{_TH_STYLE}">Days Since Last Shipment</th>'
+        f'<th style="{_TH_STYLE}">Days Overdue</th>'
         f'<th style="{_TH_STYLE}">SLA (days)</th>'
         f'</tr></thead>'
         f'<tbody>{rows}</tbody>'
@@ -141,7 +141,7 @@ def _format_admin_summary(breaches: list[dict], db: Session) -> tuple[str, str]:
     text_lines += ['', f'Worst offenders (top {len(worst)}):']
     for b in worst:
         text_lines.append(f"  - {b['company_name']} ({b['customer_type']}, AE {b['assigned_ae_code'] or 'Unassigned'}): "
-                           f"{b['days_since']} days")
+                           f"{b['days_overdue']} days overdue")
     text_body = '\n'.join(text_lines)
 
     def _small_table(header_cells: list[str], row_html: str) -> str:
@@ -165,7 +165,7 @@ def _format_admin_summary(breaches: list[dict], db: Session) -> tuple[str, str]:
         f'<tr><td style="{_TD_STYLE}">{escape(b["company_name"])}</td>'
         f'<td style="{_TD_STYLE}">{escape(b["customer_type"] or "")}</td>'
         f'<td style="{_TD_STYLE}">{escape(b["assigned_ae_code"] or "Unassigned")}</td>'
-        f'<td style="{_TD_STYLE}font-weight:bold;color:#b91c1c;">{b["days_since"]}</td></tr>'
+        f'<td style="{_TD_STYLE}font-weight:bold;color:#b91c1c;">{b["days_overdue"]}</td></tr>'
         for b in worst
     )
 
@@ -223,6 +223,82 @@ def _ae_codes_with_email(db: Session) -> set[str]:
     return {u.ae_code for u in db.scalars(
         select(User).where(User.role == 'ae', User.is_active == True, User.ae_code.isnot(None))  # noqa: E712
     ).all()}
+
+
+# ── Immediate breach alert (Key Account / Reseller, 7-day SLA) ────────────────────
+# Separate from the daily digest above: an urgent, single-company email fired as soon
+# as a Key Account or Reseller first crosses its SLA, rather than waiting for the next
+# morning's digest. Uses CrmSyncState to remember which companies were already emailed
+# so the same breach doesn't re-fire every time the worker's check runs (every few
+# hours); the notified set is replaced (not unioned) with the current breach list each
+# run, so a company that ships again and later goes quiet a second time re-triggers.
+_IMMEDIATE_NOTIFIED_ENTITY = 'tier_breach_immediate_notified'
+
+
+def _format_immediate_breach(b: dict) -> tuple[str, str]:
+    text_body = (
+        f"{b['company_name']} ({b['customer_type']}) has gone {b['days_overdue']} day(s) past its "
+        f"{b['sla_days']}-day shipping SLA -- {b['days_since']} days since its last shipment.\n"
+        f"AE: {b['assigned_ae_code'] or 'Unassigned'}"
+    )
+    rows = (
+        f'<tr><td style="{_TD_STYLE}">Customer</td><td style="{_TD_STYLE}font-weight:bold;">{escape(b["company_name"])}</td></tr>'
+        f'<tr><td style="{_TD_STYLE}">Tier</td><td style="{_TD_STYLE}">{escape(b["customer_type"])}</td></tr>'
+        f'<tr><td style="{_TD_STYLE}">AE</td><td style="{_TD_STYLE}">{escape(b["assigned_ae_code"] or "Unassigned")}</td></tr>'
+        f'<tr><td style="{_TD_STYLE}">Days Overdue</td><td style="{_TD_STYLE}font-weight:bold;color:#b91c1c;">{b["days_overdue"]}</td></tr>'
+        f'<tr><td style="{_TD_STYLE}">Days Since Last Shipment</td><td style="{_TD_STYLE}">{b["days_since"]}</td></tr>'
+        f'<tr><td style="{_TD_STYLE}">SLA (days)</td><td style="{_TD_STYLE}">{b["sla_days"]}</td></tr>'
+    )
+    html_body = _html_wrap(
+        f'<p><strong>{escape(b["company_name"])}</strong> has gone past its shipping SLA.</p>'
+        f'<table style="{_TABLE_STYLE}">{rows}</table>'
+    )
+    return text_body, html_body
+
+
+def send_immediate_tier_breach_emails(db: Session) -> dict:
+    """Fires an urgent one-off email the first time a Key Account/Reseller crosses its
+    7-day SLA -- called every couple of hours by the worker, distinct from the once-a-
+    day digest (send_tier_alert_digests) which covers every tier. Always computes
+    breaches even when sending is disabled, so a caller/test can see what's pending."""
+    breaches = get_tier_shipping_gap_breaches(db)
+    result = {'enabled': settings.tier_alert_email_enabled and _smtp_configured(),
+               'new_breaches': 0, 'ae_emails_sent': 0, 'admin_emails_sent': 0}
+
+    state = db.scalar(select(CrmSyncState).where(CrmSyncState.entity_type == _IMMEDIATE_NOTIFIED_ENTITY))
+    already_notified = set((state.cursor_json or {}).get('notified_company_ids', [])) if state else set()
+
+    if not result['enabled']:
+        return result
+
+    new_breaches = [b for b in breaches if b['company_id'] not in already_notified]
+    result['new_breaches'] = len(new_breaches)
+
+    if new_breaches:
+        admin_users = db.scalars(select(User).where(User.role.in_(['admin', 'super_admin']), User.is_active == True)).all()  # noqa: E712
+        ae_users_by_code = {u.ae_code: u for u in db.scalars(
+            select(User).where(User.role == 'ae', User.is_active == True, User.ae_code.isnot(None))  # noqa: E712
+        ).all()}
+
+        for b in new_breaches:
+            text_body, html_body = _format_immediate_breach(b)
+            subject = f"Urgent: {b['company_name']} ({b['customer_type']}) — {b['days_overdue']} days overdue"
+
+            ae_user = ae_users_by_code.get(b['assigned_ae_code']) if b['assigned_ae_code'] else None
+            if ae_user and _send_email(ae_user.email, subject, text_body, html_body):
+                result['ae_emails_sent'] += 1
+
+            for u in admin_users:
+                if _send_email(u.email, subject, text_body, html_body):
+                    result['admin_emails_sent'] += 1
+
+    if not state:
+        state = CrmSyncState(entity_type=_IMMEDIATE_NOTIFIED_ENTITY, cursor_json={})
+        db.add(state)
+    state.cursor_json = {'notified_company_ids': [b['company_id'] for b in breaches]}
+    db.commit()
+
+    return result
 
 
 # ── Weekly report ─────────────────────────────────────────────────────────────

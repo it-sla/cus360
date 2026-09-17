@@ -9,7 +9,7 @@ from .crm_backfills import activate_next_chunk,create_incremental,update_from_co
 from .crm_connector import AuthenticationError,ConnectorError,CrmSessionManager,RetryableConnectorError
 from .crm_parser import CrmParseError,DuplicateTrackingConflict,EmptyManifestError,PartialManifestError,parse_manifest_detail,parse_manifest_list
 from .crm_sync import upsert_detail,sync_active_pipeline
-from .email_notifications import send_tier_alert_digests, send_weekly_report
+from .email_notifications import send_tier_alert_digests, send_immediate_tier_breach_emails, send_weekly_report
 
 log=logging.getLogger('crm-worker');logging.basicConfig(level=logging.INFO,format='%(message)s');logging.getLogger('httpx').setLevel(logging.WARNING)
 stopping=False;WORKER_ID=f'{socket.gethostname()}:{os.getpid()}:{uuid.uuid4().hex[:8]}'
@@ -176,7 +176,7 @@ def run_once():
     if run_id:discover_run(run_id);return True
     item_id=claim_item()
     if item_id:process_item(item_id);finalize_runs();return True
-    finalize_runs();recover_backfill_orchestration();check_auto_schedule();check_pipeline_auto_schedule();check_pnl_auto_schedule();check_daily_call_logs_auto_schedule();check_tier_alert_email_schedule();check_weekly_report_schedule();heartbeat();return False
+    finalize_runs();recover_backfill_orchestration();check_auto_schedule();check_pipeline_auto_schedule();check_pnl_auto_schedule();check_daily_call_logs_auto_schedule();check_tier_alert_email_schedule();check_immediate_tier_breach_schedule();check_weekly_report_schedule();heartbeat();return False
 def recover_backfill_orchestration():
     db=SessionLocal()
     try:
@@ -281,6 +281,32 @@ def check_tier_alert_email_schedule():
             emit('tier_alert_emails_scheduled',stage='tier_alert_schedule',result='sent',**result)
         except Exception as exc:
             db.rollback();emit('tier_alert_emails_failed',stage='tier_alert_schedule',result=type(exc).__name__,error=str(exc)[:200])
+    finally:db.close()
+def check_immediate_tier_breach_schedule():
+    """Urgent one-off email the first time a Key Account/Reseller crosses its 7-day SLA
+    (docs/customer-segmentation-rules.md) -- checked every couple of hours rather than
+    waiting for the once-daily digest above. send_immediate_tier_breach_emails tracks
+    its own already-notified state (a separate CrmSyncState row), so this schedule-check
+    row only tracks when this function itself last ran."""
+    if not settings.tier_breach_immediate_check_cron:return
+    db=SessionLocal()
+    try:
+        state=db.scalar(select(CrmSyncState).where(CrmSyncState.entity_type=='tier_breach_immediate_schedule'))
+        last_run=(state.cursor_json or {}).get('last_run_at') if state else None
+        now_dt=datetime.now()
+        if last_run:
+            try:last_dt=datetime.fromisoformat(last_run)
+            except(ValueError,TypeError):last_dt=None
+            if last_dt and (now_dt-last_dt).total_seconds()<300:return
+        if not _cron_matches(now_dt,settings.tier_breach_immediate_check_cron):return
+        try:
+            result=send_immediate_tier_breach_emails(db)
+            if not state:state=CrmSyncState(entity_type='tier_breach_immediate_schedule',cursor_json={});db.add(state)
+            state.cursor_json={'last_run_at':now_dt.isoformat(),**result};state.updated_at=now()
+            db.commit()
+            emit('tier_breach_immediate_emails_scheduled',stage='tier_breach_immediate_schedule',result='sent',**result)
+        except Exception as exc:
+            db.rollback();emit('tier_breach_immediate_emails_failed',stage='tier_breach_immediate_schedule',result=type(exc).__name__,error=str(exc)[:200])
     finally:db.close()
 def check_weekly_report_schedule():
     """Weekly comprehensive report email — Monday 10:00 AM NPT (04:15 UTC by default).

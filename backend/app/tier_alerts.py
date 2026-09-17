@@ -14,7 +14,11 @@ from sqlalchemy.orm import Session
 # Days since last shipment before a tier is considered overdue. Tiers not listed here
 # (Small Customer, unclassified/None) have no SLA. Kept in sync with main.py's own
 # TIER_SHIPPING_SLA_DAYS by test_tier_alerts.py.
-TIER_SHIPPING_SLA_DAYS = {'Key Account': 7, 'Reseller': 7, 'Large Account': 7, 'SME': 15}
+TIER_SHIPPING_SLA_DAYS = {'Key Account': 7, 'Reseller': 7, 'Large Account': 15, 'SME': 30, 'Small Customer': 30}
+
+# Accounts silent longer than this are dormant, not "overdue" -- excluded from breaches
+# entirely so the worst-offenders list doesn't fill up with years-old dead accounts.
+DORMANT_CUTOFF_DAYS = 90
 
 
 def get_tier_shipping_gap_breaches(db: Session) -> list[dict]:
@@ -38,10 +42,11 @@ def get_tier_shipping_gap_breaches(db: Session) -> list[dict]:
         if not sla_days:
             continue
         days_since = (today - r.last_shipment).days
-        if days_since > sla_days:
+        if sla_days < days_since <= DORMANT_CUTOFF_DAYS:
             breaches.append({
                 'company_id': str(r.id), 'company_name': r.company_name,
                 'customer_type': r.customer_type, 'assigned_ae_code': r.assigned_ae_code,
                 'days_since': days_since, 'sla_days': sla_days,
+                'days_overdue': days_since - sla_days,
             })
-    return sorted(breaches, key=lambda b: b['days_since'], reverse=True)
+    return sorted(breaches, key=lambda b: b['days_overdue'], reverse=True)

@@ -3981,14 +3981,15 @@ def compute_alerts(db: Session, ae_scope: str | None):
         elif days_since > 30:
             add_alert('Customer', 'Dormant (30+ days)', 'low', f"Dormant 30+ Days: {c.company_name}", f"No activity for {days_since} days.", 'company', str(c.id), c.company_name, days_since, c.assigned_ae_code, occurred_at=c.last_shipment)
 
-    # Tier Shipping Gap — Key Account / Reseller / Large Account get a 7-day SLA, SME
-    # gets 15 days (docs/customer-segmentation-rules.md). Shared with the Resend email
-    # digest (email_notifications.py) via tier_alerts.py, so both agree on "overdue."
+    # Tier Shipping Gap — Key Account / Reseller get a 7-day SLA, Large Account 15 days,
+    # SME / Small Customer 30 days (docs/customer-segmentation-rules.md). Accounts silent
+    # past DORMANT_CUTOFF_DAYS are excluded as dormant, not "overdue." Shared with the
+    # email digest (email_notifications.py) via tier_alerts.py, so both agree on "overdue."
     for b in get_tier_shipping_gap_breaches(db):
         add_alert('Customer', 'Tier Shipping Gap', 'high',
-                  f"{b['customer_type']} hasn't shipped in {b['days_since']}d: {b['company_name']}",
-                  f"{b['customer_type']} accounts are expected to ship at least every {b['sla_days']} days — this one is {b['days_since']} days since its last shipment.",
-                  'company', b['company_id'], b['company_name'], b['days_since'], b['assigned_ae_code'],
+                  f"{b['customer_type']} is {b['days_overdue']}d overdue: {b['company_name']}",
+                  f"{b['customer_type']} accounts are expected to ship at least every {b['sla_days']} days — this one is {b['days_overdue']} days overdue ({b['days_since']} days since its last shipment).",
+                  'company', b['company_id'], b['company_name'], b['days_overdue'], b['assigned_ae_code'],
                   occurred_at=today - timedelta(days=b['days_since']))
 
     # REVENUE GAINER/DECLINER — month-to-date vs the *same number of days* into last month,

@@ -46,11 +46,14 @@ New alert type in the existing live-computed `/api/v1/analytics/alerts` endpoint
 |---|---|
 | Key Account | 7 days with no shipment |
 | Reseller | 7 days with no shipment |
-| Large Account | 7 days with no shipment |
-| SME | 15 days with no shipment |
-| Small Customer / unclassified | No SLA, never alerts |
+| Large Account | 15 days with no shipment |
+| SME | 30 days with no shipment |
+| Small Customer | 30 days with no shipment |
+| Unclassified | No SLA, never alerts |
 
 Thresholds live in `TIER_SHIPPING_SLA_DAYS` in `backend/app/tier_alerts.py`. Only companies with at least one real shipment on record are considered — a company that has never shipped (e.g. AE-assigned but brand new) doesn't fire this alert; that's a different problem than "went quiet."
+
+Accounts silent longer than `DORMANT_CUTOFF_DAYS` (90 days) are excluded from breaches entirely — they're dormant, not "overdue," and would otherwise flood the worst-offenders list with years-old dead accounts. The displayed "days overdue" figure is days past the SLA (`days_since - sla_days`), not raw days since last shipment.
 
 The breach query itself (`get_tier_shipping_gap_breaches`) lives in `tier_alerts.py` rather than inline in `main.py` — it's shared with the email digest below, so the in-app Alerts page and the email always agree on what "overdue" means.
 
