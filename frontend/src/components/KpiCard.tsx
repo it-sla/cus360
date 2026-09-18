@@ -49,7 +49,7 @@ export function KpiCard({
         <div
           className={cn(
             "font-black text-zinc-50 tracking-tight tabular-nums min-w-0",
-            isLongText ? "text-sm font-bold leading-tight break-words" : "text-2xl whitespace-nowrap"
+            isLongText ? "text-sm font-bold leading-tight break-words" : "text-2xl leading-tight break-words"
           )}
           title={String(value)}
         >
