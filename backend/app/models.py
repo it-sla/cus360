@@ -26,6 +26,7 @@ class User(UUIDPK, Timestamps, Base):
     # must use setup_token_hash (a one-time, expiring, hashed token — same pattern as
     # session tokens) to set their own password before they can log in at all.
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=False)
+    email_alerts_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     setup_token_hash: Mapped[str|None] = mapped_column(String, unique=True, index=True)
     setup_token_expires_at: Mapped[datetime|None] = mapped_column(DateTime(timezone=True))
 

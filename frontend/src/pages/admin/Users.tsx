@@ -94,7 +94,7 @@ export default function Users() {
   // Single add / edit modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
-  const [modalForm, setModalForm] = useState({ id: '', email: '', display_name: '', role: 'user' as AuthRole, ae_code: '' });
+  const [modalForm, setModalForm] = useState({ id: '', email: '', display_name: '', role: 'user' as AuthRole, ae_code: '', email_alerts_enabled: true });
   const [modalError, setModalError] = useState('');
   const [createdLink, setCreatedLink] = useState<string | null>(null);
   const [editSetupLink, setEditSetupLink] = useState<string | null>(null);
@@ -132,7 +132,7 @@ export default function Users() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, ...body }: { id: string; display_name?: string; role?: AuthRole; ae_code?: string | null; is_active?: boolean }) => adminApi.updateUser(id, body),
+    mutationFn: ({ id, ...body }: { id: string; display_name?: string; role?: AuthRole; ae_code?: string | null; is_active?: boolean; email_alerts_enabled?: boolean }) => adminApi.updateUser(id, body),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-users'] }); setShowRowMenuId(null); },
     onError: (err: any) => alert(err?.response?.data?.detail || 'Failed to update user'),
   });
@@ -151,7 +151,7 @@ export default function Users() {
 
   const openAddModal = () => {
     setModalMode('add');
-    setModalForm({ id: '', email: '', display_name: '', role: 'user', ae_code: '' });
+    setModalForm({ id: '', email: '', display_name: '', role: 'user', ae_code: '', email_alerts_enabled: true });
     setModalError('');
     setCreatedLink(null);
     setIsModalOpen(true);
@@ -159,7 +159,7 @@ export default function Users() {
 
   const openEditModal = (u: AdminUser) => {
     setModalMode('edit');
-    setModalForm({ id: u.id, email: u.email, display_name: u.display_name, role: u.role, ae_code: u.ae_code || '' });
+    setModalForm({ id: u.id, email: u.email, display_name: u.display_name, role: u.role, ae_code: u.ae_code || '', email_alerts_enabled: u.email_alerts_enabled ?? true });
     setModalError('');
     setEditSetupLink(null);
     setIsModalOpen(true);
@@ -184,6 +184,7 @@ export default function Users() {
         display_name: modalForm.display_name,
         role: modalForm.role,
         ae_code: modalForm.role === 'ae' ? modalForm.ae_code.trim() : null,
+        email_alerts_enabled: modalForm.email_alerts_enabled,
       });
     }
   };
@@ -461,6 +462,21 @@ export default function Users() {
                     </div>
                   )}
 
+                  {modalMode === 'edit' && (
+                    <div className="flex items-center justify-between py-2 border border-slate-200 rounded-lg px-3 bg-slate-50">
+                      <div>
+                        <div className="text-xs font-bold text-slate-700">Email alerts</div>
+                        <div className="text-[11px] text-slate-500 mt-0.5">Tier alerts, breach notifications, and weekly reports</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setModalForm(f => ({ ...f, email_alerts_enabled: !f.email_alerts_enabled }))}
+                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${modalForm.email_alerts_enabled ? 'bg-primary' : 'bg-slate-300'}`}
+                      >
+                        <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${modalForm.email_alerts_enabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                      </button>
+                    </div>
+                  )}
                   {modalMode === 'edit' && (
                     <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Password</label>

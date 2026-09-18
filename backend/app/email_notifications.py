@@ -198,7 +198,7 @@ def send_tier_alert_digests(db: Session) -> dict:
         if b['assigned_ae_code']:
             by_ae.setdefault(b['assigned_ae_code'], []).append(b)
 
-    ae_users = db.scalars(select(User).where(User.role == 'ae', User.is_active == True, User.ae_code.isnot(None))).all()  # noqa: E712
+    ae_users = db.scalars(select(User).where(User.role == 'ae', User.is_active == True, User.ae_code.isnot(None), User.email_alerts_enabled == True)).all()  # noqa: E712
     for u in ae_users:
         their_breaches = by_ae.get(u.ae_code)
         if not their_breaches:
@@ -207,7 +207,7 @@ def send_tier_alert_digests(db: Session) -> dict:
         if _send_email(u.email, f"Customer 360: {len(their_breaches)} account(s) overdue", text_body, html_body):
             result['ae_emails_sent'] += 1
 
-    admin_users = db.scalars(select(User).where(User.role.in_(['admin', 'super_admin']), User.is_active == True)).all()
+    admin_users = db.scalars(select(User).where(User.role.in_(['admin', 'super_admin']), User.is_active == True, User.email_alerts_enabled == True)).all()
     if admin_users:
         admin_text, admin_html = _format_admin_summary(breaches, db)
         ae_count = len({b['assigned_ae_code'] for b in breaches if b['assigned_ae_code']})
@@ -221,7 +221,7 @@ def send_tier_alert_digests(db: Session) -> dict:
 
 def _ae_codes_with_email(db: Session) -> set[str]:
     return {u.ae_code for u in db.scalars(
-        select(User).where(User.role == 'ae', User.is_active == True, User.ae_code.isnot(None))  # noqa: E712
+        select(User).where(User.role == 'ae', User.is_active == True, User.ae_code.isnot(None), User.email_alerts_enabled == True)  # noqa: E712
     ).all()}
 
 
@@ -235,32 +235,51 @@ def _ae_codes_with_email(db: Session) -> set[str]:
 _IMMEDIATE_NOTIFIED_ENTITY = 'tier_breach_immediate_notified'
 
 
-def _format_immediate_breach(b: dict) -> tuple[str, str]:
-    text_body = (
-        f"{b['company_name']} ({b['customer_type']}) has gone {b['days_overdue']} day(s) past its "
-        f"{b['sla_days']}-day shipping SLA -- {b['days_since']} days since its last shipment.\n"
-        f"AE: {b['assigned_ae_code'] or 'Unassigned'}"
+def _format_immediate_breach_group(breaches: list[dict]) -> tuple[str, str]:
+    """One email summarising all new SLA breaches for a recipient."""
+    n = len(breaches)
+    text_lines = [f"URGENT: {n} new SLA breach{'es' if n != 1 else ''}\n"]
+    for b in breaches:
+        text_lines.append(
+            f"- {b['company_name']} ({b['customer_type']}) — {b['days_overdue']} day(s) overdue, "
+            f"{b['days_since']} days since last shipment, AE: {b['assigned_ae_code'] or 'Unassigned'}"
+        )
+    text_body = '\n'.join(text_lines)
+
+    _TH = 'padding:8px 12px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;'
+    _TD = 'padding:8px 12px;font-size:12px;border-bottom:1px solid #f3f4f6;'
+    header = (
+        f'<tr>'
+        f'<th style="{_TH}">Customer</th>'
+        f'<th style="{_TH}">Tier</th>'
+        f'<th style="{_TH}">AE</th>'
+        f'<th style="{_TH}">Days Overdue</th>'
+        f'<th style="{_TH}">Days Since Shipment</th>'
+        f'<th style="{_TH}">SLA</th>'
+        f'</tr>'
     )
-    rows = (
-        f'<tr><td style="{_TD_STYLE}">Customer</td><td style="{_TD_STYLE}font-weight:bold;">{escape(b["company_name"])}</td></tr>'
-        f'<tr><td style="{_TD_STYLE}">Tier</td><td style="{_TD_STYLE}">{escape(b["customer_type"])}</td></tr>'
-        f'<tr><td style="{_TD_STYLE}">AE</td><td style="{_TD_STYLE}">{escape(b["assigned_ae_code"] or "Unassigned")}</td></tr>'
-        f'<tr><td style="{_TD_STYLE}">Days Overdue</td><td style="{_TD_STYLE}font-weight:bold;color:#b91c1c;">{b["days_overdue"]}</td></tr>'
-        f'<tr><td style="{_TD_STYLE}">Days Since Last Shipment</td><td style="{_TD_STYLE}">{b["days_since"]}</td></tr>'
-        f'<tr><td style="{_TD_STYLE}">SLA (days)</td><td style="{_TD_STYLE}">{b["sla_days"]}</td></tr>'
+    rows = ''.join(
+        f'<tr>'
+        f'<td style="{_TD}font-weight:bold;">{escape(b["company_name"])}</td>'
+        f'<td style="{_TD}">{escape(b["customer_type"])}</td>'
+        f'<td style="{_TD}">{escape(b["assigned_ae_code"] or "Unassigned")}</td>'
+        f'<td style="{_TD}font-weight:bold;color:#b91c1c;">{b["days_overdue"]}</td>'
+        f'<td style="{_TD}">{b["days_since"]}</td>'
+        f'<td style="{_TD}">{b["sla_days"]} days</td>'
+        f'</tr>'
+        for b in breaches
     )
     html_body = _html_wrap(
-        f'<p><strong>{escape(b["company_name"])}</strong> has gone past its shipping SLA.</p>'
-        f'<table style="{_TABLE_STYLE}">{rows}</table>'
+        f'<p><strong>{n} new SLA breach{"es" if n != 1 else ""}</strong> requiring immediate attention:</p>'
+        f'<table style="{_TABLE_STYLE}"><thead>{header}</thead><tbody>{rows}</tbody></table>'
     )
     return text_body, html_body
 
 
 def send_immediate_tier_breach_emails(db: Session) -> dict:
-    """Fires an urgent one-off email the first time a Key Account/Reseller crosses its
-    7-day SLA -- called every couple of hours by the worker, distinct from the once-a-
-    day digest (send_tier_alert_digests) which covers every tier. Always computes
-    breaches even when sending is disabled, so a caller/test can see what's pending."""
+    """Fires one grouped urgent email per recipient when new Key Account/Reseller SLA
+    breaches are detected — called every couple of hours by the worker. Grouped so that
+    N new breaches generate at most 1 email per recipient, not N emails."""
     breaches = get_tier_shipping_gap_breaches(db)
     result = {'enabled': settings.tier_alert_email_enabled and _smtp_configured(),
                'new_breaches': 0, 'ae_emails_sent': 0, 'admin_emails_sent': 0}
@@ -275,19 +294,35 @@ def send_immediate_tier_breach_emails(db: Session) -> dict:
     result['new_breaches'] = len(new_breaches)
 
     if new_breaches:
-        admin_users = db.scalars(select(User).where(User.role.in_(['admin', 'super_admin']), User.is_active == True)).all()  # noqa: E712
-        ae_users_by_code = {u.ae_code: u for u in db.scalars(
-            select(User).where(User.role == 'ae', User.is_active == True, User.ae_code.isnot(None))  # noqa: E712
-        ).all()}
+        n = len(new_breaches)
+        subject = (
+            f"Urgent: {new_breaches[0]['company_name']} ({new_breaches[0]['customer_type']}) — {new_breaches[0]['days_overdue']} days overdue"
+            if n == 1 else
+            f"Urgent: {n} new SLA breaches"
+        )
 
+        # Group by AE — each AE gets one email with only their accounts
+        by_ae: dict[str, list[dict]] = {}
         for b in new_breaches:
-            text_body, html_body = _format_immediate_breach(b)
-            subject = f"Urgent: {b['company_name']} ({b['customer_type']}) — {b['days_overdue']} days overdue"
+            if b['assigned_ae_code']:
+                by_ae.setdefault(b['assigned_ae_code'], []).append(b)
 
-            ae_user = ae_users_by_code.get(b['assigned_ae_code']) if b['assigned_ae_code'] else None
-            if ae_user and _send_email(ae_user.email, subject, text_body, html_body):
+        ae_users_by_code = {u.ae_code: u for u in db.scalars(
+            select(User).where(User.role == 'ae', User.is_active == True, User.ae_code.isnot(None), User.email_alerts_enabled == True)  # noqa: E712
+        ).all()}
+        for ae_code, ae_breaches in by_ae.items():
+            ae_user = ae_users_by_code.get(ae_code)
+            if not ae_user:
+                continue
+            text_body, html_body = _format_immediate_breach_group(ae_breaches)
+            ae_subject = subject if n == 1 else f"Urgent: {len(ae_breaches)} new SLA breach{'es' if len(ae_breaches) != 1 else ''} in your accounts"
+            if _send_email(ae_user.email, ae_subject, text_body, html_body):
                 result['ae_emails_sent'] += 1
 
+        # Admins get one email with all new breaches
+        admin_users = db.scalars(select(User).where(User.role.in_(['admin', 'super_admin']), User.is_active == True, User.email_alerts_enabled == True)).all()  # noqa: E712
+        if admin_users:
+            text_body, html_body = _format_immediate_breach_group(new_breaches)
             for u in admin_users:
                 if _send_email(u.email, subject, text_body, html_body):
                     result['admin_emails_sent'] += 1
@@ -518,7 +553,7 @@ def send_weekly_report(db: Session) -> dict:
 
     # Admin/super_admin: full report
     admin_users = db.scalars(select(User).where(
-        User.role.in_(['admin', 'super_admin']), User.is_active == True  # noqa: E712
+        User.role.in_(['admin', 'super_admin']), User.is_active == True, User.email_alerts_enabled == True  # noqa: E712
     )).all()
     if admin_users:
         admin_text, admin_html = _format_weekly_admin(
@@ -531,7 +566,7 @@ def send_weekly_report(db: Session) -> dict:
 
     # AE users: their own slice
     ae_users = db.scalars(select(User).where(
-        User.role == 'ae', User.is_active == True, User.ae_code.isnot(None)  # noqa: E712
+        User.role == 'ae', User.is_active == True, User.ae_code.isnot(None), User.email_alerts_enabled == True  # noqa: E712
     )).all()
     for u in ae_users:
         ae_top = _weekly_top_customers_for_ae(db, u.ae_code, week_start, week_end)

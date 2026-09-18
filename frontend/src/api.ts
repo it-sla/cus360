@@ -1349,6 +1349,7 @@ export interface AdminUser {
   is_active: boolean;
   has_password: boolean;
   must_change_password: boolean;
+  email_alerts_enabled: boolean;
   created_at: string;
   updated_at: string;
   setup_link?: string;
@@ -1359,6 +1360,7 @@ export interface AdminUserPatch {
   role?: AuthRole;
   ae_code?: string | null;
   is_active?: boolean;
+  email_alerts_enabled?: boolean;
 }
 
 export interface NewUserRow {

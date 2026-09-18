@@ -100,7 +100,7 @@ class UserCreate(BaseModel):
 class UserBulkCreate(BaseModel):
     users:list[UserCreate]=Field(min_length=1,max_length=200)
 class UserPatch(BaseModel):
-    display_name:str|None=None; role:Literal['super_admin','admin','sales_lead','ae','user']|None=None; ae_code:str|None=None; is_active:bool|None=None
+    display_name:str|None=None; role:Literal['super_admin','admin','sales_lead','ae','user']|None=None; ae_code:str|None=None; is_active:bool|None=None; email_alerts_enabled:bool|None=None
 class SetPasswordIn(BaseModel):
     token:str; password:str=Field(min_length=8)
 class AuthUserOut(BaseModel):
@@ -182,7 +182,7 @@ def auth_set_password(body: SetPasswordIn, response: Response, db: Session = Dep
     return serialize_user(user)
 
 def serialize_admin_user(u:User,setup_link:str|None=None)->dict:
-    d={'id':str(u.id),'email':u.email,'display_name':u.display_name,'role':u.role,'ae_code':u.ae_code,'is_active':u.is_active,'has_password':bool(u.password_hash),'must_change_password':u.must_change_password,'created_at':u.created_at,'updated_at':u.updated_at}
+    d={'id':str(u.id),'email':u.email,'display_name':u.display_name,'role':u.role,'ae_code':u.ae_code,'is_active':u.is_active,'has_password':bool(u.password_hash),'must_change_password':u.must_change_password,'email_alerts_enabled':u.email_alerts_enabled,'created_at':u.created_at,'updated_at':u.updated_at}
     if setup_link:d['setup_link']=setup_link
     return d
 
