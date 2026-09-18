@@ -3645,7 +3645,8 @@ def document_type_analytics(
 
     sql_base = f"""
         SELECT s.id, s.company_id, c.company_name,
-               s.shipment_date, s.bill_type, coalesce(nullif(s.ae_code,''), 'UNASSIGNED') ae_code,
+               s.shipment_number, s.shipment_date, s.bill_type,
+               coalesce(nullif(s.ae_code,''), 'UNASSIGNED') ae_code,
                coalesce(nullif(s.import_country,''), 'Unknown') destination,
                {REVENUE_AMOUNT_SQL}::float amount,
                coalesce(s.shipment_weight, s.actual_weight, 0)::float weight
@@ -3728,6 +3729,12 @@ def document_type_analytics(
         key=lambda x:x['doc_count'],reverse=True
     )
 
+    unclassified_awbs = sorted(
+        [{'shipment_number':r['shipment_number'],'company_name':r['company_name'] or 'Unknown','shipment_date':str(r['shipment_date']) if r['shipment_date'] else None,'destination':r['destination'],'amount':round(r['amount'],2),'weight':round(r['weight'],2)}
+         for r in cur_filtered if r['bucket']=='unclassified'],
+        key=lambda x: x['shipment_date'] or '', reverse=True
+    )
+
     return {
         'timeframe':timeframe,
         'bounds':{'c_start':str(c_start),'c_end':str(c_end),'p_start':str(p_start),'p_end':str(p_end)},
@@ -3736,6 +3743,7 @@ def document_type_analytics(
         'by_customer':by_customer,
         'by_ae':by_ae,
         'by_destination':by_destination,
+        'unclassified_awbs':unclassified_awbs,
     }
 
 

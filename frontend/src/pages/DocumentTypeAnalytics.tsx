@@ -9,7 +9,9 @@ import {
   Activity,
   HelpCircle,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  X,
+  List
 } from 'lucide-react';
 import { DateRangeControl, CompareModeSelect } from '@/components/AnalyticsFilterBar';
 
@@ -41,6 +43,7 @@ function Stat({ label, value, popPct }: { label: string; value: string; popPct?:
 }
 
 export default function DocumentTypeAnalytics() {
+  const [showAwbs, setShowAwbs] = useState(false);
   const [filters, setFilters] = useState({
     timeframe: 'this_month',
     compareMode: 'pop',
@@ -144,7 +147,14 @@ export default function DocumentTypeAnalytics() {
           </div>
         </div>
         <div className="bg-white rounded-[16px] border border-[#E2E8F0] shadow-[0_2px_4px_rgba(15,23,42,0.04)] p-5 dark:bg-zinc-900 dark:border-zinc-800 border-l-4" style={{ borderLeftColor: UNCLASSIFIED_COLOR }}>
-          <div className="flex items-center gap-2 mb-4"><HelpCircle size={16} style={{ color: UNCLASSIFIED_COLOR }} /><h3 className="text-sm font-bold text-slate-900 dark:text-white">Unclassified</h3><span className="text-[11px] text-slate-400">Blank Bill Type</span></div>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2"><HelpCircle size={16} style={{ color: UNCLASSIFIED_COLOR }} /><h3 className="text-sm font-bold text-slate-900 dark:text-white">Unclassified</h3><span className="text-[11px] text-slate-400">Blank Bill Type</span></div>
+            {kpis.unclassified.shipments.value > 0 && (
+              <button onClick={() => setShowAwbs(true)} className="flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">
+                <List size={13} /> View AWBs
+              </button>
+            )}
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
             <Stat label="Shipments" value={fmtNum(kpis.unclassified.shipments.value)} popPct={showTrend ? kpis.unclassified.shipments.pop_pct : undefined} />
             <Stat label="Revenue" value={fmt$(kpis.unclassified.revenue.value)} popPct={showTrend ? kpis.unclassified.revenue.pop_pct : undefined} />
@@ -234,6 +244,51 @@ export default function DocumentTypeAnalytics() {
         </div>
       </div>
 
+      {/* Unclassified AWBs slide-over */}
+      {showAwbs && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs" onClick={() => setShowAwbs(false)} />
+          <div className="w-[560px] max-w-full h-full bg-white dark:bg-zinc-900 border-l border-slate-200 dark:border-zinc-800 shadow-2xl relative z-10 flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-zinc-800 bg-slate-50/80 dark:bg-zinc-900/90">
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Unclassified AWBs</h3>
+                <p className="text-lg font-black text-slate-900 dark:text-zinc-100 mt-1">{(data.unclassified_awbs || []).length} shipments with blank Bill Type</p>
+              </div>
+              <button onClick={() => setShowAwbs(false)} className="p-2 hover:bg-slate-200/60 dark:hover:bg-zinc-800 rounded-full transition-colors text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {(data.unclassified_awbs || []).length === 0 ? (
+                <div className="p-8 text-center text-slate-400 text-sm">No unclassified shipments in this period</div>
+              ) : (
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50/80 border-b border-slate-100 sticky top-0">
+                    <tr className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+                      <th className="px-4 py-2.5">AWB</th>
+                      <th className="px-4 py-2.5">Customer</th>
+                      <th className="px-4 py-2.5">Date</th>
+                      <th className="px-4 py-2.5">Dest</th>
+                      <th className="px-4 py-2.5 text-right">Revenue</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+                    {(data.unclassified_awbs || []).map((r: any, i: number) => (
+                      <tr key={i} className="hover:bg-slate-50 dark:hover:bg-zinc-800/60 transition-colors">
+                        <td className="px-4 py-2.5 font-mono font-semibold text-slate-800 dark:text-zinc-100">{r.shipment_number || '—'}</td>
+                        <td className="px-4 py-2.5 text-slate-600 dark:text-zinc-300 max-w-[160px] truncate">{r.company_name}</td>
+                        <td className="px-4 py-2.5 text-slate-500">{r.shipment_date || '—'}</td>
+                        <td className="px-4 py-2.5 text-slate-500">{r.destination}</td>
+                        <td className="px-4 py-2.5 text-right font-bold text-slate-900 dark:text-zinc-100">{fmt$(r.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
