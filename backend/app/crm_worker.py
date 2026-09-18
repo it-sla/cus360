@@ -205,7 +205,7 @@ def check_auto_schedule():
     try:
         state=db.scalar(select(CrmSyncState).where(CrmSyncState.entity_type=='auto_schedule'))
         last_run=(state.cursor_json or {}).get('last_run_at') if state else None
-        now_dt=datetime.now()
+        now_dt=datetime.utcnow()
         if last_run:
             try:last_dt=datetime.fromisoformat(last_run)
             except(ValueError,TypeError):last_dt=None
@@ -232,7 +232,7 @@ def check_pipeline_auto_schedule():
     try:
         state=db.scalar(select(CrmSyncState).where(CrmSyncState.entity_type=='pipeline_auto_schedule'))
         last_run=(state.cursor_json or {}).get('last_run_at') if state else None
-        now_dt=datetime.now()
+        now_dt=datetime.utcnow()
         if last_run:
             try:last_dt=datetime.fromisoformat(last_run)
             except(ValueError,TypeError):last_dt=None
@@ -267,7 +267,7 @@ def check_tier_alert_email_schedule():
     try:
         state=db.scalar(select(CrmSyncState).where(CrmSyncState.entity_type=='tier_alert_email_schedule'))
         last_run=(state.cursor_json or {}).get('last_run_at') if state else None
-        now_dt=datetime.now()
+        now_dt=datetime.utcnow()
         if last_run:
             try:last_dt=datetime.fromisoformat(last_run)
             except(ValueError,TypeError):last_dt=None
@@ -284,16 +284,23 @@ def check_tier_alert_email_schedule():
     finally:db.close()
 def check_immediate_tier_breach_schedule():
     """Urgent one-off email the first time a Key Account/Reseller crosses its 7-day SLA
-    (docs/customer-segmentation-rules.md) -- checked every couple of hours rather than
-    waiting for the once-daily digest above. send_immediate_tier_breach_emails tracks
-    its own already-notified state (a separate CrmSyncState row), so this schedule-check
-    row only tracks when this function itself last ran."""
+    (docs/customer-segmentation-rules.md) -- checked once daily at 3 PM NPT (9:15 UTC).
+    send_immediate_tier_breach_emails tracks its own already-notified state (a separate
+    CrmSyncState row), so this schedule-check row only tracks when this function last ran."""
     if not settings.tier_breach_immediate_check_cron:return
     db=SessionLocal()
     try:
         state=db.scalar(select(CrmSyncState).where(CrmSyncState.entity_type=='tier_breach_immediate_schedule'))
         last_run=(state.cursor_json or {}).get('last_run_at') if state else None
-        now_dt=datetime.now()
+        now_dt=datetime.utcnow()
+        # Skip if the daily digest ran within the last 60 minutes — those breaches were already included.
+        digest_state=db.scalar(select(CrmSyncState).where(CrmSyncState.entity_type=='tier_alert_email_schedule'))
+        digest_last_run=(digest_state.cursor_json or {}).get('last_run_at') if digest_state else None
+        if digest_last_run:
+            try:
+                digest_dt=datetime.fromisoformat(digest_last_run)
+                if (now_dt-digest_dt).total_seconds()<3600:return
+            except(ValueError,TypeError):pass
         if last_run:
             try:last_dt=datetime.fromisoformat(last_run)
             except(ValueError,TypeError):last_dt=None
@@ -317,7 +324,7 @@ def check_weekly_report_schedule():
     try:
         state=db.scalar(select(CrmSyncState).where(CrmSyncState.entity_type=='weekly_report_email_schedule'))
         last_run=(state.cursor_json or {}).get('last_run_at') if state else None
-        now_dt=datetime.now()
+        now_dt=datetime.utcnow()
         if last_run:
             try:last_dt=datetime.fromisoformat(last_run)
             except(ValueError,TypeError):last_dt=None
@@ -344,7 +351,7 @@ def check_pnl_auto_schedule():
     try:
         state=db.scalar(select(CrmSyncState).where(CrmSyncState.entity_type=='pnl_auto_schedule'))
         last_run=(state.cursor_json or {}).get('last_run_at') if state else None
-        now_dt=datetime.now()
+        now_dt=datetime.utcnow()
         if last_run:
             try:last_dt=datetime.fromisoformat(last_run)
             except(ValueError,TypeError):last_dt=None
@@ -379,7 +386,7 @@ def check_daily_call_logs_auto_schedule():
     try:
         state=db.scalar(select(CrmSyncState).where(CrmSyncState.entity_type=='daily_call_logs_auto_schedule'))
         last_run=(state.cursor_json or {}).get('last_run_at') if state else None
-        now_dt=datetime.now()
+        now_dt=datetime.utcnow()
         if last_run:
             try:last_dt=datetime.fromisoformat(last_run)
             except(ValueError,TypeError):last_dt=None

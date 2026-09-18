@@ -50,3 +50,33 @@ def get_tier_shipping_gap_breaches(db: Session) -> list[dict]:
                 'days_overdue': days_since - sla_days,
             })
     return sorted(breaches, key=lambda b: b['days_overdue'], reverse=True)
+
+
+def get_tier_shipping_gap_due_warnings(db: Session) -> list[dict]:
+    """Companies within 2 days of their SLA threshold but not yet breached."""
+    today = date.today()
+    rows = db.execute(text("""
+        SELECT c.id, c.company_name, c.customer_type, c.assigned_ae_code,
+               MAX(s.shipment_date) AS last_shipment
+        FROM companies c
+        JOIN shipments s ON s.company_id = c.id
+        WHERE c.customer_type = ANY(:tiers)
+        GROUP BY c.id
+    """), {'tiers': list(TIER_SHIPPING_SLA_DAYS.keys())}).fetchall()
+
+    warnings = []
+    for r in rows:
+        if not r.last_shipment:
+            continue
+        sla_days = TIER_SHIPPING_SLA_DAYS.get(r.customer_type)
+        if not sla_days:
+            continue
+        days_since = (today - r.last_shipment).days
+        if sla_days - 2 <= days_since <= sla_days:
+            warnings.append({
+                'company_id': str(r.id), 'company_name': r.company_name,
+                'customer_type': r.customer_type, 'assigned_ae_code': r.assigned_ae_code,
+                'days_since': days_since, 'sla_days': sla_days,
+                'days_until_breach': sla_days - days_since,
+            })
+    return sorted(warnings, key=lambda w: w['days_until_breach'])

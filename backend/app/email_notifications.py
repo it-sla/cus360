@@ -21,7 +21,7 @@ and constraints in docs/customer-segmentation-rules.md — short version:
 """
 import logging
 import smtplib
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -32,7 +32,7 @@ from sqlalchemy.orm import Session
 
 from .core import settings
 from .models import CrmSyncState, User
-from .tier_alerts import get_tier_shipping_gap_breaches
+from .tier_alerts import get_tier_shipping_gap_breaches, get_tier_shipping_gap_due_warnings
 
 log = logging.getLogger('email-notifications')
 
@@ -72,15 +72,16 @@ def _html_wrap(inner: str) -> str:
     return f'<div style="{_WRAP_STYLE}">{inner}</div>'
 
 
-def _format_ae_digest(breaches: list[dict]) -> tuple[str, str]:
+def _format_ae_digest(breaches: list[dict], warnings: list[dict] | None = None) -> tuple[str, str]:
     """One AE's own overdue accounts -- a clean detail table (already scoped by the caller)."""
+    warnings = warnings or []
     heading = f"{len(breaches)} of your accounts have gone quiet past their tier's shipping SLA:"
 
     text_lines = [heading, '']
     for b in breaches:
         text_lines.append(f"- {b['company_name']} ({b['customer_type']}): "
                            f"{b['days_overdue']} days overdue (SLA {b['sla_days']}d)")
-    text_body = '\n'.join(text_lines)
+    text_body = '\n'.join(text_lines) + _due_warnings_text(warnings)
 
     rows = ''.join(
         f'<tr>'
@@ -91,7 +92,7 @@ def _format_ae_digest(breaches: list[dict]) -> tuple[str, str]:
         f'</tr>'
         for b in breaches
     )
-    html_body = _html_wrap(
+    breach_section = (
         f'<p>{escape(heading)}</p>'
         f'<table style="{_TABLE_STYLE}">'
         f'<thead><tr>'
@@ -102,16 +103,51 @@ def _format_ae_digest(breaches: list[dict]) -> tuple[str, str]:
         f'</tr></thead>'
         f'<tbody>{rows}</tbody>'
         f'</table>'
-    )
+    ) if breaches else ''
+    html_body = _html_wrap(_due_warnings_html(warnings) + breach_section)
     return text_body, html_body
+
+
+_TH_AMBER = 'text-align:left;padding:8px 10px;background:#fef3c7;color:#92400e;border-bottom:2px solid #fde68a;'
+
+
+def _due_warnings_html(warnings: list[dict]) -> str:
+    """Amber 'Due Soon' table injected above the breach table."""
+    if not warnings:
+        return ''
+    rows = ''.join(
+        f'<tr>'
+        f'<td style="{_TD_STYLE}">{escape(w["company_name"])}</td>'
+        f'<td style="{_TD_STYLE}">{escape(w["customer_type"] or "")}</td>'
+        f'<td style="{_TD_STYLE}font-weight:bold;color:#b45309;">{"Today" if w["days_until_breach"] == 0 else w["days_until_breach"]}</td>'
+        f'<td style="{_TD_STYLE}">{w["sla_days"]}</td>'
+        f'</tr>'
+        for w in warnings
+    )
+    header = (f'<tr><th style="{_TH_AMBER}">Customer</th><th style="{_TH_AMBER}">Tier</th>'
+              f'<th style="{_TH_AMBER}">Days Until Breach</th><th style="{_TH_AMBER}">SLA (days)</th></tr>')
+    return (f'<h3 style="margin:18px 0 8px;font-size:14px;color:#92400e;">&#9888; Due Soon ({len(warnings)})</h3>'
+            f'<table style="{_TABLE_STYLE}">'
+            f'<thead>{header}</thead><tbody>{rows}</tbody></table>')
+
+
+def _due_warnings_text(warnings: list[dict]) -> str:
+    if not warnings:
+        return ''
+    lines = ['', '── DUE SOON ──']
+    for w in warnings:
+        days = 'today' if w['days_until_breach'] == 0 else f"in {w['days_until_breach']} day(s)"
+        lines.append(f"  ! {w['company_name']} ({w['customer_type']}): breaches {days} (SLA {w['sla_days']}d)")
+    return '\n'.join(lines)
 
 
 _WORST_OFFENDERS_LIMIT = 5
 
 
-def _format_admin_summary(breaches: list[dict], db: Session) -> tuple[str, str]:
+def _format_admin_summary(breaches: list[dict], db: Session, warnings: list[dict] | None = None) -> tuple[str, str]:
     """Aggregate-only report for admins: totals, per-AE, per-tier, and a handful of
     worst-offender highlights -- deliberately not a full per-company dump."""
+    warnings = warnings or []
     total = len(breaches)
     ae_with_email = _ae_codes_with_email(db)
 
@@ -142,7 +178,7 @@ def _format_admin_summary(breaches: list[dict], db: Session) -> tuple[str, str]:
     for b in worst:
         text_lines.append(f"  - {b['company_name']} ({b['customer_type']}, AE {b['assigned_ae_code'] or 'Unassigned'}): "
                            f"{b['days_overdue']} days overdue")
-    text_body = '\n'.join(text_lines)
+    text_body = '\n'.join(text_lines) + _due_warnings_text(warnings)
 
     def _small_table(header_cells: list[str], row_html: str) -> str:
         ths = ''.join(f'<th style="{_TH_STYLE}">{h}</th>' for h in header_cells)
@@ -170,8 +206,9 @@ def _format_admin_summary(breaches: list[dict], db: Session) -> tuple[str, str]:
     )
 
     html_body = _html_wrap(
-        f'<p><strong>{total}</strong> account(s) across all AEs have gone quiet past their tier\'s shipping SLA.</p>'
-        f'<h3 style="margin:18px 0 8px;font-size:14px;color:#334155;">By AE</h3>'
+        _due_warnings_html(warnings)
+        + f'<p><strong>{total}</strong> account(s) across all AEs have gone quiet past their tier\'s shipping SLA.</p>'
+        + f'<h3 style="margin:18px 0 8px;font-size:14px;color:#334155;">By AE</h3>'
         + _small_table(['AE', 'Overdue Accounts', 'Notes'], ae_rows_html)
         + '<h3 style="margin:18px 0 8px;font-size:14px;color:#334155;">By Tier</h3>'
         + _small_table(['Tier', 'Overdue Accounts', 'SLA (days)'], tier_rows_html)
@@ -186,32 +223,42 @@ def send_tier_alert_digests(db: Session) -> dict:
     endpoint's response and for tests. Always computes breaches even when sending is
     disabled, so the caller can see what's pending without needing SMTP configured."""
     breaches = get_tier_shipping_gap_breaches(db)
+    warnings = get_tier_shipping_gap_due_warnings(db)
     result = {'enabled': settings.tier_alert_email_enabled and _smtp_configured(),
-               'total_breaches': len(breaches), 'ae_emails_sent': 0, 'admin_emails_sent': 0,
+               'total_breaches': len(breaches), 'total_warnings': len(warnings),
+               'ae_emails_sent': 0, 'admin_emails_sent': 0,
                'ae_codes_without_email': sorted({b['assigned_ae_code'] for b in breaches
                                                   if b['assigned_ae_code']} - _ae_codes_with_email(db))}
-    if not result['enabled'] or not breaches:
+    if not result['enabled'] or (not breaches and not warnings):
         return result
 
-    by_ae: dict[str, list[dict]] = {}
+    by_ae_breaches: dict[str, list[dict]] = {}
     for b in breaches:
         if b['assigned_ae_code']:
-            by_ae.setdefault(b['assigned_ae_code'], []).append(b)
+            by_ae_breaches.setdefault(b['assigned_ae_code'], []).append(b)
 
+    by_ae_warnings: dict[str, list[dict]] = {}
+    for w in warnings:
+        if w['assigned_ae_code']:
+            by_ae_warnings.setdefault(w['assigned_ae_code'], []).append(w)
+
+    all_ae_codes = set(by_ae_breaches) | set(by_ae_warnings)
     ae_users = db.scalars(select(User).where(User.role == 'ae', User.is_active == True, User.ae_code.isnot(None), User.email_alerts_enabled == True)).all()  # noqa: E712
     for u in ae_users:
-        their_breaches = by_ae.get(u.ae_code)
-        if not their_breaches:
+        their_breaches = by_ae_breaches.get(u.ae_code, [])
+        their_warnings = by_ae_warnings.get(u.ae_code, [])
+        if not their_breaches and not their_warnings:
             continue
-        text_body, html_body = _format_ae_digest(their_breaches)
-        if _send_email(u.email, f"Customer 360: {len(their_breaches)} account(s) overdue", text_body, html_body):
+        text_body, html_body = _format_ae_digest(their_breaches, their_warnings)
+        subject = f"Customer 360: {len(their_breaches)} overdue" + (f", {len(their_warnings)} due soon" if their_warnings else "")
+        if _send_email(u.email, subject, text_body, html_body):
             result['ae_emails_sent'] += 1
 
     admin_users = db.scalars(select(User).where(User.role.in_(['admin', 'super_admin']), User.is_active == True, User.email_alerts_enabled == True)).all()
     if admin_users:
-        admin_text, admin_html = _format_admin_summary(breaches, db)
+        admin_text, admin_html = _format_admin_summary(breaches, db, warnings)
         ae_count = len({b['assigned_ae_code'] for b in breaches if b['assigned_ae_code']})
-        admin_subject = f"Customer 360: Daily overdue-accounts summary ({len(breaches)} across {ae_count} AE(s))"
+        admin_subject = f"Customer 360: Daily digest — {len(breaches)} overdue, {len(warnings)} due soon"
         for u in admin_users:
             if _send_email(u.email, admin_subject, admin_text, admin_html):
                 result['admin_emails_sent'] += 1
@@ -285,7 +332,10 @@ def send_immediate_tier_breach_emails(db: Session) -> dict:
                'new_breaches': 0, 'ae_emails_sent': 0, 'admin_emails_sent': 0}
 
     state = db.scalar(select(CrmSyncState).where(CrmSyncState.entity_type == _IMMEDIATE_NOTIFIED_ENTITY))
-    already_notified = set((state.cursor_json or {}).get('notified_company_ids', [])) if state else set()
+    # notified_map: {company_id: iso_timestamp} — append-only with 7-day TTL expiry
+    raw_map: dict = (state.cursor_json or {}) if state else {}
+    cutoff = (datetime.utcnow() - timedelta(days=7)).isoformat()
+    already_notified = {cid for cid, ts in raw_map.items() if ts >= cutoff}
 
     if not result['enabled']:
         return result
@@ -330,7 +380,12 @@ def send_immediate_tier_breach_emails(db: Session) -> dict:
     if not state:
         state = CrmSyncState(entity_type=_IMMEDIATE_NOTIFIED_ENTITY, cursor_json={})
         db.add(state)
-    state.cursor_json = {'notified_company_ids': [b['company_id'] for b in breaches]}
+    now_iso = datetime.utcnow().isoformat()
+    # Merge new breach IDs in; expire entries older than 7 days; never replace the whole set.
+    merged = {cid: ts for cid, ts in raw_map.items() if ts >= cutoff}
+    for b in new_breaches:
+        merged[b['company_id']] = now_iso
+    state.cursor_json = merged
     db.commit()
 
     return result
