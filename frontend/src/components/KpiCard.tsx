@@ -29,7 +29,8 @@ export function KpiCard({
   onClick
 }: KpiCardProps) {
   const isPositive = trend !== undefined && trend >= 0;
-  const isLongText = typeof value === 'string' && value.length > 14;
+  // ponytail: regex detects free-text values (company names) vs numeric/currency
+  const isTextValue = typeof value === 'string' && !/^[\$€£¥₹\d,.\-+%\s]+$/.test(value);
 
   return (
     <Card 
@@ -41,7 +42,7 @@ export function KpiCard({
       )}
     >
       <div className="flex justify-between items-start mb-3 relative z-10 gap-1.5">
-        <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-zinc-400 leading-tight group-hover:text-zinc-200 transition-colors flex-1 min-w-0 break-words">{title}</div>
+        <div className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-zinc-400 leading-tight group-hover:text-zinc-200 transition-colors flex-1 min-w-0 break-words min-h-[2rem]">{title}</div>
         <Icon size={14} className="text-zinc-500 group-hover:text-zinc-100 group-hover:scale-110 transition-all shrink-0 mt-0.5" />
       </div>
       
@@ -49,7 +50,7 @@ export function KpiCard({
         <div
           className={cn(
             "font-black text-zinc-50 tracking-tight tabular-nums min-w-0",
-            isLongText ? "text-sm font-bold leading-tight break-words" : "text-2xl leading-tight break-words"
+            isTextValue ? "text-base font-bold leading-snug break-words" : "text-2xl leading-tight whitespace-nowrap"
           )}
           title={String(value)}
         >

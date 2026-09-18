@@ -9,6 +9,7 @@ import {
   ShieldCheck, Globe, ChevronDown, TrendingUp, Trophy, Medal,
   Bell, RefreshCw, CheckSquare, GitBranch, Target, Building2,
   LogOut, PanelLeftClose, PanelLeftOpen, UserCog, X, Plane, ArrowRight,
+  DollarSign, UserCheck, Award, MapPin, FileStack, Activity,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -37,7 +38,7 @@ type NavItem = {
   path: string;
   icon?: any;
   group?: string;
-  subItems?: { label: string; path: string; }[];
+  subItems?: { label: string; path: string; icon?: any; }[];
   roles?: string[];
 };
 
@@ -50,12 +51,12 @@ const NAV_ITEMS: NavItem[] = [
     icon: Globe,
     group: "Executive",
     subItems: [
-      { label: "Revenue Analytics", path: "/app/analytics#revenue" },
-      { label: "Customer Analytics", path: "/app/customer-analytics" },
-      { label: "AE Performance (Analytics)", path: "/app/ae-performance" },
-      { label: "Geography", path: "/app/geography" },
-      { label: "Document Type (DOC)", path: "/app/doc-type" },
-      { label: "Operational KPIs", path: "/app/operations" },
+      { label: "Revenue Analytics", path: "/app/analytics#revenue", icon: DollarSign },
+      { label: "Customer Analytics", path: "/app/customer-analytics", icon: UserCheck },
+      { label: "AE Performance", path: "/app/ae-performance", icon: Award },
+      { label: "Geography", path: "/app/geography", icon: MapPin },
+      { label: "Document Type", path: "/app/doc-type", icon: FileStack },
+      { label: "Operational KPIs", path: "/app/operations", icon: Activity },
     ]
   },
   { label: "Universal Search", path: "/app/search", icon: Search, group: "Executive" },
@@ -297,7 +298,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               className="w-full max-w-[180px] h-auto object-contain rounded opacity-90 hover:opacity-100 transition-opacity"
             />
           ) : (
-            <img src="/shangrila-logo.png" alt="Shangrila Tours" className="w-8 h-8 object-contain rounded opacity-90" />
+            <img src="/shangrila-logo.png" alt="Shangrila Tours" className="w-9 h-9 object-contain rounded opacity-90" />
           )}
         </div>
 
@@ -310,8 +311,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
             if (!sidebarOpen) {
               // Icon rail: flat list, no group headers, tooltip carries the label.
+              const isLastGroup = groupName === visibleGroups[visibleGroups.length - 1];
               return (
-                <div key={groupName} className="space-y-0.5">
+                <div key={groupName} className={cn("space-y-1", !isLastGroup && "mb-2 pb-2 border-b border-zinc-800/50")}>
                   {items.map(item => {
                     const isActive = isItemActive(location.pathname, item.path);
                     const badge = badgeFor(item.path);
@@ -325,8 +327,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                               isActive ? "text-zinc-50 bg-zinc-800" : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-50"
                             )}
                           >
-                            <item.icon size={16} />
-                            {badge > 0 && <span className="absolute top-1 right-2 w-1.5 h-1.5 rounded-full bg-rose-500" />}
+                            <item.icon size={20} />
+                            {badge > 0 && <span className="absolute top-1 right-2.5 w-1.5 h-1.5 rounded-full bg-rose-500" />}
                           </Link>
                         </TooltipTrigger>
                         <TooltipContent side="right">
@@ -383,6 +385,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                     : "text-zinc-500 hover:text-zinc-200"
                                 )}
                               >
+                                {subItem.icon && <subItem.icon size={13} className="shrink-0" />}
                                 {subItem.label}
                               </Link>
                             ))}
