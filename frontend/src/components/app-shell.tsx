@@ -8,12 +8,13 @@ import {
   BarChart3, Search, Users, Package, FileText,
   ShieldCheck, Globe, ChevronDown, TrendingUp, Trophy, Medal,
   Bell, RefreshCw, CheckSquare, GitBranch, Target, Building2,
-  LogOut, PanelLeftClose, PanelLeftOpen, UserCog, X, Plane, ArrowRight,
+  LogOut, PanelLeftClose, PanelLeftOpen, UserCog, X, Plane, ArrowRight, Sun, Moon,
   DollarSign, UserCheck, Award, MapPin, FileStack, Activity,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from '@/auth';
+import { useTheme } from '@/theme';
 import { api } from '@/api';
 import type { KeyInsight, SearchResultItem } from '@/api';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -154,6 +155,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [bellOpen, setBellOpen] = useState(false);
   const [insightCategory, setInsightCategory] = useState<string | null>(null);
   const { isSuperAdmin, hasRole, user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   // Header search: a live type-ahead dropdown over the same api.search() UniversalSearch.tsx
   // uses, so results here match the full search page exactly.
@@ -636,6 +638,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </DropdownMenu.Content>
               </DropdownMenu.Portal>
             </DropdownMenu.Root>
+
+            <Tooltip delayDuration={300}>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={toggleTheme}
+                  aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+                  className="p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-50 rounded-md transition-colors"
+                >
+                  {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">{theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}</TooltipContent>
+            </Tooltip>
 
             <DropdownMenu.Root>
               <DropdownMenu.Trigger asChild>
