@@ -2114,7 +2114,7 @@ def executive_dashboard(
         if cnt not in country_map: country_map[cnt]={'name':cnt, 'value':0, 'revenue':0.0}
         country_map[cnt]['value']+=1
         country_map[cnt]['revenue']+=r['amount']
-    country_segmentation=sorted([{'name':k, 'value':v['value'], 'revenue':round(v['revenue'], 2)} for k,v in country_map.items()], key=lambda x: x['value'], reverse=True)[:8]
+    country_segmentation=sorted([{'name':k, 'value':v['value'], 'revenue':round(v['revenue'], 2)} for k,v in country_map.items()], key=lambda x: x['value'], reverse=True)
     # Real distinct-country count, not the length of country_segmentation — that list is
     # capped to the top 8 for the chart, which silently caps "Countries Served" at 8 too
     # if a caller (wrongly) uses its length as the KPI. 'Unknown' (blank import_country)

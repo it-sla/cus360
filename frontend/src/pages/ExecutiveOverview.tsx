@@ -31,6 +31,8 @@ export default function ExecutiveOverview() {
   const [endDate, setEndDate] = React.useState('');
   const [compareMode, setCompareMode] = React.useState('pop');
   const [selectedKpi, setSelectedKpi] = React.useState<{ title: string; value: string; data: any; list?: any[] } | null>(null);
+  const [showAllCustomers, setShowAllCustomers] = React.useState(false);
+  const [showAllDestinations, setShowAllDestinations] = React.useState(false);
 
   const { data: d, isLoading, error } = useQuery({
     queryKey: ['executive-dashboard', timeframe, startDate, endDate, compareMode],
@@ -41,6 +43,13 @@ export default function ExecutiveOverview() {
       compare_mode: compareMode,
     }),
     refetchInterval: 300000,
+  });
+
+  const { data: allCustomers, isFetching: allCustomersFetching } = useQuery({
+    queryKey: ['top-customers-all', timeframe, startDate, endDate],
+    queryFn: () => api.getTopCustomers({ timeframe, date_from: timeframe === 'custom' ? startDate : undefined, date_to: timeframe === 'custom' ? endDate : undefined, limit: 500 }),
+    enabled: showAllCustomers,
+    staleTime: 300000,
   });
 
   if (isLoading) {
@@ -316,8 +325,8 @@ export default function ExecutiveOverview() {
         <div className="bg-white border border-[#DCE3EC] rounded-[16px] p-5 shadow-[0_2px_8px_rgba(15,23,42,0.05)] flex flex-col justify-between">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-bold text-slate-900 tracking-tight">Top Customers</h2>
-            <Button variant="ghost" size="sm" className="h-7 text-xs text-primary font-semibold hover:bg-primary/5" onClick={() => navigate('/app/customers')}>
-              View Directory <ArrowRight size={12} className="ml-1" />
+            <Button variant="ghost" size="sm" className="h-7 text-xs text-primary font-semibold hover:bg-primary/5" onClick={() => setShowAllCustomers(true)}>
+              View All <ArrowRight size={12} className="ml-1" />
             </Button>
           </div>
           <div className="border border-slate-100 rounded-xl overflow-hidden">
@@ -348,7 +357,12 @@ export default function ExecutiveOverview() {
 
         {/* Top Destinations Container */}
         <div className="bg-white border border-[#DCE3EC] rounded-[16px] p-5 shadow-[0_2px_8px_rgba(15,23,42,0.05)] flex flex-col justify-between">
-          <h2 className="text-sm font-bold text-slate-900 tracking-tight mb-4">Top Destinations</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-bold text-slate-900 tracking-tight">Top Destinations</h2>
+            <Button variant="ghost" size="sm" className="h-7 text-xs text-primary font-semibold hover:bg-primary/5" onClick={() => setShowAllDestinations(true)}>
+              View All <ArrowRight size={12} className="ml-1" />
+            </Button>
+          </div>
           <div className="flex flex-col justify-center space-y-4 min-h-[160px]">
             {countries.length > 0 ? countries.slice(0, 5).map((dest: any, i: number) => {
               const pct = (dest.revenue / maxCountryRev) * 100;
@@ -467,6 +481,110 @@ export default function ExecutiveOverview() {
         </div>
       </div>
       
+      {/* All Destinations Slide-over */}
+      {showAllDestinations && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs" onClick={() => setShowAllDestinations(false)} />
+          <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="w-[480px] max-w-full h-full bg-white dark:bg-zinc-900 border-l border-slate-200 dark:border-zinc-800 shadow-2xl relative z-10 flex flex-col"
+          >
+            <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-zinc-800 bg-slate-50/80 dark:bg-zinc-900/90">
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">All Destinations</h3>
+                <p className="text-lg font-black text-slate-900 dark:text-zinc-100 mt-1 tracking-tight">{countries.length} countries</p>
+              </div>
+              <button onClick={() => setShowAllDestinations(false)} className="p-2 hover:bg-slate-200/60 dark:hover:bg-zinc-800 rounded-full transition-colors text-slate-400 hover:text-slate-900">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50/80 border-b border-slate-100 sticky top-0">
+                  <tr className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+                    <th className="px-4 py-2.5 w-8">#</th>
+                    <th className="px-4 py-2.5">Country</th>
+                    <th className="px-4 py-2.5 text-right">Revenue</th>
+                    <th className="px-4 py-2.5 text-right">Shipments</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {countries.map((c: any, i: number) => (
+                    <tr key={i} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-2.5 text-slate-400 font-medium">{i + 1}</td>
+                      <td className="px-4 py-2.5 font-semibold text-slate-800">{c.name || 'Unknown'}</td>
+                      <td className="px-4 py-2.5 text-right font-bold text-slate-900">{formatMoney(c.revenue)}</td>
+                      <td className="px-4 py-2.5 text-right text-slate-500 font-medium">{c.value}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* All Customers Slide-over */}
+      {showAllCustomers && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs" onClick={() => setShowAllCustomers(false)} />
+          <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="w-[560px] max-w-full h-full bg-white dark:bg-zinc-900 border-l border-slate-200 dark:border-zinc-800 shadow-2xl relative z-10 flex flex-col"
+          >
+            <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-zinc-800 bg-slate-50/80 dark:bg-zinc-900/90">
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">All Customers</h3>
+                <p className="text-lg font-black text-slate-900 dark:text-zinc-100 mt-1 tracking-tight">
+                  {allCustomers ? `${allCustomers.items.length} customers` : 'Loading…'}
+                </p>
+              </div>
+              <button onClick={() => setShowAllCustomers(false)} className="p-2 hover:bg-slate-200/60 dark:hover:bg-zinc-800 rounded-full transition-colors text-slate-400 hover:text-slate-900">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {allCustomersFetching && !allCustomers ? (
+                <div className="p-6 space-y-2">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="h-9 bg-slate-100 dark:bg-zinc-800 rounded-lg animate-pulse" />
+                  ))}
+                </div>
+              ) : (
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50/80 border-b border-slate-100 sticky top-0">
+                    <tr className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+                      <th className="px-4 py-2.5 w-8">#</th>
+                      <th className="px-4 py-2.5">Company</th>
+                      <th className="px-4 py-2.5 text-right">Revenue</th>
+                      <th className="px-4 py-2.5 text-right">AWBs</th>
+                      <th className="px-4 py-2.5 text-right">Weight</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {(allCustomers?.items || []).map((c: any, i: number) => (
+                      <tr key={i} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => { setShowAllCustomers(false); navigate(`/app/customers/${c.company_id}`); }}>
+                        <td className="px-4 py-2.5 text-slate-400 font-medium">{c.rank ?? i + 1}</td>
+                        <td className="px-4 py-2.5 font-semibold text-slate-800 max-w-[220px] truncate">{c.company_name}</td>
+                        <td className="px-4 py-2.5 text-right font-bold text-slate-900">{formatMoney(c.revenue)}</td>
+                        <td className="px-4 py-2.5 text-right text-slate-500 font-medium">{c.shipments}</td>
+                        <td className="px-4 py-2.5 text-right text-slate-500 font-medium">{c.weight != null ? c.weight.toLocaleString(undefined, { maximumFractionDigits: 1 }) : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {/* KPI Details Panel Slide-over */}
       {selectedKpi && (
         <div className="fixed inset-0 z-50 flex justify-end">
