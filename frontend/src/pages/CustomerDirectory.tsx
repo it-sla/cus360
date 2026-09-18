@@ -6,6 +6,7 @@ import {
   Building2
 } from 'lucide-react';
 import { api } from '../api';
+
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
   useEffect(() => {
@@ -17,22 +18,20 @@ function useDebounce<T>(value: T, delay: number): T {
 
 const PAGE_SIZE = 25;
 
-// Same active/quiet/inactive/dormant palette as Customer360.tsx's INACTIVITY_COLORS, kept in
-// sync so a customer's status badge reads the same color on both pages.
 const STATUS_BADGES: Record<string, { bg: string; text: string; label: string }> = {
-  active:   { bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700', label: 'Active' },
-  quiet:    { bg: 'bg-sky-50 border-sky-200', text: 'text-sky-700', label: 'Quiet' },
-  inactive: { bg: 'bg-amber-50 border-amber-200', text: 'text-amber-700', label: 'Inactive' },
-  dormant:  { bg: 'bg-rose-50 border-rose-200', text: 'text-rose-700', label: 'Dormant' },
-  prospect: { bg: 'bg-blue-50 border-blue-200', text: 'text-blue-700', label: 'Prospect' },
-  vip:      { bg: 'bg-purple-50 border-purple-200', text: 'text-purple-700', label: 'VIP' },
-  blocked:  { bg: 'bg-rose-50 border-rose-200', text: 'text-rose-700', label: 'Blocked' },
+  active:   { bg: 'bg-emerald-500/10 border-emerald-500/30', text: 'text-emerald-400', label: 'Active' },
+  quiet:    { bg: 'bg-sky-500/10 border-sky-500/30', text: 'text-sky-400', label: 'Quiet' },
+  inactive: { bg: 'bg-amber-500/10 border-amber-500/30', text: 'text-amber-400', label: 'Inactive' },
+  dormant:  { bg: 'bg-rose-500/10 border-rose-500/30', text: 'text-rose-400', label: 'Dormant' },
+  prospect: { bg: 'bg-blue-500/10 border-blue-500/30', text: 'text-blue-400', label: 'Prospect' },
+  vip:      { bg: 'bg-purple-500/10 border-purple-500/30', text: 'text-purple-400', label: 'VIP' },
+  blocked:  { bg: 'bg-rose-500/10 border-rose-500/30', text: 'text-rose-400', label: 'Blocked' },
 };
 
 function StatusBadge({ status, isProvisional }: { status: string; isProvisional?: boolean }) {
   if (isProvisional) {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
         Provisional
       </span>
     );
@@ -55,7 +54,6 @@ export default function CustomerDirectory() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // URL is the source of truth for filters/search/page so they survive reload and back/forward.
   const page = Number(searchParams.get('page')) || 1;
   const filters = {
     inactivityStatus: searchParams.get('inactivityStatus') || '',
@@ -73,16 +71,14 @@ export default function CustomerDirectory() {
     const next = typeof updater === 'function' ? updater(page) : updater;
     updateParams({ page: String(next) });
   };
-  // Resets to page 1 as part of the same URL update — never pair this with a separate setPage
-  // call, or the two updateParams calls race and the second one wins with a stale snapshot.
   const setFilters = (updater: typeof filters | ((f: typeof filters) => typeof filters)) => {
     const next = typeof updater === 'function' ? updater(filters) : updater;
     updateParams({ ...next, page: '' });
   };
 
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
-  const [sortField, setSortField] = useState<string | null>('company_name');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [sortField, setSortField] = useState<string | null>('revenue');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   const debouncedSearch = useDebounce(searchQuery, 300);
   useEffect(() => { updateParams({ q: debouncedSearch, page: '' }); }, [debouncedSearch]);
@@ -94,19 +90,14 @@ export default function CustomerDirectory() {
       inactivity_status: filters.inactivityStatus || undefined,
       customer_type: filters.segment || undefined,
       pay_term: filters.payTerm || undefined,
-      limit: 200,   // backend hard cap is le=200
+      limit: 200,
       offset: 0
     }),
   });
 
   const rawItems = data?.items || [];
-  // `data.total` is the true count of companies matching the current filters; `rawItems` is
-  // capped at the `limit: 200` sent in the request below, so the two can diverge for a broad
-  // (or unfiltered) search — the pagination footer surfaces that gap rather than silently
-  // implying only `rawItems.length` accounts exist.
   const backendTotal = data?.total ?? rawItems.length;
 
-  // Filter & Sort locally for instant BI responsiveness
   const { paginatedItems, totalItems, totalPages } = useMemo(() => {
     let items = [...rawItems];
 
@@ -130,11 +121,7 @@ export default function CustomerDirectory() {
     const start = (safePage - 1) * PAGE_SIZE;
     const paginated = items.slice(start, start + PAGE_SIZE);
 
-    return {
-      paginatedItems: paginated,
-      totalItems: t,
-      totalPages: tp
-    };
+    return { paginatedItems: paginated, totalItems: t, totalPages: tp };
   }, [rawItems, sortField, sortDirection, page]);
 
   const handleSort = (field: string) => {
@@ -147,7 +134,7 @@ export default function CustomerDirectory() {
   };
 
   const SortIcon = ({ field }: { field: string }) => {
-    if (sortField !== field) return <ArrowUpDown size={12} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />;
+    if (sortField !== field) return <ArrowUpDown size={12} className="text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity" />;
     return sortDirection === 'asc' ? <ArrowUp size={12} className="text-primary" /> : <ArrowDown size={12} className="text-primary" />;
   };
 
@@ -156,43 +143,43 @@ export default function CustomerDirectory() {
       {isFetching && <div className="h-0.5 bg-gradient-to-r from-blue-400 via-indigo-500 to-blue-600 animate-pulse w-full sticky top-0 z-50" />}
 
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        
-        {/* 1. PAGE HEADER */}
+
+        {/* PAGE HEADER */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Customer Directory</h1>
-            <p className="mt-1 text-xs sm:text-sm text-slate-500 font-medium">
+            <h1 className="text-xl sm:text-2xl font-black text-zinc-50 tracking-tight">Customer Directory</h1>
+            <p className="mt-1 text-xs sm:text-sm text-zinc-500 font-medium">
               Manage and analyze all master customer accounts across the organization.
             </p>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <button 
-              onClick={() => refetch()} 
-              className="flex items-center gap-1.5 px-3 py-2 bg-white border border-[#DCE3EC] text-xs font-bold text-slate-700 hover:bg-slate-50 rounded-lg shadow-xs transition-colors"
+            <button
+              onClick={() => refetch()}
+              className="flex items-center gap-1.5 px-3 py-2 bg-zinc-800 border border-zinc-700 text-xs font-bold text-zinc-300 hover:bg-zinc-700 rounded-lg transition-colors"
             >
-              <RefreshCw size={14} className={`text-slate-500 ${isFetching ? 'animate-spin' : ''}`} />
+              <RefreshCw size={14} className={`text-zinc-500 ${isFetching ? 'animate-spin' : ''}`} />
               <span>Refresh</span>
             </button>
           </div>
         </div>
 
-        {/* 4. TOOLBAR & MULTI-FILTERS */}
-        <div className="bg-white rounded-[16px] border border-[#E2E8F0] p-4 shadow-[0_2px_4px_rgba(15,23,42,0.04)] space-y-3">
+        {/* TOOLBAR & FILTERS */}
+        <div className="bg-zinc-900 rounded-[16px] border border-zinc-800 p-4 space-y-3">
           <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
-            
+
             {/* Search Input */}
             <div className="relative flex-1">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input 
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+              <input
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search Company Name, ICRIS ID, Contact Name, Email, Country..."
-                className="w-full h-9 pl-9 pr-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 outline-none focus:border-primary focus:bg-white transition-all placeholder:text-slate-400 placeholder:font-medium"
+                className="w-full h-9 pl-9 pr-3 bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-semibold text-zinc-300 outline-none focus:border-primary transition-all placeholder:text-zinc-500 placeholder:font-medium"
               />
               {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
                   <X size={14} />
                 </button>
               )}
@@ -200,11 +187,11 @@ export default function CustomerDirectory() {
 
             {/* Filter Dropdowns */}
             <div className="flex flex-wrap items-center gap-2">
-              
-              <select 
-                value={filters.inactivityStatus} 
+
+              <select
+                value={filters.inactivityStatus}
                 onChange={e => setFilters(prev => ({ ...prev, inactivityStatus: e.target.value }))}
-                className="h-9 px-3 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none hover:bg-slate-50 cursor-pointer"
+                className="h-9 px-3 bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-semibold text-zinc-300 outline-none hover:bg-zinc-700 cursor-pointer"
               >
                 <option value="">All Activity Statuses</option>
                 <option value="active">Active (&lt; 30 days)</option>
@@ -214,10 +201,10 @@ export default function CustomerDirectory() {
                 <option value="reactivated">Reactivated (This Month)</option>
               </select>
 
-              <select 
-                value={filters.segment} 
+              <select
+                value={filters.segment}
                 onChange={e => setFilters(prev => ({ ...prev, segment: e.target.value }))}
-                className="h-9 px-3 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none hover:bg-slate-50 cursor-pointer"
+                className="h-9 px-3 bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-semibold text-zinc-300 outline-none hover:bg-zinc-700 cursor-pointer"
               >
                 <option value="">All Segments</option>
                 <option value="Key Account">Key Account</option>
@@ -227,10 +214,10 @@ export default function CustomerDirectory() {
                 <option value="Small Customer">Small Customer</option>
               </select>
 
-              <select 
-                value={filters.payTerm} 
+              <select
+                value={filters.payTerm}
                 onChange={e => setFilters(prev => ({ ...prev, payTerm: e.target.value }))}
-                className="h-9 px-3 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none hover:bg-slate-50 cursor-pointer"
+                className="h-9 px-3 bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-semibold text-zinc-300 outline-none hover:bg-zinc-700 cursor-pointer"
               >
                 <option value="">All Pay Terms</option>
                 <option value="PP">Prepaid (PP)</option>
@@ -244,115 +231,113 @@ export default function CustomerDirectory() {
                     setSearchQuery('');
                     setFilters({ inactivityStatus: '', segment: '', payTerm: '' });
                   }}
-                  className="text-xs font-semibold text-rose-500 hover:text-rose-700 px-2 transition-colors"
+                  className="text-xs font-semibold text-rose-500 hover:text-rose-400 px-2 transition-colors"
                 >
                   Clear Filters
                 </button>
               )}
-
-
             </div>
           </div>
         </div>
 
-        {/* 5. HIGH-DENSITY CUSTOMER TABLE */}
-        <div className="bg-white dark:bg-slate-900/50 rounded-[16px] border border-[#E2E8F0] dark:border-slate-800 shadow-[0_2px_4px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.06)] overflow-hidden flex flex-col">
+        {/* CUSTOMER TABLE */}
+        <div className="bg-zinc-900 rounded-[16px] border border-zinc-800 overflow-hidden flex flex-col">
           <div className="overflow-x-auto min-h-[480px]">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50/90 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-                <tr className="text-[10px] uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">
-                  <th className="px-2.5 py-2.5 text-left cursor-pointer group hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" onClick={() => handleSort('company_name')}>
+              <thead className="bg-zinc-800/50 border-b border-zinc-800">
+                <tr className="text-[10px] uppercase font-bold tracking-wider text-zinc-500">
+                  <th className="px-2.5 py-2.5 text-left cursor-pointer group hover:bg-zinc-800 transition-colors" onClick={() => handleSort('company_name')}>
                     <div className="flex items-center gap-1">Company <SortIcon field="company_name" /></div>
                   </th>
-                  <th className="px-2.5 py-2.5 text-left cursor-pointer group hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" onClick={() => handleSort('icris_number')}>
+                  <th className="px-2.5 py-2.5 text-left cursor-pointer group hover:bg-zinc-800 transition-colors" onClick={() => handleSort('icris_number')}>
                     <div className="flex items-center gap-1">ICRIS <SortIcon field="icris_number" /></div>
                   </th>
                   <th className="px-2.5 py-2.5 text-left">Country</th>
-                  <th className="px-2.5 py-2.5 text-right cursor-pointer group hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" onClick={() => handleSort('revenue')}>
+                  <th className="px-2.5 py-2.5 text-right cursor-pointer group hover:bg-zinc-800 transition-colors" onClick={() => handleSort('revenue')}>
                     <div className="flex items-center justify-end gap-1"><SortIcon field="revenue" /> Revenue</div>
                   </th>
-                  <th className="px-2.5 py-2.5 text-right cursor-pointer group hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" onClick={() => handleSort('shipment_count')}>
+                  <th className="px-2.5 py-2.5 text-right cursor-pointer group hover:bg-zinc-800 transition-colors" onClick={() => handleSort('shipment_count')}>
                     <div className="flex items-center justify-end gap-1"><SortIcon field="shipment_count" /> AWBs</div>
                   </th>
-                  <th className="px-2.5 py-2.5 text-right cursor-pointer group hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" onClick={() => handleSort('total_weight')}>
+                  <th className="px-2.5 py-2.5 text-right cursor-pointer group hover:bg-zinc-800 transition-colors" onClick={() => handleSort('total_weight')}>
                     <div className="flex items-center justify-end gap-1"><SortIcon field="total_weight" /> Weight</div>
                   </th>
                   <th className="px-2.5 py-2.5 text-left">AE</th>
                   <th className="px-2.5 py-2.5 text-left">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+              <tbody className="divide-y divide-zinc-800">
                 {isLoading ? (
                   [...Array(10)].map((_, i) => (
                     <tr key={i} className="animate-pulse">
-                      <td className="px-2.5 py-3"><div className="h-4 bg-slate-100 rounded w-36" /></td>
-                      <td className="px-2.5 py-3"><div className="h-4 bg-slate-100 rounded w-20" /></td>
-                      <td className="px-2.5 py-3"><div className="h-4 bg-slate-100 rounded w-12" /></td>
-                      <td className="px-2.5 py-3"><div className="h-4 bg-slate-100 rounded w-14 ml-auto" /></td>
-                      <td className="px-2.5 py-3"><div className="h-4 bg-slate-100 rounded w-8 ml-auto" /></td>
-                      <td className="px-2.5 py-3"><div className="h-4 bg-slate-100 rounded w-14 ml-auto" /></td>
-                      <td className="px-2.5 py-3"><div className="h-4 bg-slate-100 rounded w-16" /></td>
-                      <td className="px-2.5 py-3"><div className="h-4 bg-slate-100 rounded w-16" /></td>
+                      <td className="px-2.5 py-3"><div className="h-4 bg-zinc-800 rounded w-36" /></td>
+                      <td className="px-2.5 py-3"><div className="h-4 bg-zinc-800 rounded w-20" /></td>
+                      <td className="px-2.5 py-3"><div className="h-4 bg-zinc-800 rounded w-12" /></td>
+                      <td className="px-2.5 py-3"><div className="h-4 bg-zinc-800 rounded w-14 ml-auto" /></td>
+                      <td className="px-2.5 py-3"><div className="h-4 bg-zinc-800 rounded w-8 ml-auto" /></td>
+                      <td className="px-2.5 py-3"><div className="h-4 bg-zinc-800 rounded w-14 ml-auto" /></td>
+                      <td className="px-2.5 py-3"><div className="h-4 bg-zinc-800 rounded w-16" /></td>
+                      <td className="px-2.5 py-3"><div className="h-4 bg-zinc-800 rounded w-16" /></td>
                     </tr>
                   ))
                 ) : paginatedItems.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="px-5 py-24 text-center">
-                      <div className="flex flex-col items-center justify-center text-slate-400">
-                        <Building2 size={36} className="mb-3 text-slate-300" />
-                        <p className="text-sm font-bold text-slate-600 mb-1">No Customers Found</p>
+                      <div className="flex flex-col items-center justify-center text-zinc-500">
+                        <Building2 size={36} className="mb-3 text-zinc-600" />
+                        <p className="text-sm font-bold text-zinc-400 mb-1">No Customers Found</p>
                         <p className="text-xs">Try adjusting your search or status filters.</p>
                       </div>
                     </td>
                   </tr>
                 ) : (
-                  paginatedItems.map((c: any) => {
-                    return (
-                      <tr 
-                        key={c.company_id}
-                        onClick={() => navigate(`/app/customers/${c.company_id}`)}
-                        className="transition-colors cursor-pointer group"
-                      >
-                        <td className="px-2.5 py-3 font-bold text-slate-900 dark:text-slate-100 max-w-[180px] lg:max-w-[240px] truncate">
-                          <span 
-                            className="hover:text-primary transition-colors"
-                            onClick={(e) => { e.stopPropagation(); navigate(`/app/customers/${c.company_id}`); }}
-                          >
-                            {c.company_name ? c.company_name : <span className="text-amber-500 italic font-bold">Unlinked Shipments</span>}
-                          </span>
-                        </td>
+                  paginatedItems.map((c: any) => (
+                    <tr
+                      key={c.company_id}
+                      onClick={() => navigate(`/app/customers/${c.company_id}`)}
+                      className="transition-colors cursor-pointer group hover:bg-zinc-800/50"
+                    >
+                      <td className="px-2.5 py-3 font-bold text-zinc-50 max-w-[180px] lg:max-w-[240px] truncate">
+                        <span
+                          className="hover:text-primary transition-colors"
+                          onClick={(e) => { e.stopPropagation(); navigate(`/app/customers/${c.company_id}`); }}
+                        >
+                          {c.company_name ? c.company_name : <span className="text-amber-400 italic font-bold">Unlinked Shipments</span>}
+                        </span>
+                      </td>
 
-                        <td className="px-2.5 py-3 font-mono text-slate-600 dark:text-slate-400 truncate max-w-[100px]">
-                          {c.icris_number || <span className="text-slate-300 dark:text-slate-600">—</span>}
-                        </td>
+                      <td className="px-2.5 py-3 font-mono text-zinc-400 truncate max-w-[100px]">
+                        {c.icris_number || <span className="text-zinc-600">—</span>}
+                      </td>
 
-                        <td className="px-2.5 py-3 font-medium text-slate-700 dark:text-slate-300 truncate max-w-[90px]">
-                          {c.country || 'Unknown'}
-                        </td>
+                      <td className="px-2.5 py-3 font-medium text-zinc-300 truncate max-w-[90px]">
+                        {c.country || 'Unknown'}
+                      </td>
 
-                        <td className="px-2.5 py-3 text-right font-black text-slate-900 dark:text-slate-100 whitespace-nowrap">
-                          {fmt$(c.revenue || 0)}
-                        </td>
+                      <td className="px-2.5 py-3 text-right font-black text-zinc-50 whitespace-nowrap">
+                        {fmt$(c.revenue || 0)}
+                      </td>
 
-                        <td className="px-2.5 py-3 text-right font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                          {c.shipment_count > 0 ? c.shipment_count.toLocaleString() : '0'}
-                        </td>
+                      <td className="px-2.5 py-3 text-right font-bold text-zinc-300 whitespace-nowrap">
+                        {c.shipment_count > 0 ? c.shipment_count.toLocaleString() : '0'}
+                      </td>
 
-                        <td className="px-2.5 py-3 text-right font-semibold text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                          {fmtWeight(c.total_weight || 0)}
-                        </td>
+                      <td className="px-2.5 py-3 text-right font-semibold text-zinc-400 whitespace-nowrap">
+                        {fmtWeight(c.total_weight || 0)}
+                      </td>
 
-                        <td className="px-2.5 py-3 text-slate-600 dark:text-slate-400 font-medium truncate max-w-[100px]">
-                          {c.ae_code || 'UNASSIGNED'}
-                        </td>
+                      <td className="px-2.5 py-3 font-medium truncate max-w-[100px]">
+                        {c.ae_code
+                          ? <span className="text-zinc-400">{c.ae_code}</span>
+                          : <span className="text-zinc-600 italic">—</span>
+                        }
+                      </td>
 
-                        <td className="px-2.5 py-3">
-                          <StatusBadge status={c.inactivity_status} isProvisional={c.is_provisional} />
-                        </td>
-
-                      </tr>
-                    );
-                  })
+                      <td className="px-2.5 py-3">
+                        <StatusBadge status={c.inactivity_status} isProvisional={c.is_provisional} />
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
@@ -360,27 +345,27 @@ export default function CustomerDirectory() {
 
           {/* PAGINATION FOOTER */}
           {totalPages > 1 && (
-            <div className="px-5 py-3 bg-slate-50/80 border-t border-slate-200 flex items-center justify-between text-xs font-medium text-slate-600">
+            <div className="px-5 py-3 bg-zinc-800/50 border-t border-zinc-800 flex items-center justify-between text-xs font-medium text-zinc-400">
               <span>
-                Showing <strong>{(page - 1) * PAGE_SIZE + 1}</strong> to <strong>{Math.min(page * PAGE_SIZE, totalItems)}</strong> of <strong>{totalItems}</strong> loaded
+                Showing <strong className="text-zinc-300">{(page - 1) * PAGE_SIZE + 1}</strong> to <strong className="text-zinc-300">{Math.min(page * PAGE_SIZE, totalItems)}</strong> of <strong className="text-zinc-300">{totalItems}</strong> loaded
                 {backendTotal > rawItems.length && (
-                  <span className="text-amber-600"> · {backendTotal.toLocaleString()} accounts match these filters — narrow your search or filters to see beyond the first {rawItems.length}</span>
+                  <span className="text-amber-500"> · {backendTotal.toLocaleString()} accounts match — narrow your search to see beyond the first {rawItems.length}</span>
                 )}
               </span>
 
               <div className="flex items-center gap-2">
-                <button 
+                <button
                   disabled={page === 1}
                   onClick={() => setPage(p => Math.max(1, p - 1))}
-                  className="px-3 py-1 bg-white border border-slate-200 rounded-md font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                  className="px-3 py-1 bg-zinc-800 border border-zinc-700 rounded-md font-semibold text-zinc-300 hover:bg-zinc-700 disabled:opacity-40"
                 >
                   Previous
                 </button>
-                <span className="text-xs font-bold text-slate-800 px-2">Page {page} of {totalPages}</span>
-                <button 
+                <span className="text-xs font-bold text-zinc-300 px-2">Page {page} of {totalPages}</span>
+                <button
                   disabled={page === totalPages}
                   onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  className="px-3 py-1 bg-white border border-slate-200 rounded-md font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                  className="px-3 py-1 bg-zinc-800 border border-zinc-700 rounded-md font-semibold text-zinc-300 hover:bg-zinc-700 disabled:opacity-40"
                 >
                   Next
                 </button>
@@ -390,8 +375,6 @@ export default function CustomerDirectory() {
         </div>
 
       </div>
-
     </div>
   );
 }
-

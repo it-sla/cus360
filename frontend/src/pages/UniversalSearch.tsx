@@ -37,14 +37,13 @@ export default function UniversalSearch() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [searchParams] = useSearchParams();
 
-  // Deep-link support: header search's "View all results" links here as /app/search?q=...
   const [query, setQuery] = useState(() => searchParams.get('q') || '');
   const debouncedQuery = useDebounce(query, 200);
   const [activeFilter, setActiveFilter] = useState('all');
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
-  
+
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  
+
   useEffect(() => {
     const saved = localStorage.getItem('c360_recent_searches');
     if (saved) {
@@ -81,7 +80,7 @@ export default function UniversalSearch() {
   });
 
   const rawItems = data?.items || [];
-  
+
   const filteredItems = useMemo(() => {
     if (activeFilter === 'all') return rawItems;
     if (activeFilter === 'analytics') return rawItems.filter(i => i.result_type === 'company' || i.result_type === 'mawb');
@@ -121,11 +120,10 @@ export default function UniversalSearch() {
 
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  useEffect(() => { 
-    setSelectedIndex(0); 
+  useEffect(() => {
+    setSelectedIndex(0);
   }, [debouncedQuery, activeFilter]);
 
-  // Keyboard navigation listeners
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
@@ -177,40 +175,40 @@ export default function UniversalSearch() {
   return (
     <div className="flex-1 overflow-y-auto bg-background min-h-full">
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        
+
         {/* PAGE TITLE */}
         <div className="text-center max-w-xl mx-auto space-y-1.5">
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-zinc-50">
             Universal Search
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium">
+          <p className="text-xs sm:text-sm text-zinc-500 font-medium">
             Find customers, shipments, AWBs, companies, CRM records, and documents instantly.
           </p>
         </div>
 
         {/* HERO SEARCH BAR */}
         <div className="max-w-3xl mx-auto">
-          <div className="relative bg-white rounded-[20px] border border-[#E2E8F0] shadow-[0_4px_24px_rgba(15,23,42,0.06)] flex items-center p-2.5 transition-all focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10">
+          <div className="relative bg-zinc-900 rounded-[20px] border border-zinc-700 flex items-center p-2.5 transition-all focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/20">
             <Search className="ml-3 text-primary shrink-0" size={22} />
-            <input 
+            <input
               ref={searchInputRef}
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search customers, AWBs, ICRIS, CRM records..."
-              className="w-full h-11 px-3 bg-transparent text-sm sm:text-base font-semibold text-slate-900 placeholder:text-slate-400 outline-none"
+              className="w-full h-11 px-3 bg-transparent text-sm sm:text-base font-semibold text-zinc-50 placeholder:text-zinc-500 outline-none"
               autoFocus
             />
             {query ? (
-              <button 
+              <button
                 onClick={() => setQuery('')}
-                className="p-1.5 mr-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
+                className="p-1.5 mr-2 text-zinc-500 hover:text-zinc-300 rounded-lg hover:bg-zinc-800 transition-colors"
                 title="Clear search (Esc)"
               >
                 <X size={18} />
               </button>
             ) : (
-              <div className="mr-3 flex items-center gap-1 px-2 py-1 bg-slate-100 border border-slate-200 rounded-md text-[11px] font-bold text-slate-500 select-none">
+              <div className="mr-3 flex items-center gap-1 px-2 py-1 bg-zinc-800 border border-zinc-700 rounded-md text-[11px] font-bold text-zinc-500 select-none">
                 <Command size={12} />
                 <span>K</span>
               </div>
@@ -226,9 +224,9 @@ export default function UniversalSearch() {
                   key={chip.id}
                   onClick={() => setActiveFilter(chip.id)}
                   className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-                    isActive 
-                      ? 'bg-primary text-white shadow-xs' 
-                      : 'bg-white border border-[#E2E8F0] text-slate-600 hover:bg-slate-50 hover:border-slate-300'
+                    isActive
+                      ? 'bg-primary text-white'
+                      : 'bg-zinc-800 border border-zinc-700 text-zinc-400 hover:bg-zinc-700 hover:border-zinc-600 hover:text-zinc-200'
                   }`}
                 >
                   {chip.label}
@@ -241,18 +239,18 @@ export default function UniversalSearch() {
         {/* DEFAULT VIEW (WHEN NO QUERY TYPED) */}
         {!debouncedQuery.trim() && (
           <div className="max-w-4xl mx-auto space-y-6 pt-4">
-            
+
             {/* RECENT SEARCHES */}
             {recentSearches.length > 0 && (
-              <div className="bg-white rounded-[16px] border border-[#E2E8F0] p-5 shadow-[0_2px_4px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.06)]">
+              <div className="bg-zinc-900 rounded-[16px] border border-zinc-800 p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-900 tracking-tight">
-                    <Clock size={15} className="text-slate-400" />
+                  <div className="flex items-center gap-2 text-xs font-bold text-zinc-50 tracking-tight">
+                    <Clock size={15} className="text-zinc-500" />
                     <span>Recent Searches</span>
                   </div>
-                  <button 
+                  <button
                     onClick={clearAllRecents}
-                    className="text-[11px] font-semibold text-rose-500 hover:text-rose-700 transition-colors"
+                    className="text-[11px] font-semibold text-rose-500 hover:text-rose-400 transition-colors"
                   >
                     Clear History
                   </button>
@@ -263,13 +261,13 @@ export default function UniversalSearch() {
                     <button
                       key={idx}
                       onClick={() => setQuery(s)}
-                      className="group inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 hover:border-primary/40 hover:bg-blue-50/50 rounded-lg text-xs font-semibold text-slate-700 hover:text-primary transition-all"
+                      className="group inline-flex items-center gap-2 px-3 py-1.5 bg-zinc-800 border border-zinc-700 hover:border-primary/60 hover:bg-primary/10 rounded-lg text-xs font-semibold text-zinc-400 hover:text-primary transition-all"
                     >
                       <span>{s}</span>
-                      <X 
-                        size={12} 
+                      <X
+                        size={12}
                         onClick={(e) => removeRecentSearch(s, e)}
-                        className="text-slate-400 hover:text-rose-600 transition-colors" 
+                        className="text-zinc-500 hover:text-rose-400 transition-colors"
                       />
                     </button>
                   ))}
@@ -283,14 +281,14 @@ export default function UniversalSearch() {
         {/* SEARCH RESULTS SECTION */}
         {debouncedQuery.trim().length > 0 && (
           <div className="max-w-4xl mx-auto space-y-6 pt-2">
-            
+
             {/* LOADING STATE */}
             {isLoading && (
               <div className="space-y-4">
                 {[1, 2, 3].map(i => (
-                  <div key={i} className="bg-white rounded-[16px] border border-[#E2E8F0] p-5 animate-pulse space-y-3">
-                    <div className="h-4 bg-slate-200 rounded w-1/3" />
-                    <div className="h-3 bg-slate-100 rounded w-2/3" />
+                  <div key={i} className="bg-zinc-900 rounded-[16px] border border-zinc-800 p-5 animate-pulse space-y-3">
+                    <div className="h-4 bg-zinc-700 rounded w-1/3" />
+                    <div className="h-3 bg-zinc-800 rounded w-2/3" />
                   </div>
                 ))}
               </div>
@@ -298,13 +296,13 @@ export default function UniversalSearch() {
 
             {/* ERROR STATE */}
             {isError && (
-              <div className="bg-white rounded-[16px] border border-rose-200 p-6 text-center space-y-3 shadow-xs">
-                <ShieldAlert size={32} className="mx-auto text-rose-500" />
-                <p className="text-sm font-bold text-slate-900">Unable to perform search</p>
-                <p className="text-xs text-slate-500">Check your network or server connection.</p>
-                <button 
+              <div className="bg-zinc-900 rounded-[16px] border border-rose-800/50 p-6 text-center space-y-3">
+                <ShieldAlert size={32} className="mx-auto text-rose-400" />
+                <p className="text-sm font-bold text-zinc-50">Unable to perform search</p>
+                <p className="text-xs text-zinc-500">Check your network or server connection.</p>
+                <button
                   onClick={() => refetch()}
-                  className="px-4 py-2 bg-rose-50 text-rose-700 font-bold text-xs rounded-lg hover:bg-rose-100 transition-colors"
+                  className="px-4 py-2 bg-rose-500/10 text-rose-400 font-bold text-xs rounded-lg hover:bg-rose-500/20 transition-colors"
                 >
                   Retry Search
                 </button>
@@ -313,18 +311,18 @@ export default function UniversalSearch() {
 
             {/* NO RESULTS STATE */}
             {!isLoading && !isError && filteredItems.length === 0 && (
-              <div className="bg-white rounded-[16px] border border-[#E2E8F0] p-10 text-center space-y-4 shadow-sm">
-                <Search size={36} className="mx-auto text-slate-300" />
+              <div className="bg-zinc-900 rounded-[16px] border border-zinc-800 p-10 text-center space-y-4">
+                <Search size={36} className="mx-auto text-zinc-600" />
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">No matching records found</h3>
-                  <p className="text-xs text-slate-500 mt-1">We couldn't find anything matching "{debouncedQuery}"</p>
+                  <h3 className="text-base font-bold text-zinc-50">No matching records found</h3>
+                  <p className="text-xs text-zinc-500 mt-1">We couldn't find anything matching "{debouncedQuery}"</p>
                 </div>
 
-                <div className="pt-2 border-t border-slate-100 max-w-sm mx-auto">
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Try searching by:</p>
+                <div className="pt-2 border-t border-zinc-800 max-w-sm mx-auto">
+                  <p className="text-[11px] font-bold text-zinc-600 uppercase tracking-wider mb-2">Try searching by:</p>
                   <div className="flex flex-wrap justify-center gap-1.5">
                     {['Customer Name', 'AWB Number', 'ICRIS ID', 'Destination', 'Document Name'].map((t, idx) => (
-                      <span key={idx} className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-md text-[11px] font-medium">
+                      <span key={idx} className="px-2.5 py-1 bg-zinc-800 text-zinc-400 rounded-md text-[11px] font-medium">
                         {t}
                       </span>
                     ))}
@@ -346,18 +344,18 @@ export default function UniversalSearch() {
                   return (
                     <div key={typeKey} className="space-y-3">
                       {/* GROUP HEADER */}
-                      <button 
+                      <button
                         onClick={() => toggleGroupCollapse(typeKey)}
-                        className="w-full flex items-center justify-between py-1 text-xs font-bold text-slate-700 hover:text-primary transition-colors"
+                        className="w-full flex items-center justify-between py-1 text-xs font-bold text-zinc-400 hover:text-primary transition-colors"
                       >
                         <div className="flex items-center gap-2">
                           <GroupIcon size={16} className="text-primary" />
-                          <span className="text-sm font-bold text-slate-900">{group.label}</span>
-                          <span className="px-2 py-0.5 bg-blue-50 text-primary text-[11px] font-extrabold rounded-full">
+                          <span className="text-sm font-bold text-zinc-50">{group.label}</span>
+                          <span className="px-2 py-0.5 bg-primary/10 text-primary text-[11px] font-extrabold rounded-full">
                             {group.items.length}
                           </span>
                         </div>
-                        {isCollapsed ? <ChevronRight size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+                        {isCollapsed ? <ChevronRight size={16} className="text-zinc-500" /> : <ChevronDown size={16} className="text-zinc-500" />}
                       </button>
 
                       {/* GROUP ITEMS */}
@@ -372,74 +370,73 @@ export default function UniversalSearch() {
                               <div
                                 key={item.url}
                                 onClick={() => handleSelectResult(item)}
-                                className={`bg-white rounded-[16px] border p-4 sm:p-5 shadow-[0_2px_4px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.06)] transition-all cursor-pointer ${
-                                  isSelected 
-                                    ? 'border-primary ring-2 ring-primary/20 bg-blue-50/10' 
-                                    : 'border-[#E2E8F0] hover:border-primary/50'
+                                className={`bg-zinc-900 rounded-[16px] border p-4 sm:p-5 transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'border-primary ring-2 ring-primary/20 bg-zinc-800'
+                                    : 'border-zinc-800 hover:border-primary/50'
                                 }`}
                               >
                                 <div className="flex items-start justify-between gap-4">
-                                  
+
                                   <div className="flex items-start gap-3.5 min-w-0">
-                                    <div className="p-2.5 bg-blue-50 text-primary rounded-xl shrink-0 mt-0.5">
+                                    <div className="p-2.5 bg-primary/10 text-primary rounded-xl shrink-0 mt-0.5">
                                       <GroupIcon size={20} />
                                     </div>
 
                                     <div className="min-w-0">
-                                      {/* Title & Subtitle */}
                                       <div className="flex items-center gap-2 flex-wrap mb-1">
-                                        <h3 className="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors truncate">
+                                        <h3 className="text-sm font-bold text-zinc-50 truncate">
                                           {item.title}
                                         </h3>
-                                        <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-bold rounded uppercase tracking-wider">
+                                        <span className="px-2 py-0.5 bg-zinc-800 text-zinc-400 text-[10px] font-bold rounded uppercase tracking-wider">
                                           {item.result_type}
                                         </span>
                                       </div>
 
-                                      <p className="text-xs text-slate-500 font-medium line-clamp-1 mb-3">
+                                      <p className="text-xs text-zinc-500 font-medium line-clamp-1 mb-3">
                                         {item.subtitle}
                                       </p>
 
                                       {/* Rich Metadata Pills */}
                                       <div className="flex flex-wrap items-center gap-2 text-xs">
                                         {m.icris_number && (
-                                          <span className="px-2 py-0.5 bg-slate-100 font-mono font-bold text-slate-700 rounded text-[11px]">
+                                          <span className="px-2 py-0.5 bg-zinc-800 font-mono font-bold text-zinc-300 rounded text-[11px]">
                                             ICRIS: {m.icris_number}
                                           </span>
                                         )}
 
                                         {m.revenue !== undefined && m.revenue !== null && (
-                                          <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 font-bold rounded text-[11px]">
+                                          <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 font-bold rounded text-[11px]">
                                             Revenue: {fmt$(m.revenue)}
                                           </span>
                                         )}
 
                                         {m.shipments !== undefined && (
-                                          <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 font-bold rounded text-[11px]">
+                                          <span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 font-bold rounded text-[11px]">
                                             {m.shipments} Shipments
                                           </span>
                                         )}
 
                                         {m.country && (
-                                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-700 font-medium rounded text-[11px]">
+                                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-zinc-800 text-zinc-300 font-medium rounded text-[11px]">
                                             <Globe size={11} /> {m.country}
                                           </span>
                                         )}
 
                                         {m.status && (
-                                          <span className="px-2 py-0.5 bg-sky-50 text-sky-700 font-bold rounded text-[11px] capitalize">
+                                          <span className="px-2 py-0.5 bg-sky-500/10 text-sky-400 font-bold rounded text-[11px] capitalize">
                                             {m.status}
                                           </span>
                                         )}
 
                                         {m.date && (
-                                          <span className="px-2 py-0.5 bg-slate-100 text-slate-600 font-medium rounded text-[11px]">
+                                          <span className="px-2 py-0.5 bg-zinc-800 text-zinc-400 font-medium rounded text-[11px]">
                                             {m.date}
                                           </span>
                                         )}
 
                                         {m.weight && (
-                                          <span className="px-2 py-0.5 bg-slate-100 text-slate-600 font-medium rounded text-[11px]">
+                                          <span className="px-2 py-0.5 bg-zinc-800 text-zinc-400 font-medium rounded text-[11px]">
                                             {m.weight} kg
                                           </span>
                                         )}

@@ -21,10 +21,10 @@ function useDebounce<T>(value: T, delay: number): T {
 
 function StatusBadge({ status }: { status: string }) {
   const norm = (status || 'unmatched').toLowerCase();
-  
+
   if (norm === 'matched' || norm === 'delivered') {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
         <CheckCircle2 size={11} />
         Delivered / Matched
       </span>
@@ -32,7 +32,7 @@ function StatusBadge({ status }: { status: string }) {
   }
   if (norm === 'suggested' || norm === 'in_transit') {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800/50">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/30">
         <Truck size={11} />
         In Transit
       </span>
@@ -40,14 +40,14 @@ function StatusBadge({ status }: { status: string }) {
   }
   if (norm === 'delayed') {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30">
         <AlertTriangle size={11} />
         Delayed
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
       <Clock size={11} />
       Pending / Unmatched
     </span>
@@ -59,9 +59,6 @@ function fmtDate(d: string | null) {
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-// The CRM has never populated shipment_weight on any real shipment — every real weight
-// value lives in actual_weight instead. Matches the backend filter's own
-// coalesce(shipment_weight, actual_weight) so what's displayed agrees with what's filtered.
 function shipmentWeight(s: { shipment_weight: number | null; actual_weight?: number | null }): number | null {
   return s.shipment_weight ?? s.actual_weight ?? null;
 }
@@ -78,7 +75,6 @@ function fmt$(v: number) {
 
 export default function AirWaybills() {
   const navigate = useNavigate();
-  // URL is the single source of truth for filters/search/page so they survive reload and back/forward.
   const [urlParams, setUrlParams] = useSearchParams();
   const updateParams = (updates: Record<string, string>) => {
     setUrlParams(prev => {
@@ -105,8 +101,6 @@ export default function AirWaybills() {
     updateParams({ page: next ? String(next) : '' });
   };
 
-  // Search input needs its own fast-updating local state for responsive typing; it's debounced
-  // into the URL/query below rather than written on every keystroke.
   const [searchInput, setSearchInput] = useState(() => urlParams.get('search') || '');
   const debouncedSearch = useDebounce(searchInput, 300);
   useEffect(() => { updateParams({ search: debouncedSearch, page: '' }); }, [debouncedSearch]);
@@ -115,9 +109,6 @@ export default function AirWaybills() {
 
   const [selectedShipmentId, setSelectedShipmentId] = useState<string | null>(() => urlParams.get('shipment') || null);
   const [showRowMenuId, setShowRowMenuId] = useState<string | null>(null);
-  // True when this shipment was opened via a deep link (e.g. from Data Quality) rather than by
-  // clicking a row in this page's own list — closing the drawer should then return the user to
-  // wherever they came from instead of stranding them on the AWB list.
   const [openedViaDeepLink] = useState(() => !!urlParams.get('shipment'));
 
   const WEIGHT_RANGES: Record<string, { min_weight?: number; max_weight?: number }> = {
@@ -139,8 +130,6 @@ export default function AirWaybills() {
     offset: page * 50
   };
 
-  // Deep-link support: /app/awb?shipment={id} opens the drawer directly.
-  // (search/filters/page are seeded from the URL once on mount above, and kept in sync via updateParams.)
   useEffect(() => {
     const shipmentId = urlParams.get('shipment');
     if (shipmentId) setSelectedShipmentId(shipmentId);
@@ -159,22 +148,22 @@ export default function AirWaybills() {
   return (
     <div className="flex-1 overflow-y-auto bg-background relative">
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        
-        {/* 1. PAGE HEADER */}
+
+        {/* PAGE HEADER */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">Air Waybills (AWBs)</h1>
-            <p className="mt-1 text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium">
+            <h1 className="text-xl sm:text-2xl font-black text-zinc-50 tracking-tight">Air Waybills (AWBs)</h1>
+            <p className="mt-1 text-xs sm:text-sm text-zinc-500 font-medium">
               Manage and monitor operational air waybills across all customer accounts.
             </p>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <button 
+            <button
               onClick={() => refetch()}
-              className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-900/50 border border-[#DCE3EC] text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg shadow-xs transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 bg-zinc-800 border border-zinc-700 text-xs font-bold text-zinc-300 hover:bg-zinc-700 rounded-lg transition-colors"
             >
-              <RefreshCw size={14} className="text-slate-500 dark:text-slate-400" />
+              <RefreshCw size={14} className="text-zinc-500" />
               <span>Refresh</span>
             </button>
             <button className="h-9 px-4 rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white transition-colors text-xs font-semibold flex items-center gap-2">
@@ -188,22 +177,22 @@ export default function AirWaybills() {
           </div>
         </div>
 
-        {/* 4. TOOLBAR & MULTI-FILTERS */}
-        <div className="bg-white dark:bg-slate-900/50 rounded-[16px] border border-[#E2E8F0] p-4 shadow-[0_2px_4px_rgba(15,23,42,0.04)] space-y-3">
+        {/* TOOLBAR & FILTERS */}
+        <div className="bg-zinc-900 rounded-[16px] border border-zinc-800 p-4 space-y-3">
           <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
-            
+
             {/* Search Input */}
             <div className="relative flex-1">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400" />
-              <input 
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+              <input
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search AWB Number, Customer, Destination, Airline..."
-                className="w-full h-9 pl-9 pr-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-primary focus:bg-white dark:bg-slate-900/50 transition-all placeholder:text-slate-400 dark:text-slate-400 placeholder:font-medium"
+                className="w-full h-9 pl-9 pr-3 bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-semibold text-zinc-300 outline-none focus:border-primary transition-all placeholder:text-zinc-500 placeholder:font-medium"
               />
               {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400 hover:text-slate-600 dark:text-slate-300">
+                <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
                   <X size={14} />
                 </button>
               )}
@@ -222,22 +211,22 @@ export default function AirWaybills() {
               />
 
               <div className="relative">
-                <MapPin size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <MapPin size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
                 <input
                   type="text"
                   value={filters.destination}
                   onChange={e => setFilters(f => ({ ...f, destination: e.target.value }))}
                   placeholder="Destination country"
-                  className="h-9 pl-8 pr-3 w-40 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none hover:bg-slate-50 dark:hover:bg-slate-800/50 shadow-sm placeholder:font-normal placeholder:text-slate-400"
+                  className="h-9 pl-8 pr-3 w-40 bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-semibold text-zinc-300 outline-none hover:bg-zinc-700 placeholder:font-normal placeholder:text-zinc-500"
                 />
               </div>
 
               <div className="relative">
-                <Weight size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                <select 
-                  value={filters.weightRange} 
+                <Weight size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
+                <select
+                  value={filters.weightRange}
                   onChange={e => setFilters(f => ({ ...f, weightRange: e.target.value }))}
-                  className="h-9 pl-8 pr-7 py-0 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer appearance-none shadow-sm"
+                  className="h-9 pl-8 pr-7 py-0 bg-zinc-800 border border-zinc-700 rounded-lg text-xs font-semibold text-zinc-300 outline-none hover:bg-zinc-700 cursor-pointer appearance-none"
                 >
                   <option value="">All Weights</option>
                   <option value="under_10">&lt; 10 kg</option>
@@ -245,29 +234,27 @@ export default function AirWaybills() {
                   <option value="50_100">50 – 100 kg</option>
                   <option value="over_100">&gt; 100 kg</option>
                 </select>
-                <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[10px]">▼</div>
+                <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500 text-[10px]">▼</div>
               </div>
 
               {(filters.destination || filters.weightRange || filters.dateRange !== 'all_time' || searchQuery) && (
                 <button
                   onClick={() => { setSearchQuery(''); setFilters(() => ({ destination: '', weightRange: '', dateRange: 'all_time', dateFrom: '', dateTo: '' })); }}
-                  className="text-xs font-semibold text-rose-500 hover:text-rose-700 px-2 transition-colors"
+                  className="text-xs font-semibold text-rose-500 hover:text-rose-400 px-2 transition-colors"
                 >
                   Clear Filters
                 </button>
               )}
-
             </div>
           </div>
-
         </div>
 
-        {/* 5. AWB DATA TABLE */}
-        <div className="bg-white dark:bg-slate-900/50 rounded-[16px] border border-[#E2E8F0] shadow-[0_2px_4px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.06)] overflow-hidden flex flex-col">
+        {/* AWB DATA TABLE */}
+        <div className="bg-zinc-900 rounded-[16px] border border-zinc-800 overflow-hidden flex flex-col">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50/90 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
-                <tr className="text-[10px] uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">
+              <thead className="bg-zinc-800/50 border-b border-zinc-800">
+                <tr className="text-[10px] uppercase font-bold tracking-wider text-zinc-500">
                   <th className="px-2.5 py-2.5 text-left">AWB #</th>
                   <th className="px-2.5 py-2.5 text-left">Customer / Shipper</th>
                   <th className="px-2.5 py-2.5 text-left">Route</th>
@@ -279,28 +266,28 @@ export default function AirWaybills() {
                   <th className="px-2.5 py-2.5 text-right w-10">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+              <tbody className="divide-y divide-zinc-800">
                 {isLoadingShipments ? (
                   [...Array(8)].map((_, i) => (
                     <tr key={i} className="animate-pulse">
-                      <td className="px-2 py-2.5 text-center"><div className="w-4 h-4 bg-slate-100 dark:bg-slate-800 rounded mx-auto" /></td>
-                      <td className="px-2.5 py-2.5"><div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-24" /></td>
-                      <td className="px-2.5 py-2.5"><div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-36" /></td>
-                      <td className="px-2.5 py-2.5"><div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-16" /></td>
-                      <td className="px-2.5 py-2.5"><div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-6 ml-auto" /></td>
-                      <td className="px-2.5 py-2.5"><div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-12 ml-auto" /></td>
-                      <td className="px-2.5 py-2.5"><div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-14 ml-auto" /></td>
-                      <td className="px-2.5 py-2.5"><div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-20" /></td>
-                      <td className="px-2.5 py-2.5"><div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-16" /></td>
+                      <td className="px-2 py-2.5 text-center"><div className="w-4 h-4 bg-zinc-800 rounded mx-auto" /></td>
+                      <td className="px-2.5 py-2.5"><div className="h-4 bg-zinc-800 rounded w-24" /></td>
+                      <td className="px-2.5 py-2.5"><div className="h-4 bg-zinc-800 rounded w-36" /></td>
+                      <td className="px-2.5 py-2.5"><div className="h-4 bg-zinc-800 rounded w-16" /></td>
+                      <td className="px-2.5 py-2.5"><div className="h-4 bg-zinc-800 rounded w-6 ml-auto" /></td>
+                      <td className="px-2.5 py-2.5"><div className="h-4 bg-zinc-800 rounded w-12 ml-auto" /></td>
+                      <td className="px-2.5 py-2.5"><div className="h-4 bg-zinc-800 rounded w-14 ml-auto" /></td>
+                      <td className="px-2.5 py-2.5"><div className="h-4 bg-zinc-800 rounded w-20" /></td>
+                      <td className="px-2.5 py-2.5"><div className="h-4 bg-zinc-800 rounded w-16" /></td>
                       <td className="px-2.5 py-2.5"></td>
                     </tr>
                   ))
                 ) : filteredShipments.length === 0 ? (
                   <tr>
                     <td colSpan={10} className="px-5 py-20 text-center">
-                      <div className="flex flex-col items-center justify-center text-slate-400 dark:text-slate-400">
-                        <Package size={36} className="mb-3 text-slate-300" />
-                        <p className="text-sm font-bold text-slate-600 dark:text-slate-300 mb-1">No Air Waybills found</p>
+                      <div className="flex flex-col items-center justify-center text-zinc-500">
+                        <Package size={36} className="mb-3 text-zinc-600" />
+                        <p className="text-sm font-bold text-zinc-400 mb-1">No Air Waybills found</p>
                         <p className="text-xs">Adjust your search or status filters to see results.</p>
                       </div>
                     </td>
@@ -308,72 +295,73 @@ export default function AirWaybills() {
                 ) : (
                   filteredShipments.map((s: any) => {
                     const isDrawerActive = selectedShipmentId === s.id;
+                    const revenue = s.revenue || 0;
 
                     return (
                       <tr
                         key={s.id}
                         onClick={() => setSelectedShipmentId(s.id)}
-                        className={`transition-colors cursor-pointer group ${
-                          isDrawerActive ? 'bg-slate-100 dark:bg-slate-800' : ''
+                        className={`transition-colors cursor-pointer group hover:bg-zinc-800/50 ${
+                          isDrawerActive ? 'bg-zinc-800' : ''
                         }`}
                       >
-                        <td className="px-2.5 py-2.5 font-bold text-slate-900 dark:text-slate-100 truncate max-w-[130px]">
+                        <td className="px-2.5 py-2.5 font-bold text-zinc-50 truncate max-w-[130px]">
                           <div className="flex items-center gap-1">
-                            <Hash size={12} className="text-slate-400 dark:text-slate-400 shrink-0" />
+                            <Hash size={12} className="text-zinc-500 shrink-0" />
                             <span className="truncate">{s.shipment_number}</span>
                           </div>
                         </td>
 
                         <td className="px-2.5 py-2.5 max-w-[150px] lg:max-w-[200px] truncate">
                           {s.company ? (
-                            <span 
+                            <span
                               className="font-bold text-primary hover:underline truncate block"
                               onClick={(e) => { e.stopPropagation(); navigate(`/app/customers/${s.company.id}`); }}
                             >
                               {s.company.company_name}
                             </span>
                           ) : (
-                            <span className="text-slate-600 dark:text-slate-300 font-medium truncate block">{s.shipper_name || 'Unlinked Shipper'}</span>
+                            <span className="text-zinc-400 font-medium truncate block">{s.shipper_name || 'Unlinked Shipper'}</span>
                           )}
                         </td>
 
-                        <td className="px-2.5 py-2.5 font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                        <td className="px-2.5 py-2.5 font-semibold text-zinc-300 whitespace-nowrap">
                           {s.export_country || 'NP'} → {s.import_country || 'US'}
                         </td>
 
-                        <td className="px-2.5 py-2.5 text-right font-medium text-slate-900 dark:text-slate-100 whitespace-nowrap">
+                        <td className="px-2.5 py-2.5 text-right font-medium text-zinc-50 whitespace-nowrap">
                           {s.pieces || 1}
                         </td>
 
-                        <td className="px-2.5 py-2.5 text-right font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
+                        <td className="px-2.5 py-2.5 text-right font-bold text-zinc-50 whitespace-nowrap">
                           {fmtWeight(s)}
                         </td>
 
-                        <td className="px-2.5 py-2.5 text-right font-black text-slate-900 dark:text-slate-100 whitespace-nowrap">
-                          {fmt$(s.revenue || 0)}
+                        <td className={`px-2.5 py-2.5 text-right font-black whitespace-nowrap ${revenue === 0 ? 'text-zinc-600' : 'text-zinc-50'}`}>
+                          {fmt$(revenue)}
                         </td>
 
                         <td className="px-2.5 py-2.5">
                           <StatusBadge status={s.match_status} />
                         </td>
 
-                        <td className="px-2.5 py-2.5 text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">
+                        <td className="px-2.5 py-2.5 text-zinc-500 font-medium whitespace-nowrap">
                           {fmtDate(s.created_at)}
                         </td>
 
                         <td className="px-2.5 py-2.5 text-right relative" onClick={(e) => e.stopPropagation()}>
-                          <button 
+                          <button
                             onClick={() => setShowRowMenuId(showRowMenuId === s.id ? null : s.id)}
-                            className="p-1 text-slate-400 dark:text-slate-400 hover:text-slate-800 dark:text-slate-200 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            className="p-1 text-zinc-500 hover:text-zinc-200 rounded-md hover:bg-zinc-800 transition-colors"
                           >
                             <MoreVertical size={16} />
                           </button>
 
                           {showRowMenuId === s.id && (
-                            <div className="absolute right-4 top-10 w-44 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-30 py-1 text-left animate-in fade-in">
-                              <button 
+                            <div className="absolute right-4 top-10 w-44 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl z-30 py-1 text-left animate-in fade-in">
+                              <button
                                 onClick={() => { setSelectedShipmentId(s.id); setShowRowMenuId(null); }}
-                                className="w-full px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50 flex items-center gap-2"
+                                className="w-full px-3 py-1.5 text-xs font-semibold text-zinc-300 hover:bg-zinc-700 flex items-center gap-2"
                               >
                                 <FileText size={13} /> View Details
                               </button>
@@ -389,21 +377,21 @@ export default function AirWaybills() {
           </div>
 
           {/* PAGINATION FOOTER */}
-          <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs font-medium text-slate-600 dark:text-slate-300">
-            <span>Showing <strong>{filteredShipments.length}</strong> of <strong>{totalCount}</strong> Air Waybills</span>
+          <div className="px-5 py-3 bg-zinc-800/50 border-t border-zinc-800 flex items-center justify-between text-xs font-medium text-zinc-400">
+            <span>Showing <strong className="text-zinc-300">{filteredShipments.length}</strong> of <strong className="text-zinc-300">{totalCount}</strong> Air Waybills</span>
 
             <div className="flex items-center gap-2">
-              <button 
+              <button
                 disabled={page === 0}
                 onClick={() => setPage(p => Math.max(0, p - 1))}
-                className="px-3 py-1 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50 disabled:opacity-40"
+                className="px-3 py-1 bg-zinc-800 border border-zinc-700 rounded-md font-semibold text-zinc-300 hover:bg-zinc-700 disabled:opacity-40"
               >
                 Previous
               </button>
-              <button 
+              <button
                 disabled={(page + 1) * 50 >= totalCount}
                 onClick={() => setPage(p => p + 1)}
-                className="px-3 py-1 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50 disabled:opacity-40"
+                className="px-3 py-1 bg-zinc-800 border border-zinc-700 rounded-md font-semibold text-zinc-300 hover:bg-zinc-700 disabled:opacity-40"
               >
                 Next
               </button>
@@ -413,7 +401,7 @@ export default function AirWaybills() {
 
       </div>
 
-      {/* 6. DETAIL DRAWER WITH SHIPMENT TIMELINE */}
+      {/* DETAIL DRAWER */}
       {selectedShipmentId && (
         <ShipmentDetailDrawer
           shipmentId={selectedShipmentId}
@@ -427,13 +415,13 @@ export default function AirWaybills() {
 
 // ── DETAIL DRAWER COMPONENT ──────────────────────────────────────────────
 
-export function ShipmentDetailDrawer({ 
-  shipmentId, 
-  onClose, 
-  navigate 
-}: { 
-  shipmentId: string; 
-  onClose: () => void; 
+export function ShipmentDetailDrawer({
+  shipmentId,
+  onClose,
+  navigate
+}: {
+  shipmentId: string;
+  onClose: () => void;
   navigate: any;
 }) {
   const { data: shipment, isLoading: isSLoading } = useQuery({
@@ -450,36 +438,36 @@ export function ShipmentDetailDrawer({
   return (
     <>
       {/* Backdrop */}
-      <div 
-        onClick={onClose} 
-        className="fixed inset-0 bg-slate-900/30 backdrop-blur-xs z-40 transition-opacity" 
+      <div
+        onClick={onClose}
+        className="fixed inset-0 bg-zinc-950/60 backdrop-blur-xs z-40 transition-opacity"
       />
 
       {/* Drawer */}
-      <div className="fixed inset-y-0 right-0 z-50 w-[540px] bg-white dark:bg-slate-900/50 border-l border-[#E2E8F0] shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
-        
+      <div className="fixed inset-y-0 right-0 z-50 w-[540px] bg-zinc-900 border-l border-zinc-800 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800/50 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 shrink-0">
+        <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-800/50 shrink-0">
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="p-1 text-slate-400 dark:text-slate-400 hover:text-slate-800 dark:text-slate-200 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+              className="p-1 text-zinc-500 hover:text-zinc-200 rounded-md hover:bg-zinc-700 transition-colors"
             >
               <X size={18} />
             </button>
             <div>
-              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest">Air Waybill Record</span>
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
+              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Air Waybill Record</span>
+              <h2 className="text-base font-bold text-zinc-50">
                 {isSLoading ? 'Loading...' : shipment?.shipment_number}
               </h2>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <button className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" title="Copy AWB">
+            <button className="p-2 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors" title="Copy AWB">
               <Copy size={15} />
             </button>
-            <button className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors" title="Print AWB">
+            <button className="p-2 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors" title="Print AWB">
               <Printer size={15} />
             </button>
           </div>
@@ -487,90 +475,68 @@ export function ShipmentDetailDrawer({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          
+
           {isSLoading ? (
             <div className="space-y-4 animate-pulse">
-              <div className="h-20 bg-slate-100 dark:bg-slate-800 rounded-xl" />
-              <div className="h-40 bg-slate-100 dark:bg-slate-800 rounded-xl" />
+              <div className="h-20 bg-zinc-800 rounded-xl" />
+              <div className="h-40 bg-zinc-800 rounded-xl" />
             </div>
           ) : !shipment ? (
-            <p className="text-sm text-slate-500 text-center py-12">Shipment not found.</p>
+            <p className="text-sm text-zinc-500 text-center py-12">Shipment not found.</p>
           ) : (
             <>
               {/* ROUTING & CARRIER */}
-              <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-[14px] p-4 space-y-3">
-                <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2">
+              <div className="bg-zinc-800/50 border border-zinc-700 rounded-[14px] p-4 space-y-3">
+                <h3 className="text-xs font-bold text-zinc-50 tracking-tight flex items-center gap-2">
                   <Globe size={14} className="text-primary" /> Routing & Carrier Information
                 </h3>
-                
+
                 <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div className="p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase">Origin</span>
-                    <p className="font-bold text-slate-900 dark:text-slate-100 mt-0.5">{shipment.export_country || 'Nepal (KTM)'}</p>
-                  </div>
-
-                  <div className="p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase">Destination</span>
-                    <p className="font-bold text-slate-900 dark:text-slate-100 mt-0.5">{shipment.import_country || 'United States (JFK)'}</p>
-                  </div>
-
-                  <div className="p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase">Date</span>
-                    <p className="font-bold text-slate-900 dark:text-slate-100 mt-0.5">{shipment.shipment_date || '—'}</p>
-                  </div>
-
-                  <div className="p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase">Weight</span>
-                    <p className="font-bold text-slate-900 dark:text-slate-100 mt-0.5">{fmtWeight(shipment)}</p>
-                  </div>
-
-                  <div className="p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase">Pieces</span>
-                    <p className="font-bold text-slate-900 dark:text-slate-100 mt-0.5">{shipment.pieces ?? '—'}</p>
-                  </div>
-
-                  <div className="p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase">Bill Type</span>
-                    <p className="font-bold text-slate-900 dark:text-slate-100 mt-0.5">{shipment.bill_type || '—'}</p>
-                  </div>
-
-                  <div className="p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase">Pay Term</span>
-                    <p className="font-bold text-slate-900 dark:text-slate-100 mt-0.5">{shipment.pay_term || '—'}</p>
-                  </div>
+                  {[
+                    { label: 'Origin', value: shipment.export_country || 'Nepal (KTM)' },
+                    { label: 'Destination', value: shipment.import_country || 'United States (JFK)' },
+                    { label: 'Date', value: shipment.shipment_date || '—' },
+                    { label: 'Weight', value: fmtWeight(shipment) },
+                    { label: 'Pieces', value: shipment.pieces ?? '—' },
+                    { label: 'Bill Type', value: shipment.bill_type || '—' },
+                    { label: 'Pay Term', value: shipment.pay_term || '—' },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="p-2.5 bg-zinc-800 rounded-lg">
+                      <span className="text-[10px] font-bold text-zinc-500 uppercase">{label}</span>
+                      <p className="font-bold text-zinc-50 mt-0.5">{value}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
 
               {/* CUSTOMER LINKAGE */}
-              <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-[14px] p-4 space-y-3">
-                <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2">
+              <div className="bg-zinc-800/50 border border-zinc-700 rounded-[14px] p-4 space-y-3">
+                <h3 className="text-xs font-bold text-zinc-50 tracking-tight flex items-center gap-2">
                   <Building2 size={14} className="text-primary" /> Customer Account Linkage
                 </h3>
 
                 {shipment.company ? (
-                  <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 rounded-xl">
+                  <div className="flex items-center justify-between p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
                     <div>
-                      <p className="font-bold text-slate-900 dark:text-slate-100 text-xs">{shipment.company.company_name}</p>
-                      <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400 mt-0.5">ICRIS: {shipment.company.icris_number}</p>
+                      <p className="font-bold text-zinc-50 text-xs">{shipment.company.company_name}</p>
+                      <p className="text-[11px] font-mono text-zinc-400 mt-0.5">ICRIS: {shipment.company.icris_number}</p>
                     </div>
                     <button
                       onClick={() => navigate(`/app/customers/${shipment.company!.id}`)}
-                      className="px-3 py-1.5 bg-white dark:bg-slate-900/50 border border-blue-200 dark:border-blue-800/50 text-primary font-bold text-xs rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors shadow-xs"
+                      className="px-3 py-1.5 bg-zinc-800 border border-blue-500/30 text-primary font-bold text-xs rounded-lg hover:bg-primary/10 transition-colors"
                     >
                       View Profile
                     </button>
                   </div>
                 ) : (
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-600 dark:text-slate-300">
-                    <p className="font-semibold text-slate-900 dark:text-slate-100">Unlinked Shipper</p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Shipper Name: {shipment.shipper_name || 'N/A'}</p>
+                  <div className="p-3 bg-zinc-800 border border-zinc-700 rounded-xl text-xs text-zinc-400">
+                    <p className="font-semibold text-zinc-50">Unlinked Shipper</p>
+                    <p className="text-[11px] text-zinc-500 mt-0.5">Shipper Name: {shipment.shipper_name || 'N/A'}</p>
                   </div>
                 )}
               </div>
-
             </>
           )}
-
         </div>
       </div>
     </>
