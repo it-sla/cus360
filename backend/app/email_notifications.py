@@ -169,8 +169,7 @@ def _format_admin_summary(breaches: list[dict], db: Session, warnings: list[dict
 
     text_lines = [heading, '', 'By AE:']
     for ae, count in ae_rows_sorted:
-        flag = '' if ae == 'Unassigned' or ae in ae_with_email else ' (no individual email on file)'
-        text_lines.append(f"  {ae}: {count}{flag}")
+        text_lines.append(f"  {ae}: {count}")
     text_lines += ['', 'By Tier:']
     for tier, info in tier_rows_sorted:
         text_lines.append(f"  {tier}: {info['count']} (SLA {info['sla_days']}d)")
@@ -186,9 +185,7 @@ def _format_admin_summary(breaches: list[dict], db: Session, warnings: list[dict
 
     ae_rows_html = ''.join(
         f'<tr><td style="{_TD_STYLE}">{escape(ae)}</td>'
-        f'<td style="{_TD_STYLE}">{count}</td>'
-        f'<td style="{_TD_STYLE}color:#64748b;font-size:12px;">'
-        f'{"" if ae == "Unassigned" or ae in ae_with_email else "No individual email on file"}</td></tr>'
+        f'<td style="{_TD_STYLE}">{count}</td></tr>'
         for ae, count in ae_rows_sorted
     )
     tier_rows_html = ''.join(
@@ -209,7 +206,7 @@ def _format_admin_summary(breaches: list[dict], db: Session, warnings: list[dict
         _due_warnings_html(warnings)
         + f'<p><strong>{total}</strong> account(s) across all AEs have gone quiet past their tier\'s shipping SLA.</p>'
         + f'<h3 style="margin:18px 0 8px;font-size:14px;color:#334155;">By AE</h3>'
-        + _small_table(['AE', 'Overdue Accounts', 'Notes'], ae_rows_html)
+        + _small_table(['AE', 'Overdue Accounts'], ae_rows_html)
         + '<h3 style="margin:18px 0 8px;font-size:14px;color:#334155;">By Tier</h3>'
         + _small_table(['Tier', 'Overdue Accounts', 'SLA (days)'], tier_rows_html)
         + f'<h3 style="margin:18px 0 8px;font-size:14px;color:#334155;">Worst Offenders (top {len(worst)})</h3>'
