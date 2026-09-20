@@ -91,7 +91,7 @@ case "$command" in
     printf '==> Deploying to %s:%s\n' "$REMOTE_HOST" "$REMOTE_DIR"
     remote git fetch origin
     remote git reset --hard origin/main
-    remote sh -c "cd $REMOTE_DIR/frontend && npm ci --prefer-offline && npm run build"
+    remote sh -c "cd frontend && npm ci --prefer-offline && npm run build"
     compose up -d --build
     compose exec -T backend alembic upgrade head
     printf '==> Deployed %s\n' "$(remote git rev-parse --short HEAD)"
