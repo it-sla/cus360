@@ -26,6 +26,7 @@ jobs:
             cd customer360-dev
             git fetch origin
             git reset --hard origin/main
+            cd frontend && npm ci --prefer-offline && npm run build && cd ..
             docker compose -f docker-compose.yml -f docker-compose.remote.yml up -d --build
             docker compose -f docker-compose.yml -f docker-compose.remote.yml exec -T backend alembic upgrade head
             echo "Deployed $(git rev-parse --short HEAD)"
