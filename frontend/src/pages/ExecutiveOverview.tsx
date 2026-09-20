@@ -16,8 +16,7 @@ import {
   Globe,
   Trophy,
   Repeat,
-  Layers,
-  UserCheck
+  Layers
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { KpiCard } from '@/components/KpiCard';
@@ -298,21 +297,20 @@ export default function ExecutiveOverview() {
             onClick={() => setSelectedKpi({ title: 'Avg Revenue per Shipment', value: formatMoney(d.operational_analytics?.revenue_per_shipment || 0), data: d.operational_analytics })}
           />
 
-          {/* 6. Customer Retention Rate */}
-          <KpiCard 
-            title="Retention Rate"
-            value={d.kpi_cards?.retention_rate?.value !== undefined ? `${d.kpi_cards.retention_rate.value.toFixed(1)}%` : '0%'}
-            icon={UserCheck}
+          {/* 6. Revenue Growth Rate */}
+          <KpiCard
+            title="Growth Rate"
+            value={d.kpi_cards?.growth_rate?.value !== undefined ? `${d.kpi_cards.growth_rate.value.toFixed(1)}%` : '0%'}
+            icon={TrendingUp}
             className="border-t-2 border-t-purple-500/80"
-            onClick={() => setSelectedKpi({ 
-              title: 'Customer Retention Rate', 
-              value: d.kpi_cards?.retention_rate?.value !== undefined ? `${d.kpi_cards.retention_rate.value.toFixed(1)}%` : '0%', 
+            onClick={() => setSelectedKpi({
+              title: 'Revenue Growth Rate',
+              value: d.kpi_cards?.growth_rate?.value !== undefined ? `${d.kpi_cards.growth_rate.value.toFixed(1)}%` : '0%',
               data: {
-                'Retention Percentage': `${d.kpi_cards?.retention_rate?.value?.toFixed(1) || 0}%`,
-                'Active Customers': cust.value,
-                'Repeat Accounts': d.customer_growth?.returning_count || 0,
-                'New Accounts': d.customer_growth?.new_count || 0
-              } 
+                'Growth %': `${d.kpi_cards?.growth_rate?.value?.toFixed(1) || 0}%`,
+                'Current Period Revenue': formatMoney(d.kpi_cards?.total_billing?.value || 0),
+                'Previous Period Revenue': formatMoney(d.kpi_cards?.total_billing?.prev || 0)
+              }
             })}
           />
 
