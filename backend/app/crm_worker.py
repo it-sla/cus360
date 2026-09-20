@@ -1,5 +1,5 @@
 import json,logging,os,random,signal,socket,time,uuid
-from datetime import datetime,timedelta
+from datetime import datetime,timedelta,timezone
 from sqlalchemy import func,or_,select
 from sqlalchemy.exc import DBAPIError,OperationalError
 from .core import settings
@@ -176,7 +176,7 @@ def run_once():
     if run_id:discover_run(run_id);return True
     item_id=claim_item()
     if item_id:process_item(item_id);finalize_runs();return True
-    finalize_runs();recover_backfill_orchestration();check_auto_schedule();check_pipeline_auto_schedule();check_pnl_auto_schedule();check_daily_call_logs_auto_schedule();check_tier_alert_email_schedule();check_immediate_tier_breach_schedule();check_weekly_report_schedule();heartbeat();return False
+    finalize_runs();recover_backfill_orchestration();check_auto_schedule();check_reconcile_schedule();check_pipeline_auto_schedule();check_pnl_auto_schedule();check_daily_call_logs_auto_schedule();check_tier_alert_email_schedule();check_immediate_tier_breach_schedule();check_weekly_report_schedule();heartbeat();return False
 def recover_backfill_orchestration():
     db=SessionLocal()
     try:
@@ -210,7 +210,9 @@ def check_auto_schedule():
             try:last_dt=datetime.fromisoformat(last_run)
             except(ValueError,TypeError):last_dt=None
             if last_dt and (now_dt-last_dt).total_seconds()<300:return
-        if not _cron_matches(now_dt,settings.crm_schedule_cron):return
+        watermark=watermark_state(db,'both')
+        stale=bool(watermark and watermark.last_successful_sync_at and (datetime.now(timezone.utc)-watermark.last_successful_sync_at).total_seconds()>settings.crm_schedule_stale_hours*3600)
+        if not stale and not _cron_matches(now_dt,settings.crm_schedule_cron):return
         existing=db.scalar(select(CrmSyncRun).where(CrmSyncRun.status.in_({'queued','discovering','running'})))
         if existing:return
         try:
@@ -219,10 +221,39 @@ def check_auto_schedule():
             if not state:state=CrmSyncState(entity_type='auto_schedule',cursor_json={});db.add(state)
             state.cursor_json={'last_run_at':now_dt.isoformat(),'run_id':str(run.id) if run else None};state.updated_at=now()
             db.commit()
-            emit('auto_sync_scheduled',stage='schedule',result='created',run_id=str(run.id) if run else None)
+            emit('auto_sync_scheduled',stage='schedule',result='created',run_id=str(run.id) if run else None,trigger='stale_catchup' if stale else 'cron')
         except Exception as exc:
             db.rollback()
             emit('auto_sync_failed',stage='schedule',result=type(exc).__name__,error=str(exc)[:200])
+    finally:db.close()
+def check_reconcile_schedule():
+    """Weekly wide-window re-discovery to catch manifests the rolling incremental
+    overlap missed (failed run abandoned, overlap window too short, etc). Reuses the
+    normal incremental machinery; checksum-based unchanged detection in upsert_detail
+    keeps re-processing already-synced manifests cheap."""
+    if not settings.crm_schedule_enabled or not settings.crm_reconcile_cron:return
+    db=SessionLocal()
+    try:
+        state=db.scalar(select(CrmSyncState).where(CrmSyncState.entity_type=='reconcile_schedule'))
+        last_run=(state.cursor_json or {}).get('last_run_at') if state else None
+        now_dt=datetime.utcnow()
+        if last_run:
+            try:last_dt=datetime.fromisoformat(last_run)
+            except(ValueError,TypeError):last_dt=None
+            if last_dt and (now_dt-last_dt).total_seconds()<3600:return
+        if not _cron_matches(now_dt,settings.crm_reconcile_cron):return
+        existing=db.scalar(select(CrmSyncRun).where(CrmSyncRun.status.in_({'queued','discovering','running'})))
+        if existing:return
+        try:
+            run=create_incremental(db,'both','incremental',overlap_days=settings.crm_reconcile_window_days,force=False)
+            db.commit()
+            if not state:state=CrmSyncState(entity_type='reconcile_schedule',cursor_json={});db.add(state)
+            state.cursor_json={'last_run_at':now_dt.isoformat(),'run_id':str(run.id) if run else None};state.updated_at=now()
+            db.commit()
+            emit('reconcile_scheduled',stage='schedule',result='created',run_id=str(run.id) if run else None,window_days=settings.crm_reconcile_window_days)
+        except Exception as exc:
+            db.rollback()
+            emit('reconcile_failed',stage='schedule',result=type(exc).__name__,error=str(exc)[:200])
     finally:db.close()
 def check_pipeline_auto_schedule():
     """Periodic Active Pipeline refresh — a whole-table snapshot pull, not part of the

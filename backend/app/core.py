@@ -53,8 +53,11 @@ class Settings(BaseSettings):
     crm_reconciliation_weight_tolerance: float = 0.01
     crm_default_lookback_days: int = 7
     crm_schedule_enabled: bool = True
-    crm_schedule_cron: str = "0 18,21 * * *"
+    crm_schedule_cron: str = "15 8,14 * * *"
     crm_schedule_overlap_days: int = 14
+    crm_schedule_stale_hours: int = 26
+    crm_reconcile_cron: str = "30 3 * * 0"
+    crm_reconcile_window_days: int = 60
     crm_raw_snapshot_retention_days: int = 30
     # Gmail SMTP (app password) email digests for Tier Shipping Gap alerts — see
     # docs/customer-segmentation-rules.md. Off by default (the flag and blank
