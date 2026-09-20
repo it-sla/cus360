@@ -1,0 +1,31 @@
+name: Deploy to server
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 100.94.204.57
+          username: shangrila002
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd customer360-dev
+            git fetch origin
+            git reset --hard origin/main
+            docker compose -f docker-compose.yml -f docker-compose.remote.yml up -d --build
+            docker compose -f docker-compose.yml -f docker-compose.remote.yml exec -T backend alembic upgrade head
+            echo "Deployed $(git rev-parse --short HEAD)"

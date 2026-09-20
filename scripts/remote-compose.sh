@@ -11,7 +11,8 @@ Usage: scripts/remote-compose.sh COMMAND [ARGS...]
 
 Commands:
   init              Create the remote directory and a server-only .env
-  sync              Synchronize source files to the server
+  deploy            Git-pull deploy: fetch, fast-forward, rebuild, migrate
+  sync              Synchronize source files to the server (rsync, legacy)
   dev               Start the stack, then continuously synchronize changes
   up [ARGS...]      Synchronize and run `docker compose up -d --build`
   down [ARGS...]    Stop the remote stack (volumes are preserved)
@@ -86,6 +87,14 @@ if [ "$#" -gt 0 ]; then shift; fi
 
 case "$command" in
   init) init_remote ;;
+  deploy)
+    printf '==> Deploying to %s:%s\n' "$REMOTE_HOST" "$REMOTE_DIR"
+    remote git fetch origin
+    remote git reset --hard origin/main
+    compose up -d --build
+    compose exec -T backend alembic upgrade head
+    printf '==> Deployed %s\n' "$(remote git rev-parse --short HEAD)"
+    ;;
   sync) sync_project ;;
   up)
     sync_project
