@@ -395,8 +395,8 @@
     "semantic_hash": ""
   },
   "backend/app/core.py": {
-    "mtime": 1789382532.3514416,
-    "ast_hash": "734dcbd0c8018ead726e9380dc646fcc",
+    "mtime": 1789017606.737938,
+    "ast_hash": "16e073cbc71bcb5cd2f6aab84eace0c6",
     "semantic_hash": ""
   },
   "backend/app/crm_backfills.py": {
@@ -415,13 +415,13 @@
     "semantic_hash": ""
   },
   "backend/app/crm_sync.py": {
-    "mtime": 1789377283.6909966,
-    "ast_hash": "0730501e7bbe8fe42f4f4367714865eb",
+    "mtime": 1789126129.4089859,
+    "ast_hash": "ff128640a828563dbbb08b114d88734a",
     "semantic_hash": ""
   },
   "backend/app/crm_worker.py": {
-    "mtime": 1789382616.4230874,
-    "ast_hash": "8ade74739429752c9aea4643465bf219",
+    "mtime": 1789126133.0517516,
+    "ast_hash": "f010c32938f3ba60544973694e8ab197",
     "semantic_hash": ""
   },
   "backend/app/db.py": {
@@ -440,8 +440,8 @@
     "semantic_hash": "9a89afd96b48d51a8ac0aecc2b037209"
   },
   "backend/app/main.py": {
-    "mtime": 1789538795.4501088,
-    "ast_hash": "2fbae730f65271ccd35d292ae6fab919",
+    "mtime": 1789122470.4210598,
+    "ast_hash": "7efca35f65f404164985e94e6bcac5b3",
     "semantic_hash": ""
   },
   "backend/app/models.py": {
@@ -450,8 +450,8 @@
     "semantic_hash": ""
   },
   "backend/app/utils.py": {
-    "mtime": 1789376321.813092,
-    "ast_hash": "1e4fab239933cb8191d9257ddfb8018c",
+    "mtime": 1786080508.4396527,
+    "ast_hash": "d1950d348f2003e08da6b3d3e332d443",
     "semantic_hash": ""
   },
   "backend/tests/conftest.py": {
@@ -545,8 +545,8 @@
     "semantic_hash": ""
   },
   "frontend/src/api.ts": {
-    "mtime": 1789538800.2684531,
-    "ast_hash": "bfc917e6199a192660e45876afa2d543",
+    "mtime": 1788932482.5231483,
+    "ast_hash": "cc1a46c461fffd3d334df61b8809d58a",
     "semantic_hash": ""
   },
   "frontend/src/components/AlertBanner.tsx": {
@@ -560,8 +560,8 @@
     "semantic_hash": "d35f2d059b1823963c282ff315081de5"
   },
   "frontend/src/components/KpiCard.tsx": {
-    "mtime": 1789374540.467478,
-    "ast_hash": "8d8a84b875c1bfbd23ec79b3c967ffd5",
+    "mtime": 1788511180.2031956,
+    "ast_hash": "e378f81d28a65f9c221659bd3bcf3e90",
     "semantic_hash": ""
   },
   "frontend/src/components/Sidebar.tsx": {
@@ -695,8 +695,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/AirWaybills.tsx": {
-    "mtime": 1789536840.8800337,
-    "ast_hash": "a1105dd1f5723c0642f9c3af98732a90",
+    "mtime": 1788943089.8886144,
+    "ast_hash": "7a0ebdb17051f1b6ac6219b869395947",
     "semantic_hash": ""
   },
   "frontend/src/pages/BusinessAnalytics.tsx": {
@@ -705,33 +705,33 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/CrmSync.tsx": {
-    "mtime": 1789378066.457791,
-    "ast_hash": "e24120b18a05d945fbcf0b50fc9f512d",
+    "mtime": 1786707647.8612666,
+    "ast_hash": "76833a3ba2f3257975a2d00201d0b50c",
     "semantic_hash": ""
   },
   "frontend/src/pages/Customer360.tsx": {
-    "mtime": 1789471720.6409075,
-    "ast_hash": "9207817a02f8caf4b825429799b6b098",
+    "mtime": 1788860612.8885407,
+    "ast_hash": "43485cdd449af9457eb4bcb7b3d23948",
     "semantic_hash": ""
   },
   "frontend/src/pages/CustomerDirectory.tsx": {
-    "mtime": 1789537700.0859716,
-    "ast_hash": "e5c92f8b4e4cf01b5a19366bc57a8c88",
+    "mtime": 1788498735.03077,
+    "ast_hash": "98f9268be51694371dba88a8c11af9fd",
     "semantic_hash": ""
   },
   "frontend/src/pages/DataQuality.tsx": {
-    "mtime": 1789368042.1790357,
-    "ast_hash": "1874f2e03137147db25d8600804bc508",
+    "mtime": 1789106359.7420795,
+    "ast_hash": "ac9000b58a64ee48f561274aa15db3af",
     "semantic_hash": ""
   },
   "frontend/src/pages/ExecutiveOverview.tsx": {
-    "mtime": 1789538835.7145507,
-    "ast_hash": "9c291280a010fac4613e506123323ed6",
+    "mtime": 1788514643.949442,
+    "ast_hash": "733dcb21a6e09d2e5d6a2eda3d206f66",
     "semantic_hash": ""
   },
   "frontend/src/pages/MasterAirWaybills.tsx": {
-    "mtime": 1789537862.2329595,
-    "ast_hash": "f46af3637e86b175376f9e168303db9f",
+    "mtime": 1788860638.0376265,
+    "ast_hash": "247b45b6dc65a8bb5457ee07477e8ffe",
     "semantic_hash": ""
   },
   "frontend/src/pages/MatchingReview.tsx": {
@@ -740,8 +740,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/UniversalSearch.tsx": {
-    "mtime": 1789537109.1282277,
-    "ast_hash": "7115bd01550baa5173b502aac80d16d4",
+    "mtime": 1788943112.514153,
+    "ast_hash": "5352b061d43f6433ff989f2f685e8e52",
     "semantic_hash": ""
   },
   "frontend/tailwind.config.js": {
@@ -800,8 +800,8 @@
     "semantic_hash": "f69461bdf6c77299d382ec5056ab8c7c"
   },
   "frontend/src/components/app-shell.tsx": {
-    "mtime": 1789537102.4195757,
-    "ast_hash": "7397b10fcaf3f04dc5abe6265cd9ec42",
+    "mtime": 1788931526.3223555,
+    "ast_hash": "8bede80b428776d139d290f277dcd7fb",
     "semantic_hash": ""
   },
   "frontend/src/components/dashboard.tsx": {
@@ -6320,8 +6320,8 @@
     "semantic_hash": ""
   },
   "backend/app/email_notifications.py": {
-    "mtime": 1789382593.3883207,
-    "ast_hash": "03bed1bf3c93dcae4ab28322766af750",
+    "mtime": 1788861914.474162,
+    "ast_hash": "d48e073ba3196c5167e2cbe0e50c4d82",
     "semantic_hash": ""
   },
   "backend/app/tier_alerts.py": {
@@ -6395,8 +6395,8 @@
     "semantic_hash": ""
   },
   "backend/tests/test_pipeline_sync.py": {
-    "mtime": 1789289272.122026,
-    "ast_hash": "7ebaf2f681f885ba9373f266a277c48d",
+    "mtime": 1789126144.8361976,
+    "ast_hash": "b7af3741cbb87da2079aab75d96bf337",
     "semantic_hash": ""
   },
   "backend/tests/test_tier_alerts_email.py": {
@@ -6805,8 +6805,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/Alerts.tsx": {
-    "mtime": 1789453710.060423,
-    "ast_hash": "f6f167fc5dac070b648c97464bb838de",
+    "mtime": 1788434469.025948,
+    "ast_hash": "b8362c6175c68c6fe911ae2933e0597f",
     "semantic_hash": ""
   },
   "frontend/src/pages/CustomerAnalytics.tsx": {
@@ -6825,8 +6825,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/GeographyAnalytics.tsx": {
-    "mtime": 1789374588.1267662,
-    "ast_hash": "c24ab11a8bccbbea820c10ac38a6627b",
+    "mtime": 1788511171.282035,
+    "ast_hash": "b91a03a77dfdff935df64df0a5937240",
     "semantic_hash": ""
   },
   "frontend/src/pages/Leaderboard.tsx": {
@@ -6840,8 +6840,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/ManifestImports.tsx": {
-    "mtime": 1789534564.7831874,
-    "ast_hash": "5c853561cf10162dd410e3ba889023e3",
+    "mtime": 1786707564.8962252,
+    "ast_hash": "5bac07c36d9c0493bfef155d28ad39a2",
     "semantic_hash": ""
   },
   "frontend/src/pages/OperationalAnalytics.tsx": {
@@ -6850,8 +6850,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/Pipeline.tsx": {
-    "mtime": 1789292407.2188702,
-    "ast_hash": "2f9a570923c301f55e1e223d91059f4a",
+    "mtime": 1786960193.4434237,
+    "ast_hash": "b8ee619062e120dd5b5b29338bd8c1d2",
     "semantic_hash": ""
   },
   "frontend/src/pages/Profitability.tsx": {
@@ -7097,16 +7097,6 @@
   "qa/UX-SYSTEM-FLOW.md": {
     "mtime": 1786699605.3980663,
     "ast_hash": "4651f299ccdca4c348090bdbc2e90256",
-    "semantic_hash": ""
-  },
-  "backend/tests/test_utils_icris_extract.py": {
-    "mtime": 1789376335.626286,
-    "ast_hash": "ad59547345dd089dd58bd219877114a2",
-    "semantic_hash": ""
-  },
-  "docs/handover-2026-09-15.md": {
-    "mtime": 1789449446.2293663,
-    "ast_hash": "ee5b582297526a7abec9f833f048562c",
     "semantic_hash": ""
   }
 }
