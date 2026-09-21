@@ -340,7 +340,7 @@ def companies(
     min_revenue:float|None=None,max_revenue:float|None=None,
     min_shipments:int|None=None,max_shipments:int|None=None,
     min_weight:float|None=None,max_weight:float|None=None,
-    limit:int=Query(50,le=200),offset:int=0,db:Session=Depends(get_db),ae_scope:str|None=Depends(get_ae_scope)
+    limit:int=Query(50,le=5000),offset:int=0,db:Session=Depends(get_db),ae_scope:str|None=Depends(get_ae_scope)
 ):
     sql = f"""
         SELECT
@@ -1634,9 +1634,11 @@ def ae_performance(
             'active':0,'warning':0,'dormant':0,'unknown':0,'reactivated':0,'new_customers':0,
             'segments':{s:0 for s in AE_SEGMENTS}|{'Unclassified':0},'customers':[]})
         e['revenue']+=r['revenue']; e['shipments']+=r['shipments']
-        e['weight']+=r['weight']; e['pieces']+=r['pieces']; e['companies']+=1
+        e['weight']+=r['weight']; e['pieces']+=r['pieces']
 
-        cid=r['company_id']; facts=life.get(cid) or {}
+        cid=r['company_id']
+        if cid: e['companies']+=1
+        facts=life.get(cid) or {}
         true_last=facts.get('last_shipment'); first=facts.get('first_shipment')
         days_since=(today-true_last).days if true_last else None
         # No lifetime history means the shipment isn't linked to a company at all — that's an
@@ -1647,22 +1649,23 @@ def ae_performance(
         elif days_since<=AE_HEALTH_WARNING_DAYS: status='Warning'; e['warning']+=1
         else: status='Dormant'; e['dormant']+=1
 
-        is_new=bool(first and first>=c_start)
+        is_new=bool(cid and first and first>=c_start)
         if is_new: e['new_customers']+=1
-        prior_last=prior.get(cid)
-        is_reactivated=(not is_new) and (prior_last is None or prior_last<reactivation_cutoff)
+        prior_last=prior.get(cid) if cid else None
+        is_reactivated=bool(cid) and (not is_new) and (prior_last is None or prior_last<reactivation_cutoff)
         if is_reactivated: e['reactivated']+=1
 
-        seg=r['segment'] if r['segment'] in AE_SEGMENTS else 'Unclassified'
-        e['segments'][seg]+=1
-        e['customers'].append({
-            'company_id':r['company_id'],'company_name':r['company_name'] or 'Unlinked shipments',
-            'icris_number':r['icris_number'],'segment':seg,
-            'revenue':round(r['revenue'],2),'shipments':r['shipments'],
-            'weight':round(r['weight'],2),'pieces':r['pieces'],
-            'last_shipment_date':str(true_last) if true_last else None,
-            'days_since_last_shipment':days_since,'status':status,
-            'is_new':is_new,'is_reactivated':is_reactivated})
+        if cid:
+            seg=r['segment'] if r['segment'] in AE_SEGMENTS else 'Unclassified'
+            e['segments'][seg]+=1
+            e['customers'].append({
+                'company_id':r['company_id'],'company_name':r['company_name'],
+                'icris_number':r['icris_number'],'segment':seg,
+                'revenue':round(r['revenue'],2),'shipments':r['shipments'],
+                'weight':round(r['weight'],2),'pieces':r['pieces'],
+                'last_shipment_date':str(true_last) if true_last else None,
+                'days_since_last_shipment':days_since,'status':status,
+                'is_new':is_new,'is_reactivated':is_reactivated})
 
     grand_revenue=sum(e['revenue'] for e in ae_map.values()) or 0.0
     out=[]
@@ -1842,6 +1845,7 @@ def executive_dashboard(
 
     prev_sql=f"""
         SELECT s.id shipment_id, s.company_id, c.company_name, c.icris_number, c.customer_type as segment, c.status as company_status,
+               s.shipment_date, s.created_at,
                coalesce(nullif(c.assigned_ae_code,''), nullif(s.ae_code,''), 'UNASSIGNED') ae_code,
                {REVENUE_AMOUNT_SQL}::float amount,
                coalesce(s.shipment_weight, s.actual_weight, 0)::float weight, coalesce(s.pieces, 1)::int pieces,

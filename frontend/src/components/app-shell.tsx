@@ -58,7 +58,7 @@ const NAV_ITEMS: NavItem[] = [
       { label: "Geography", path: "/app/geography", icon: MapPin },
       { label: "Document Type", path: "/app/doc-type", icon: FileStack },
       { label: "Operational KPIs", path: "/app/operations", icon: Activity },
-    ]
+    ],
   },
   { label: "Universal Search", path: "/app/search", icon: Search, group: "Executive" },
 
@@ -362,20 +362,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     const badge = badgeFor(item.path);
 
                     if (item.subItems) {
-                      const subOpen = isActive;
                       return (
-                        <Collapsible.Root defaultOpen={subOpen} key={item.path} className="space-y-0.5">
-                          <Collapsible.Trigger className={cn(
-                            "w-full flex items-center justify-between px-3 py-2 rounded-md text-[13px] font-medium transition-colors group",
+                        <div key={item.path} className="space-y-0.5">
+                          <Link to={item.path} className={cn(
+                            "w-full flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-colors",
                             isActive ? "text-zinc-50 bg-zinc-800" : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-50"
                           )}>
-                            <div className="flex items-center gap-3">
-                              <item.icon size={15} className={isActive ? "text-zinc-50" : "text-zinc-500"} />
-                              {item.label}
-                            </div>
-                            <ChevronDown size={12} className="text-zinc-500 group-data-[state=open]:rotate-180 transition-transform" />
-                          </Collapsible.Trigger>
-                          <Collapsible.Content className="pl-9 space-y-0.5 py-1">
+                            <item.icon size={15} className={isActive ? "text-zinc-50" : "text-zinc-500"} />
+                            {item.label}
+                          </Link>
+                          <div className="pl-9 space-y-0.5 py-1">
                             {item.subItems.map(subItem => (
                               <Link
                                 key={subItem.path}
@@ -391,8 +387,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                 {subItem.label}
                               </Link>
                             ))}
-                          </Collapsible.Content>
-                        </Collapsible.Root>
+                          </div>
+                        </div>
                       );
                     }
 

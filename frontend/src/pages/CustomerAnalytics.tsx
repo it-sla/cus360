@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { KpiCard } from '@/components/KpiCard';
 import { FilterSelect, DateRangeControl, CompareModeSelect, fmtShortDate } from '@/components/AnalyticsFilterBar';
+import { useTheme } from '@/theme';
 
 function ChartWrapper({ title, children }: { title: string, children: React.ReactNode }) {
   return (
@@ -31,6 +32,8 @@ function fmtAxisDate(iso: string | null) {
 
 export default function CustomerAnalytics() {
   const navigate = useNavigate();
+  const { theme } = useTheme();
+  const dark = theme === 'dark';
 
   const [filters, setFilters] = useState({
     timeframe: 'this_month',
@@ -63,7 +66,7 @@ export default function CustomerAnalytics() {
   const {
     base, segmentsData, activeCount, dormantCount, reactivatedCount, newCount,
     everShippedCount, gainers, decliners,
-    trendChartData
+    trendChartData, trendDateRange
   } = useMemo(() => {
     if (!d || !d.revenue_analytics?.all_customers) {
       return {
@@ -197,7 +200,10 @@ export default function CustomerAnalytics() {
        }
     }
 
-    return { base: all, segmentsData, activeCount, dormantCount, reactivatedCount, newCount, everShippedCount, avgRevPerCust, avgShipPerCust, healthData, concentrationData, reactivatedList, lapsedList, gainers, decliners, trendChartData };
+    const curDates = trendChartData.map(g => g.cur_date).filter(Boolean) as string[];
+    const trendDateRange = curDates.length ? { from: curDates[0], to: curDates[curDates.length - 1] } : null;
+
+    return { base: all, segmentsData, activeCount, dormantCount, reactivatedCount, newCount, everShippedCount, avgRevPerCust, avgShipPerCust, healthData, concentrationData, reactivatedList, lapsedList, gainers, decliners, trendChartData, trendDateRange };
   }, [d, filters]);
 
   const uniqueAEs = useMemo(() => Array.from(new Set(d?.revenue_analytics?.all_customers?.map((c:any) => c.ae_code).filter(Boolean) || [])).sort(), [d]);
@@ -280,7 +286,12 @@ export default function CustomerAnalytics() {
     );
   }
 
-  const echartTooltip = { backgroundColor: '#fff', borderColor: '#e2e8f0', textStyle: { color: '#0f172a', fontSize: 12 } };
+  const chartPalette = dark
+    ? { axisLabel: '#a1a1aa', axisLine: '#27272a', splitLine: '#27272a' }
+    : { axisLabel: '#94a3b8', axisLine: '#e2e8f0', splitLine: '#f1f5f9' };
+  const echartTooltip = dark
+    ? { backgroundColor: '#27272a', borderColor: '#3f3f46', textStyle: { color: '#fafafa', fontSize: 12 } }
+    : { backgroundColor: '#fff', borderColor: '#e2e8f0', textStyle: { color: '#0f172a', fontSize: 12 } };
 
   return (
     <div className="flex-1 overflow-y-auto bg-background relative p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto w-full space-y-6">
@@ -553,8 +564,8 @@ export default function CustomerAnalytics() {
       <div className="grid grid-cols-1 2xl:grid-cols-2 gap-6 mt-6">
         <ChartWrapper title="Revenue Comparison Trend">
           <p className="text-[10px] text-slate-400 font-medium -mt-3 mb-2">
-            {trendChartData.length > 0 && trendChartData[0].cur_date && trendChartData[trendChartData.length - 1].cur_date
-              ? `This period (${fmtShortDate(trendChartData[0].cur_date)} – ${fmtShortDate(trendChartData[trendChartData.length - 1].cur_date)}) vs prior period, day by day, matched by position in the range.`
+            {trendDateRange
+              ? `This period (${fmtShortDate(trendDateRange.from)} – ${fmtShortDate(trendDateRange.to)}) vs prior period, day by day, matched by position in the range.`
               : 'Day-by-day revenue, this period vs the prior comparable period.'}
           </p>
           <ReactECharts
@@ -570,10 +581,10 @@ export default function CustomerAnalytics() {
                     + `<div>Prior period: <b>${fmt$(row.prev_revenue)}</b></div>`;
                 }
               },
-              legend: { bottom: 0, icon: 'circle', textStyle: { fontSize: 11 } },
+              legend: { bottom: 0, icon: 'circle', textStyle: { fontSize: 11, color: chartPalette.axisLabel } },
               grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
-              xAxis: { type: 'category', data: trendChartData.map(g => fmtAxisDate(g.cur_date) || g.index), axisLine: { lineStyle: { color: '#e2e8f0' } }, axisLabel: { fontSize: 10, color: '#94a3b8' } },
-              yAxis: { type: 'value', splitLine: { lineStyle: { type: 'dashed', color: '#f1f5f9' } }, axisLabel: { formatter: (v: number) => fmt$(v) } },
+              xAxis: { type: 'category', data: trendChartData.map(g => fmtAxisDate(g.cur_date) || g.index), axisLine: { lineStyle: { color: chartPalette.axisLine } }, axisLabel: { fontSize: 10, color: chartPalette.axisLabel } },
+              yAxis: { type: 'value', splitLine: { lineStyle: { type: 'dashed', color: chartPalette.splitLine } }, axisLabel: { formatter: (v: number) => fmt$(v), color: chartPalette.axisLabel } },
               color: ['#0ea5e9', '#94a3b8'],
               series: [
                 { name: 'This Period', type: 'line', smooth: true, data: trendChartData.map(g => g.cur_revenue), symbol: 'none', lineStyle: { width: 3 } },
@@ -586,8 +597,8 @@ export default function CustomerAnalytics() {
 
         <ChartWrapper title="Shipment Comparison Trend">
           <p className="text-[10px] text-slate-400 font-medium -mt-3 mb-2">
-            {trendChartData.length > 0 && trendChartData[0].cur_date && trendChartData[trendChartData.length - 1].cur_date
-              ? `This period (${fmtShortDate(trendChartData[0].cur_date)} – ${fmtShortDate(trendChartData[trendChartData.length - 1].cur_date)}) vs prior period, day by day, matched by position in the range.`
+            {trendDateRange
+              ? `This period (${fmtShortDate(trendDateRange.from)} – ${fmtShortDate(trendDateRange.to)}) vs prior period, day by day, matched by position in the range.`
               : 'Day-by-day shipment count, this period vs the prior comparable period.'}
           </p>
           <ReactECharts
@@ -603,10 +614,10 @@ export default function CustomerAnalytics() {
                     + `<div>Prior period: <b>${fmtNum(row.prev_shipments)} shipments</b></div>`;
                 }
               },
-              legend: { bottom: 0, icon: 'circle', textStyle: { fontSize: 11 } },
+              legend: { bottom: 0, icon: 'circle', textStyle: { fontSize: 11, color: chartPalette.axisLabel } },
               grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
-              xAxis: { type: 'category', data: trendChartData.map(g => fmtAxisDate(g.cur_date) || g.index), axisLine: { lineStyle: { color: '#e2e8f0' } }, axisLabel: { fontSize: 10, color: '#94a3b8' } },
-              yAxis: { type: 'value', splitLine: { lineStyle: { type: 'dashed', color: '#f1f5f9' } } },
+              xAxis: { type: 'category', data: trendChartData.map(g => fmtAxisDate(g.cur_date) || g.index), axisLine: { lineStyle: { color: chartPalette.axisLine } }, axisLabel: { fontSize: 10, color: chartPalette.axisLabel } },
+              yAxis: { type: 'value', splitLine: { lineStyle: { type: 'dashed', color: chartPalette.splitLine } }, axisLabel: { color: chartPalette.axisLabel } },
               color: ['#10b981', '#94a3b8'],
               series: [
                 { name: 'This Period', type: 'bar', data: trendChartData.map(g => g.cur_shipments), itemStyle: { borderRadius: [4, 4, 0, 0] } },
