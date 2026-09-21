@@ -42,8 +42,16 @@ export default function Pipeline() {
     refetchInterval: 60000,
   });
 
+  // Unfiltered, so the AE dropdown keeps every option once an AE is selected —
+  // deriving codes from the filtered `items` would collapse the list to just
+  // the currently selected AE.
+  const { data: allAeData } = useQuery({
+    queryKey: ['pipeline-ae-codes'],
+    queryFn: () => api.getPipeline({}),
+  });
+
   const items: PipelineItem[] = data?.items ?? [];
-  const aeCodes = Array.from(new Set(items.map((i) => i.ae_code).filter(Boolean))) as string[];
+  const aeCodes = Array.from(new Set((allAeData?.items ?? []).map((i) => i.ae_code).filter(Boolean))) as string[];
   const revenueAtRisk = items.filter((i) => i.is_overdue).reduce((sum, i) => sum + (i.revenue_usd ?? 0), 0);
   const isStale = !!data?.as_of && hoursAgo(data.as_of) > STALE_AFTER_HOURS;
 
