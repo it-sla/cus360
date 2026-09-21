@@ -4,6 +4,7 @@ import { api } from '../api';
 import type { AEPerformanceItem, AECustomer, AeTarget } from '../api';
 import ReactECharts from 'echarts-for-react';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from '@/theme';
 import {
   Download, Calendar, Users, Building2, Activity,
   ArrowUpRight, ArrowDownRight, RefreshCw, X, Search,
@@ -91,17 +92,17 @@ function DateRangeControl({ timeframe, dateFrom, dateTo, bounds, onPreset, onCus
       <button
         ref={triggerRef}
         onClick={() => { if (open) { setOpen(false); return; } setShowCustom(isCustom); setDraftFrom(dateFrom || isoDaysAgo(29)); setDraftTo(dateTo || TODAY_ISO); setOpen(true); }}
-        className={`h-9 pl-8 ${isFiltered ? 'pr-8' : 'pr-3'} bg-[#18181b] border border-[#27272a] rounded-lg hover:bg-[#27272a] transition-colors flex flex-col items-start justify-center relative min-w-[150px]`}
+        className={`h-9 pl-8 ${isFiltered ? 'pr-8' : 'pr-3'} bg-zinc-900 border border-zinc-800 rounded-lg hover:bg-zinc-800 transition-colors flex flex-col items-start justify-center relative min-w-[150px]`}
       >
-        <Calendar size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
-        <span className="text-xs font-bold text-slate-200 leading-tight">{label}</span>
-        {resolved && !isCustom && <span className="text-[9.5px] text-slate-500 font-semibold leading-tight">{resolved}</span>}
+        <Calendar size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
+        <span className="text-xs font-bold text-zinc-200 leading-tight">{label}</span>
+        {resolved && !isCustom && <span className="text-[9.5px] text-zinc-500 font-semibold leading-tight">{resolved}</span>}
       </button>
       {isFiltered && (
         <button
           onClick={(e) => { e.stopPropagation(); setOpen(false); onPreset('this_month'); }}
           title="Clear date filter"
-          className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-slate-500 hover:text-slate-200 hover:bg-[#27272a] transition-colors"
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
         >
           <X size={13} />
         </button>
@@ -111,23 +112,23 @@ function DateRangeControl({ timeframe, dateFrom, dateTo, bounds, onPreset, onCus
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div
             style={{ position: 'fixed', top: pos.top, left: pos.left, width: PANEL_WIDTH, maxHeight: pos.maxHeight }}
-            className="z-50 bg-[#18181b] border border-[#27272a] rounded-xl shadow-2xl p-3 space-y-3 overflow-y-auto"
+            className="z-50 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl p-3 space-y-3 overflow-y-auto"
           >
             {DATE_PRESET_GROUPS.map(g => (
               <div key={g.label}>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 px-0.5">{g.label}</div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1.5 px-0.5">{g.label}</div>
                 <div className="grid grid-cols-2 gap-1">
                   {g.options.map(o => (
                     <button key={o.value} onClick={() => { onPreset(o.value); setOpen(false); }}
                       className={`px-2 py-1.5 rounded-lg text-xs font-semibold text-left transition-colors ${
-                        timeframe === o.value ? 'bg-blue-600 text-white' : 'bg-[#09090b] text-slate-300 hover:bg-[#27272a]'}`}>
+                        timeframe === o.value ? 'bg-blue-600 text-white' : 'bg-zinc-950 text-zinc-300 hover:bg-zinc-800'}`}>
                       {o.label}
                     </button>
                   ))}
                 </div>
               </div>
             ))}
-            <div className="border-t border-[#27272a] pt-3">
+            <div className="border-t border-zinc-800 pt-3">
               {isFiltered && (
                 <button onClick={() => { onPreset('this_month'); setOpen(false); }}
                   className="w-full px-2 py-1.5 rounded-lg text-xs font-semibold text-left mb-2 text-rose-400 hover:bg-rose-950/40 transition-colors flex items-center gap-1.5">
@@ -136,21 +137,21 @@ function DateRangeControl({ timeframe, dateFrom, dateTo, bounds, onPreset, onCus
               )}
               <button onClick={() => setShowCustom(true)}
                 className={`w-full px-2 py-1.5 rounded-lg text-xs font-semibold text-left mb-2 transition-colors ${
-                  isCustom ? 'bg-blue-600 text-white' : 'bg-[#09090b] text-slate-300 hover:bg-[#27272a]'}`}>
+                  isCustom ? 'bg-blue-600 text-white' : 'bg-zinc-950 text-zinc-300 hover:bg-zinc-800'}`}>
                 Custom Range{isCustom && dateFrom && dateTo ? `: ${fmtShortDate(dateFrom)} – ${fmtShortDate(dateTo)}` : ''}
               </button>
               {showCustom && (
-                <div className="space-y-2 bg-[#09090b] rounded-lg p-2.5 border border-[#27272a]">
+                <div className="space-y-2 bg-zinc-950 rounded-lg p-2.5 border border-zinc-800">
                   <div className="flex items-center gap-2">
                     <div className="flex-1">
-                      <label className="block text-[9px] font-bold uppercase text-slate-500 mb-0.5">From</label>
+                      <label className="block text-[9px] font-bold uppercase text-zinc-500 mb-0.5">From</label>
                       <input type="date" value={draftFrom} max={draftTo || TODAY_ISO} onChange={e => setDraftFrom(e.target.value)}
-                        className="w-full h-8 px-2 bg-[#18181b] border border-[#27272a] rounded-md text-xs font-medium text-slate-200 outline-none focus:border-blue-500" />
+                        className="w-full h-8 px-2 bg-zinc-900 border border-zinc-800 rounded-md text-xs font-medium text-zinc-200 outline-none focus:border-blue-500" />
                     </div>
                     <div className="flex-1">
-                      <label className="block text-[9px] font-bold uppercase text-slate-500 mb-0.5">To</label>
+                      <label className="block text-[9px] font-bold uppercase text-zinc-500 mb-0.5">To</label>
                       <input type="date" value={draftTo} min={draftFrom} max={TODAY_ISO} onChange={e => setDraftTo(e.target.value)}
-                        className="w-full h-8 px-2 bg-[#18181b] border border-[#27272a] rounded-md text-xs font-medium text-slate-200 outline-none focus:border-blue-500" />
+                        className="w-full h-8 px-2 bg-zinc-900 border border-zinc-800 rounded-md text-xs font-medium text-zinc-200 outline-none focus:border-blue-500" />
                     </div>
                   </div>
                   <button onClick={() => { if (!draftFrom || !draftTo) return; const f = draftFrom <= draftTo ? draftFrom : draftTo; const t = draftFrom <= draftTo ? draftTo : draftFrom; onCustom(f, t); setOpen(false); }}
@@ -172,17 +173,17 @@ function DateRangeControl({ timeframe, dateFrom, dateTo, bounds, onPreset, onCus
 
 const Select = ({ value, onChange, children, icon: Icon }: any) => (
   <div className="relative">
-    {Icon && <Icon size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />}
+    {Icon && <Icon size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />}
     <select value={value} onChange={onChange}
-      className={`h-9 ${Icon ? 'pl-8' : 'pl-3'} pr-7 bg-[#18181b] border border-[#27272a] rounded-lg text-xs font-semibold text-slate-200 outline-none hover:bg-[#27272a] cursor-pointer appearance-none`}>
+      className={`h-9 ${Icon ? 'pl-8' : 'pl-3'} pr-7 bg-zinc-900 border border-zinc-800 rounded-lg text-xs font-semibold text-zinc-200 outline-none hover:bg-zinc-800 cursor-pointer appearance-none`}>
       {children}
     </select>
-    <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 text-[10px]">▼</div>
+    <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500 text-[10px]">▼</div>
   </div>
 );
 
 function Delta({ pct }: { pct: number }) {
-  if (pct === 0) return <span className="text-slate-500 text-xs shrink-0">—</span>;
+  if (pct === 0) return <span className="text-zinc-500 text-xs shrink-0">—</span>;
   const up = pct > 0;
   return (
     <span className={`inline-flex items-center gap-0.5 font-bold text-xs shrink-0 ${up ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -225,13 +226,15 @@ const STATUS_STYLE: Record<string, string> = {
   Active: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
   Warning: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
   Dormant: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
-  Unknown: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
+  Unknown: 'bg-slate-500/10 text-zinc-400 border-slate-500/20',
 };
 
 /* ── page ───────────────────────────────────────────────────────────── */
 
 export default function AEPerformance() {
   const navigate = useNavigate();
+  const { theme } = useTheme();
+  const dark = theme === 'dark';
   const [timeframe, setTimeframe] = useState('this_month');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -289,7 +292,7 @@ export default function AEPerformance() {
   }, [periodMonths, targetsStartYearQuery.data, targetsEndYearQuery.data, startYear, endYear]);
 
   const list = useMemo(
-    () => (aeFilter ? all.filter(a => a.ae === aeFilter) : all),
+    () => (aeFilter ? all.filter(a => a.ae === aeFilter) : all.filter(a => !(a.ae === 'UNASSIGNED' && a.revenue === 0))),
     [all, aeFilter]
   );
 
@@ -335,18 +338,22 @@ export default function AEPerformance() {
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center min-h-[600px]">
-        <div className="flex flex-col items-center gap-3 bg-[#18181b] p-10 rounded-2xl border border-[#27272a]">
+        <div className="flex flex-col items-center gap-3 bg-zinc-900 p-10 rounded-2xl border border-zinc-800">
           <RefreshCw className="animate-spin text-blue-400" size={32} />
-          <span className="font-semibold text-slate-300 text-sm">Loading AE Performance…</span>
+          <span className="font-semibold text-zinc-300 text-sm">Loading AE Performance…</span>
         </div>
       </div>
     );
   }
 
+  const chartPalette = dark
+    ? { bg: '#18181b', border: '#27272a', text: '#fafafa', axisLabel: '#a1a1aa', axisLine: '#27272a', splitLine: '#27272a', prevBar: '#3f3f46' }
+    : { bg: '#fff', border: '#e4e4e7', text: '#18181b', axisLabel: '#71717a', axisLine: '#e4e4e7', splitLine: '#e4e4e7', prevBar: '#d4d4d8' };
+
   const chartBase = {
-    tooltip: { trigger: 'axis', backgroundColor: '#18181b', borderColor: '#27272a', textStyle: { color: '#fafafa', fontSize: 12 } },
+    tooltip: { trigger: 'axis', backgroundColor: chartPalette.bg, borderColor: chartPalette.border, textStyle: { color: chartPalette.text, fontSize: 12 } },
     grid: { top: 24, right: 16, bottom: 28, left: 60 },
-    xAxis: { type: 'category', data: list.map(a => a.ae), axisLabel: { color: '#a1a1aa', fontWeight: 'bold', interval: 0, rotate: list.length > 6 ? 30 : 0 }, axisLine: { lineStyle: { color: '#27272a' } } },
+    xAxis: { type: 'category', data: list.map(a => a.ae), axisLabel: { color: chartPalette.axisLabel, fontWeight: 'bold', interval: 0, rotate: list.length > 6 ? 30 : 0 }, axisLine: { lineStyle: { color: chartPalette.axisLine } } },
   };
 
   return (
@@ -358,12 +365,12 @@ export default function AEPerformance() {
         {/* header */}
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-black text-slate-50 tracking-tight">AE Performance</h1>
-            <p className="mt-1 text-xs text-slate-400 font-medium">
-              <span className="font-bold text-slate-200">{list.length}</span> account executives ·{' '}
-              <span className="font-bold text-slate-200">{fmtN(totals.companies)}</span> customers ·{' '}
-              <span className="font-bold text-slate-200">{fmt$(totals.revenue)}</span> revenue
-              {data?.bounds && <> · <span className="font-bold text-slate-200">{fmtShortDate(data.bounds.c_start)} – {fmtShortDate(data.bounds.c_end)}</span></>}
+            <h1 className="text-2xl font-black text-zinc-50 tracking-tight">AE Performance</h1>
+            <p className="mt-1 text-xs text-zinc-400 font-medium">
+              <span className="font-bold text-zinc-200">{list.length}</span> account executives ·{' '}
+              <span className="font-bold text-zinc-200">{fmtN(totals.companies)}</span> customers ·{' '}
+              <span className="font-bold text-zinc-200">{fmt$(totals.revenue)}</span> revenue
+              {data?.bounds && <> · <span className="font-bold text-zinc-200">{fmtShortDate(data.bounds.c_start)} – {fmtShortDate(data.bounds.c_end)}</span></>}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -385,7 +392,7 @@ export default function AEPerformance() {
               {(data?.segments ?? []).filter(s => s !== 'Unclassified').map(s => <option key={s} value={s}>{s}</option>)}
             </Select>
             <button onClick={exportCsv}
-              className="h-9 flex items-center gap-2 bg-[#18181b] border border-[#27272a] text-slate-300 px-3 rounded-lg hover:bg-[#27272a] transition-colors text-xs font-bold">
+              className="h-9 flex items-center gap-2 bg-zinc-900 border border-zinc-800 text-zinc-300 px-3 rounded-lg hover:bg-zinc-800 transition-colors text-xs font-bold">
               <Download size={14} /> Export CSV
             </button>
           </div>
@@ -399,44 +406,44 @@ export default function AEPerformance() {
             { label: 'Customers', value: fmtN(totals.companies), sub: `${fmt$(totals.companies ? totals.revenue / totals.companies : 0)} avg` },
             { label: 'Active', value: fmtN(totals.active), sub: `≤ ${th?.active_days ?? 30} days`, tone: 'text-emerald-400' },
           ].map((k, i) => (
-            <div key={i} className="bg-[#18181b] p-4 rounded-xl border border-[#27272a] overflow-hidden min-w-0">
-              <div className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1.5 truncate">{k.label}</div>
+            <div key={i} className="bg-zinc-900 p-4 rounded-xl border border-zinc-800 overflow-hidden min-w-0">
+              <div className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider mb-1.5 truncate">{k.label}</div>
               <div className="flex items-baseline gap-1.5 flex-wrap">
-                <div className={`text-xl font-black ${k.tone ?? 'text-slate-50'} truncate max-w-full`}>{k.value}</div>
+                <div className={`text-xl font-black ${k.tone ?? 'text-zinc-50'} truncate max-w-full`}>{k.value}</div>
                 {k.delta !== undefined && <Delta pct={k.delta} />}
               </div>
-              {k.sub && <div className="text-[10px] text-slate-500 font-semibold mt-1 truncate">{k.sub}</div>}
+              {k.sub && <div className="text-[10px] text-zinc-500 font-semibold mt-1 truncate">{k.sub}</div>}
             </div>
           ))}
         </div>
 
         {/* charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-[#18181b] p-5 rounded-xl border border-[#27272a]">
-            <h3 className="text-sm font-bold text-slate-50 mb-1">Revenue by AE</h3>
-            <p className="text-[11px] text-slate-500 font-medium mb-3">Current period vs {compareMode === 'yoy' ? 'same period last year' : 'previous period'}</p>
+          <div className="bg-zinc-900 p-5 rounded-xl border border-zinc-800">
+            <h3 className="text-sm font-bold text-zinc-50 mb-1">Revenue by AE</h3>
+            <p className="text-[11px] text-zinc-500 font-medium mb-3">Current period vs {compareMode === 'yoy' ? 'same period last year' : 'previous period'}</p>
             <ReactECharts style={{ height: 300 }} option={{
               ...chartBase,
-              legend: { data: ['Current', 'Previous', 'Target'], textStyle: { color: '#a1a1aa', fontSize: 11 }, top: 0, right: 0 },
-              yAxis: { type: 'value', axisLabel: { formatter: (v: any) => `$${v / 1000}k`, color: '#a1a1aa' }, splitLine: { lineStyle: { color: '#27272a' } } },
+              legend: { data: ['Current', 'Previous', 'Target'], textStyle: { color: chartPalette.axisLabel, fontSize: 11 }, top: 0, right: 0 },
+              yAxis: { type: 'value', axisLabel: { formatter: (v: any) => `$${v / 1000}k`, color: chartPalette.axisLabel }, splitLine: { lineStyle: { color: chartPalette.splitLine } } },
               series: [
                 { name: 'Current', type: 'bar', data: list.map(a => a.revenue), itemStyle: { color: '#3b82f6', borderRadius: [4, 4, 0, 0] } },
-                { name: 'Previous', type: 'bar', data: list.map(a => a.prev_revenue), itemStyle: { color: '#3f3f46', borderRadius: [4, 4, 0, 0] } },
+                { name: 'Previous', type: 'bar', data: list.map(a => a.prev_revenue), itemStyle: { color: chartPalette.prevBar, borderRadius: [4, 4, 0, 0] } },
                 {
                   name: 'Target', type: 'scatter', symbol: 'diamond', symbolSize: 10,
                   data: list.map(a => targetByAe[a.ae] ?? null),
-                  itemStyle: { color: '#f59e0b', borderColor: '#09090b', borderWidth: 1.5 },
+                  itemStyle: { color: '#f59e0b', borderColor: chartPalette.bg, borderWidth: 1.5 },
                 },
               ],
             }} />
           </div>
-          <div className="bg-[#18181b] p-5 rounded-xl border border-[#27272a]">
-            <h3 className="text-sm font-bold text-slate-50 mb-1">Portfolio Health by AE</h3>
-            <p className="text-[11px] text-slate-500 font-medium mb-3">Based on each customer's true last shipment, all-time</p>
+          <div className="bg-zinc-900 p-5 rounded-xl border border-zinc-800">
+            <h3 className="text-sm font-bold text-zinc-50 mb-1">Portfolio Health by AE</h3>
+            <p className="text-[11px] text-zinc-500 font-medium mb-3">Based on each customer's true last shipment, all-time</p>
             <ReactECharts style={{ height: 300 }} option={{
               ...chartBase,
-              legend: { data: ['Active', 'At Risk', 'Dormant'], textStyle: { color: '#a1a1aa', fontSize: 11 }, top: 0, right: 0 },
-              yAxis: { type: 'value', axisLabel: { color: '#a1a1aa' }, splitLine: { lineStyle: { color: '#27272a' } } },
+              legend: { data: ['Active', 'At Risk', 'Dormant'], textStyle: { color: chartPalette.axisLabel, fontSize: 11 }, top: 0, right: 0 },
+              yAxis: { type: 'value', axisLabel: { color: chartPalette.axisLabel }, splitLine: { lineStyle: { color: chartPalette.splitLine } } },
               series: [
                 { name: 'Active', type: 'bar', stack: 'h', data: list.map(a => a.active), itemStyle: { color: '#10b981' } },
                 { name: 'At Risk', type: 'bar', stack: 'h', data: list.map(a => a.warning), itemStyle: { color: '#f59e0b' } },
@@ -447,16 +454,16 @@ export default function AEPerformance() {
         </div>
 
         {/* leaderboard */}
-        <div className="bg-[#18181b] rounded-xl border border-[#27272a] overflow-hidden">
-          <div className="px-5 py-4 border-b border-[#27272a] flex items-center justify-between">
+        <div className="bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden">
+          <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-slate-50">AE Leaderboard</h3>
-              <p className="text-[11px] text-slate-500 font-medium mt-0.5">Click any row to inspect that portfolio</p>
+              <h3 className="text-sm font-bold text-zinc-50">AE Leaderboard</h3>
+              <p className="text-[11px] text-zinc-500 font-medium mt-0.5">Click any row to inspect that portfolio</p>
             </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs whitespace-nowrap">
-              <thead className="bg-[#09090b] border-b border-[#27272a] text-slate-500">
+              <thead className="bg-zinc-950 border-b border-zinc-800 text-zinc-500">
                 <tr className="text-[10px] uppercase tracking-widest font-bold">
                   <th className="px-4 py-3">#</th>
                   <th className="px-4 py-3">AE</th>
@@ -475,11 +482,11 @@ export default function AEPerformance() {
                   <th className="px-4 py-3 text-right">React.</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#27272a]">
+              <tbody className="divide-y divide-zinc-800">
                 {list.length === 0 && (
-                  <tr><td colSpan={15} className="px-5 py-20 text-center text-slate-500">
-                    <Search size={28} className="mx-auto mb-3 text-slate-700" />
-                    <p className="text-sm font-bold text-slate-400">No AE activity in this period</p>
+                  <tr><td colSpan={15} className="px-5 py-20 text-center text-zinc-500">
+                    <Search size={28} className="mx-auto mb-3 text-zinc-700" />
+                    <p className="text-sm font-bold text-zinc-400">No AE activity in this period</p>
                     <p className="text-xs mt-1">Try a wider date range or clear the filters.</p>
                   </td></tr>
                 )}
@@ -488,24 +495,24 @@ export default function AEPerformance() {
                   const attainment = target && target > 0 ? Math.round((a.revenue / target) * 1000) / 10 : null;
                   return (
                   <tr key={a.ae} onClick={() => { setSelectedAE(a.ae); setDrillStatus('all'); }}
-                    className={`hover:bg-[#27272a] transition-colors cursor-pointer ${a.ae === 'UNASSIGNED' ? 'bg-amber-500/[0.04]' : ''}`}>
-                    <td className="px-4 py-3 text-slate-600 font-mono">{i + 1}</td>
-                    <td className="px-4 py-3 font-bold text-slate-50">
+                    className={`hover:bg-zinc-800 transition-colors cursor-pointer ${a.ae === 'UNASSIGNED' ? 'bg-amber-500/[0.04]' : ''}`}>
+                    <td className="px-4 py-3 text-zinc-600 font-mono">{i + 1}</td>
+                    <td className="px-4 py-3 font-bold text-zinc-50">
                       {a.ae}
                       {a.ae === 'UNASSIGNED' && <span className="ml-2 text-[9px] uppercase font-bold text-amber-400 border border-amber-500/30 rounded px-1 py-0.5">unowned</span>}
                     </td>
-                    <td className="px-4 py-3 text-right font-black text-slate-100">{fmt$(a.revenue)}</td>
-                    <td className="px-4 py-3 text-right text-slate-400">{target ? fmt$(target) : '—'}</td>
+                    <td className="px-4 py-3 text-right font-black text-zinc-100">{fmt$(a.revenue)}</td>
+                    <td className="px-4 py-3 text-right text-zinc-400">{target ? fmt$(target) : '—'}</td>
                     <td className="px-4 py-3 text-right">
                       {attainment !== null ? (
                         <span className={`inline-block px-2 py-0.5 text-[10px] font-bold rounded border ${attainmentTone(attainment)}`}>{attainment}%</span>
-                      ) : <span className="text-slate-600">—</span>}
+                      ) : <span className="text-zinc-600">—</span>}
                     </td>
                     <td className="px-4 py-3 text-right"><Delta pct={a.revenue_growth_pct} /></td>
-                    <td className="px-4 py-3 text-right text-slate-400 font-semibold">{a.revenue_share_pct}%</td>
-                    <td className="px-4 py-3 text-right text-slate-300">{fmtN(a.companies)}</td>
-                    <td className="px-4 py-3 text-right text-slate-400">{fmt$(a.avg_revenue_per_customer)}</td>
-                    <td className="px-4 py-3 text-right text-slate-300">{fmtN(a.shipments)}</td>
+                    <td className="px-4 py-3 text-right text-zinc-400 font-semibold">{a.revenue_share_pct}%</td>
+                    <td className="px-4 py-3 text-right text-zinc-300">{fmtN(a.companies)}</td>
+                    <td className="px-4 py-3 text-right text-zinc-400">{fmt$(a.avg_revenue_per_customer)}</td>
+                    <td className="px-4 py-3 text-right text-zinc-300">{fmtN(a.shipments)}</td>
                     <td className="px-4 py-3 text-right text-emerald-400 font-semibold">{a.active}</td>
                     <td className="px-4 py-3 text-right text-amber-400 font-semibold">{a.warning}</td>
                     <td className="px-4 py-3 text-right text-rose-400 font-semibold">{a.dormant}</td>
@@ -525,21 +532,21 @@ export default function AEPerformance() {
       {drillAE && (
         <>
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40" onClick={() => setSelectedAE(null)} />
-          <aside className="fixed inset-y-0 right-0 z-50 w-full max-w-[720px] bg-[#09090b] border-l border-[#27272a] shadow-2xl flex flex-col">
-            <div className="px-5 py-4 border-b border-[#27272a] flex items-center justify-between shrink-0">
+          <aside className="fixed inset-y-0 right-0 z-50 w-full max-w-[720px] bg-zinc-950 border-l border-zinc-800 shadow-2xl flex flex-col">
+            <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between shrink-0">
               <div>
-                <h2 className="text-lg font-black text-slate-50">{drillAE.ae}</h2>
-                <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
+                <h2 className="text-lg font-black text-zinc-50">{drillAE.ae}</h2>
+                <p className="text-[11px] text-zinc-500 font-semibold mt-0.5">
                   {fmt$(drillAE.revenue)} · {fmtN(drillAE.companies)} customers · {fmtN(drillAE.shipments)} shipments
                   {data?.bounds && <> · {fmtShortDate(data.bounds.c_start)} – {fmtShortDate(data.bounds.c_end)}</>}
                 </p>
               </div>
-              <button onClick={() => setSelectedAE(null)} className="p-1.5 text-slate-500 hover:text-slate-200 rounded-md hover:bg-[#27272a]">
+              <button onClick={() => setSelectedAE(null)} className="p-1.5 text-zinc-500 hover:text-zinc-200 rounded-md hover:bg-zinc-800">
                 <X size={18} />
               </button>
             </div>
 
-            <div className="px-5 py-3 border-b border-[#27272a] shrink-0 space-y-3">
+            <div className="px-5 py-3 border-b border-zinc-800 shrink-0 space-y-3">
               <div className="grid grid-cols-5 gap-2">
                 {[
                   { k: 'Revenue', v: fmt$(drillAE.revenue), d: drillAE.revenue_growth_pct },
@@ -550,13 +557,13 @@ export default function AEPerformance() {
                   { k: 'Avg / Shipment', v: fmt$(drillAE.avg_revenue_per_shipment) },
                   { k: 'Retained', v: `${drillAE.retained_companies}/${drillAE.prev_companies || 0}` },
                 ].map(x => (
-                  <div key={x.k} className="bg-[#18181b] rounded-lg border border-[#27272a] p-2.5">
-                    <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500 truncate">{x.k}</div>
+                  <div key={x.k} className="bg-zinc-900 rounded-lg border border-zinc-800 p-2.5">
+                    <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 truncate">{x.k}</div>
                     <div className="flex items-baseline gap-1.5">
-                      <div className="text-sm font-black text-slate-100">{x.v}</div>
+                      <div className="text-sm font-black text-zinc-100">{x.v}</div>
                       {x.d !== undefined && <Delta pct={x.d} />}
                     </div>
-                    {x.sub && <div className="text-[9px] text-slate-500 font-semibold mt-0.5 truncate">{x.sub}</div>}
+                    {x.sub && <div className="text-[9px] text-zinc-500 font-semibold mt-0.5 truncate">{x.sub}</div>}
                   </div>
                 ))}
               </div>
@@ -572,15 +579,15 @@ export default function AEPerformance() {
                 ].map(f => (
                   <button key={f.id} onClick={() => setDrillStatus(f.id)}
                     className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors ${
-                      drillStatus === f.id ? 'bg-blue-600 border-blue-600 text-white' : 'bg-[#18181b] border-[#27272a] text-slate-400 hover:bg-[#27272a]'}`}>
+                      drillStatus === f.id ? 'bg-blue-600 border-blue-600 text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800'}`}>
                     {f.label}
                   </button>
                 ))}
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {Object.entries(drillAE.segments).filter(([, n]) => n > 0).map(([seg, n]) => (
-                  <span key={seg} className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#18181b] border border-[#27272a] text-slate-400">
-                    {seg}: <span className="text-slate-200">{n}</span>
+                  <span key={seg} className="px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-900 border border-zinc-800 text-zinc-400">
+                    {seg}: <span className="text-zinc-200">{n}</span>
                   </span>
                 ))}
               </div>
@@ -588,7 +595,7 @@ export default function AEPerformance() {
 
             <div className="flex-1 overflow-y-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-[#09090b] border-b border-[#27272a] text-slate-500 sticky top-0">
+                <thead className="bg-zinc-950 border-b border-zinc-800 text-zinc-500 sticky top-0">
                   <tr className="text-[10px] uppercase tracking-widest font-bold">
                     <th className="px-4 py-2.5">Customer</th>
                     <th className="px-3 py-2.5">ICRIS</th>
@@ -598,25 +605,25 @@ export default function AEPerformance() {
                     <th className="px-3 py-2.5">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#27272a]">
+                <tbody className="divide-y divide-zinc-800">
                   {drillCustomers.length === 0 && (
-                    <tr><td colSpan={6} className="px-4 py-16 text-center text-slate-500 text-xs">No customers match this filter.</td></tr>
+                    <tr><td colSpan={6} className="px-4 py-16 text-center text-zinc-500 text-xs">No customers match this filter.</td></tr>
                   )}
                   {drillCustomers.map((c, i) => (
                     <tr key={c.company_id ?? i}
                       onClick={() => c.company_id && navigate(`/app/customers/${c.company_id}`)}
-                      className={`transition-colors ${c.company_id ? 'hover:bg-[#18181b] cursor-pointer' : ''}`}>
-                      <td className="px-4 py-2.5 font-semibold text-slate-200 max-w-[220px] truncate" title={c.company_name}>
+                      className={`transition-colors ${c.company_id ? 'hover:bg-zinc-900 cursor-pointer' : ''}`}>
+                      <td className="px-4 py-2.5 font-semibold text-zinc-200 max-w-[220px] truncate" title={c.company_name}>
                         {c.company_name}
                         {c.is_new && <span className="ml-1.5 text-[9px] font-bold text-blue-400">NEW</span>}
                         {c.is_reactivated && <span className="ml-1.5 text-[9px] font-bold text-indigo-400">REACTIVATED</span>}
                       </td>
-                      <td className="px-3 py-2.5 font-mono text-slate-500">{c.icris_number ?? '—'}</td>
-                      <td className="px-3 py-2.5 text-right font-bold text-slate-100">{fmt$(c.revenue)}</td>
-                      <td className="px-3 py-2.5 text-right text-slate-400">{c.shipments}</td>
-                      <td className="px-3 py-2.5 text-right text-slate-400">
+                      <td className="px-3 py-2.5 font-mono text-zinc-500">{c.icris_number ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-right font-bold text-zinc-100">{fmt$(c.revenue)}</td>
+                      <td className="px-3 py-2.5 text-right text-zinc-400">{c.shipments}</td>
+                      <td className="px-3 py-2.5 text-right text-zinc-400">
                         {c.last_shipment_date ?? '—'}
-                        {c.days_since_last_shipment != null && <span className="text-slate-600 ml-1">({c.days_since_last_shipment}d)</span>}
+                        {c.days_since_last_shipment != null && <span className="text-zinc-600 ml-1">({c.days_since_last_shipment}d)</span>}
                       </td>
                       <td className="px-3 py-2.5">
                         <span className={`inline-block px-2 py-0.5 text-[10px] font-bold rounded uppercase border ${STATUS_STYLE[c.status] ?? STATUS_STYLE.Unknown}`}>

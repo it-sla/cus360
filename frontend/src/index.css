@@ -118,7 +118,7 @@
   .dark .text-slate-600, .dark .text-slate-500, .dark .text-slate-400 {
     color: #a1a1aa !important;
   }
-  .dark .border-slate-100, .dark .border-slate-200, .dark .border-\[\#DCE3EC\], .dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
+  .dark .border-slate-100, .dark .border-slate-200, .dark .border-\[\#DCE3EC\], .dark .border-\[\#E2E8F0\], .dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]), .dark .divide-\[\#E2E8F0\] > :not([hidden]) ~ :not([hidden]) {
     border-color: #27272a !important;
   }
   .dark .hover\:bg-slate-50\/60:hover, .dark .hover\:bg-slate-50:hover {
