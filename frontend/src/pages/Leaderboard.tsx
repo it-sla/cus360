@@ -4,7 +4,7 @@ import { api, type LeaderboardEntry } from '../api';
 import { useAuth } from '@/auth';
 import { LeaderboardRankings, type LeaderboardRankingItem } from '@/components/ui/leaderboard-rankings';
 import { DateRangeControl } from '@/components/AnalyticsFilterBar';
-import { Trophy, DollarSign, Package, Weight, Award, Sparkles } from 'lucide-react';
+import { Trophy, DollarSign, Package, Weight, Award, Sparkles, X } from 'lucide-react';
 
 type Metric = 'revenue' | 'shipments' | 'weight' | 'wins';
 
@@ -15,7 +15,7 @@ const METRIC_META: Record<Metric, { label: string; icon: typeof DollarSign; unit
   wins: { label: 'Wins', icon: Award, unit: '', format: v => `${v.toLocaleString()} ${v === 1 ? 'win' : 'wins'}` },
 };
 
-function Podium({ entries, metric }: { entries: LeaderboardEntry[]; metric: Metric }) {
+function Podium({ entries, metric, onSelect }: { entries: LeaderboardEntry[]; metric: Metric; onSelect?: (e: LeaderboardEntry) => void }) {
   const meta = METRIC_META[metric];
   const [first, second, third] = entries;
   const slot = (e: LeaderboardEntry | undefined, place: 1 | 2 | 3) => {
@@ -23,7 +23,10 @@ function Podium({ entries, metric }: { entries: LeaderboardEntry[]; metric: Metr
     const height = place === 1 ? 'h-28' : place === 2 ? 'h-20' : 'h-14';
     const color = place === 1 ? 'from-amber-400 to-amber-500' : place === 2 ? 'from-slate-300 to-slate-400' : 'from-orange-300 to-orange-400';
     return (
-      <div className="flex-1 flex flex-col items-center justify-end gap-2">
+      <div
+        className={`flex-1 flex flex-col items-center justify-end gap-2 ${onSelect ? 'cursor-pointer' : ''}`}
+        onClick={onSelect ? () => onSelect(e) : undefined}
+      >
         <div className="w-11 h-11 rounded-full bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 flex items-center justify-center text-sm font-black text-slate-700 dark:text-slate-200">
           {e.display_name.charAt(0).toUpperCase()}
         </div>
@@ -46,6 +49,48 @@ function Podium({ entries, metric }: { entries: LeaderboardEntry[]; metric: Metr
   );
 }
 
+function WinsDetailModal({ entry, dateFrom, dateTo, onClose }: { entry: LeaderboardEntry; dateFrom: string; dateTo: string; onClose: () => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['leaderboard-wins-detail', entry.ae_code, dateFrom, dateTo],
+    queryFn: () => api.getLeaderboardWinsDetail(entry.ae_code, dateFrom, dateTo),
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-md w-full max-h-[80vh] flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-800">
+          <div>
+            <h2 className="text-sm font-black text-slate-900 dark:text-white">{entry.display_name}'s wins</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{entry.wins} {entry.wins === 1 ? 'company' : 'companies'} marked Win this period</p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+          {isLoading ? (
+            <div className="px-5 py-8 text-center text-sm text-slate-400">Loading…</div>
+          ) : !data?.companies.length ? (
+            <div className="px-5 py-8 text-center text-sm text-slate-400">No won companies found for this range.</div>
+          ) : (
+            data.companies.map(c => (
+              <div key={c.company_key} className="px-5 py-3">
+                <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{c.company_name}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Won {c.first_win_date}{c.last_win_date !== c.first_win_date ? ` – ${c.last_win_date}` : ''} · {c.log_count} log{c.log_count === 1 ? '' : 's'}
+                </p>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Leaderboard() {
   const { user, isAdmin } = useAuth();
   const [metric, setMetric] = useState<Metric>('revenue');
@@ -55,6 +100,7 @@ export default function Leaderboard() {
   const [timeframe, setTimeframe] = useState('this_month');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
+  const [selectedEntry, setSelectedEntry] = useState<LeaderboardEntry | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['leaderboard', isAdmin ? timeframe : null, isAdmin ? customFrom : null, isAdmin ? customTo : null],
@@ -73,6 +119,13 @@ export default function Leaderboard() {
     rank: e.rank,
     value: e[metric],
   }));
+  // Wins drill-down (which companies made up the count) is admin-only — everyone
+  // else just sees the motivational number, same as every other metric here.
+  const winsClickable = isAdmin && metric === 'wins';
+  const selectEntryByCode = (aeCode: string) => {
+    const e = entries.find(x => x.ae_code === aeCode);
+    if (e) setSelectedEntry(e);
+  };
 
   return (
     <div className="flex-1 overflow-y-auto bg-background relative">
@@ -133,7 +186,7 @@ export default function Leaderboard() {
         ) : (
           <>
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
-              <Podium entries={entries} metric={metric} />
+              <Podium entries={entries} metric={metric} onSelect={winsClickable ? (e) => setSelectedEntry(e) : undefined} />
             </div>
 
             <LeaderboardRankings
@@ -141,8 +194,18 @@ export default function Leaderboard() {
               currentUserId={user?.ae_code || undefined}
               showPagination={rankings.length > 10}
               defaultPageSize={10}
+              onUserClick={winsClickable ? (r) => selectEntryByCode(r.userId) : undefined}
             />
           </>
+        )}
+
+        {selectedEntry && data && (
+          <WinsDetailModal
+            entry={selectedEntry}
+            dateFrom={data.period.start}
+            dateTo={data.period.end}
+            onClose={() => setSelectedEntry(null)}
+          />
         )}
       </div>
     </div>

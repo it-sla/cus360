@@ -283,6 +283,19 @@ class PipelineItem(UUIDPK, Timestamps, Base):
     ae_code: Mapped[str|None]=mapped_column(String,index=True); win_loss: Mapped[str|None]=mapped_column(String,index=True); remarks: Mapped[str|None]=mapped_column(Text); source_detail_ref: Mapped[str|None]=mapped_column(Text)
     scraped_at: Mapped[datetime]=mapped_column(DateTime(timezone=True),default=now)
 
+class PipelineSnapshot(Base):
+    """Archive of pipeline_items taken right before each sync truncates and replaces
+    it — pipeline_items itself is a point-in-time mirror of the CRM with no history,
+    so this is the only place past pipeline states survive."""
+    __tablename__="pipeline_snapshots"
+    id: Mapped[int]=mapped_column(Integer,primary_key=True,autoincrement=True)
+    snapshot_date: Mapped[date]=mapped_column(Date,index=True); sync_run_id: Mapped[uuid.UUID|None]=mapped_column(ForeignKey("crm_sync_runs.id"),index=True)
+    expected_date: Mapped[date]=mapped_column(Date,index=True); company_name: Mapped[str]=mapped_column(String,index=True); icris_number: Mapped[str|None]=mapped_column(String,index=True); country: Mapped[str|None]=mapped_column(String)
+    weight_kg: Mapped[Decimal|None]=mapped_column(Numeric(14,3)); revenue_usd: Mapped[Decimal|None]=mapped_column(Numeric(16,2)); pieces: Mapped[int|None]=mapped_column(Integer); category: Mapped[str|None]=mapped_column(String,index=True)
+    ae_code: Mapped[str|None]=mapped_column(String,index=True); win_loss: Mapped[str|None]=mapped_column(String,index=True); remarks: Mapped[str|None]=mapped_column(Text); source_detail_ref: Mapped[str|None]=mapped_column(Text)
+    scraped_at: Mapped[datetime]=mapped_column(DateTime(timezone=True))
+    archived_at: Mapped[datetime]=mapped_column(DateTime(timezone=True),default=now)
+
 class DailyCallLog(UUIDPK, Base):
     __tablename__="daily_call_logs"
     call_date: Mapped[date]=mapped_column(Date,index=True)

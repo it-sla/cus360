@@ -708,6 +708,18 @@ export interface PipelineListResponse {
   as_of: string | null;
 }
 
+export interface PipelineHistoryDates {
+  dates: { snapshot_date: string; count: number }[];
+}
+
+export interface PipelineHistoryResponse {
+  snapshot_date: string;
+  items: PipelineItem[];
+  total: number;
+  overdue_count: number;
+  lost_count: number;
+}
+
 // Shape of crm_run_payload() in main.py — a full CrmSyncRun column dump plus computed
 // progress. Typed with just the fields the CrmSync page reads; the run itself carries many
 // more (manifest-sync-only) columns that a pipeline run leaves null.
@@ -873,6 +885,15 @@ export const api = {
   // effect for admin/super_admin — the backend ignores it for every other role.
   getLeaderboard: async (params?: LeaderboardParams): Promise<LeaderboardResponse> => {
     const response = await apiClient.get('/leaderboard', { params });
+    return response.data;
+  },
+
+  // Admin-only drill-down: which companies make up an AE's win count in a range.
+  getLeaderboardWinsDetail: async (ae_code: string, date_from: string, date_to: string): Promise<{
+    ae_code: string;
+    companies: { company_key: string; company_name: string; crm_customer_id: string | null; first_win_date: string; last_win_date: string; log_count: number }[];
+  }> => {
+    const response = await apiClient.get('/leaderboard/wins-detail', { params: { ae_code, date_from, date_to } });
     return response.data;
   },
 
@@ -1244,6 +1265,18 @@ export const api = {
 
   getPipeline: async (params?: { ae_code?: string; overdue_only?: boolean; lost_only?: boolean }): Promise<PipelineListResponse> => {
     const { data } = await apiClient.get('/pipeline', { params });
+    return data;
+  },
+
+  // Admin-only: past Active Pipeline snapshots (archived before each sync truncates
+  // pipeline_items). No snapshot_date lists available dates for a picker.
+  getPipelineHistoryDates: async (): Promise<PipelineHistoryDates> => {
+    const { data } = await apiClient.get('/pipeline/history');
+    return data;
+  },
+
+  getPipelineHistory: async (snapshot_date: string, ae_code?: string): Promise<PipelineHistoryResponse> => {
+    const { data } = await apiClient.get('/pipeline/history', { params: { snapshot_date, ae_code } });
     return data;
   },
 

@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { api } from '@/api';
 import type { PipelineItem } from '@/api';
-import { AlertTriangle, XCircle, Clock, MessageSquare, CheckCircle2 } from 'lucide-react';
+import { useAuth } from '@/auth';
+import { AlertTriangle, XCircle, Clock, MessageSquare, CheckCircle2, History } from 'lucide-react';
 
 function formatMoney(value: number | null) {
   if (value === null || value === undefined) return '—';
@@ -31,16 +32,38 @@ const STALE_AFTER_HOURS = 24;
 
 export default function Pipeline() {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [lostOnly, setLostOnly] = useState(false);
   const [aeFilter, setAeFilter] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Past-snapshot view — admin only, since it's a drill-down into archived history rather
+  // than the everyday "what's active right now" view every role gets.
+  const [historyMode, setHistoryMode] = useState(false);
+  const [historyDate, setHistoryDate] = useState('');
 
-  const { data, isLoading, isError } = useQuery({
+  const { data: liveData, isLoading: liveLoading, isError: liveError } = useQuery({
     queryKey: ['pipeline', overdueOnly, lostOnly, aeFilter],
     queryFn: () => api.getPipeline({ overdue_only: overdueOnly || undefined, lost_only: lostOnly || undefined, ae_code: aeFilter || undefined }),
     refetchInterval: 60000,
+    enabled: !historyMode,
   });
+
+  const { data: historyDates } = useQuery({
+    queryKey: ['pipeline-history-dates'],
+    queryFn: () => api.getPipelineHistoryDates(),
+    enabled: isAdmin && historyMode,
+  });
+
+  const { data: historyData, isLoading: historyLoading, isError: historyError } = useQuery({
+    queryKey: ['pipeline-history', historyDate, aeFilter],
+    queryFn: () => api.getPipelineHistory(historyDate, aeFilter || undefined),
+    enabled: isAdmin && historyMode && !!historyDate,
+  });
+
+  const data = historyMode ? historyData : liveData;
+  const isLoading = historyMode ? (!!historyDate && historyLoading) : liveLoading;
+  const isError = historyMode ? historyError : liveError;
 
   // Unfiltered, so the AE dropdown keeps every option once an AE is selected —
   // deriving codes from the filtered `items` would collapse the list to just
@@ -53,7 +76,7 @@ export default function Pipeline() {
   const items: PipelineItem[] = data?.items ?? [];
   const aeCodes = Array.from(new Set((allAeData?.items ?? []).map((i) => i.ae_code).filter(Boolean))) as string[];
   const revenueAtRisk = items.filter((i) => i.is_overdue).reduce((sum, i) => sum + (i.revenue_usd ?? 0), 0);
-  const isStale = !!data?.as_of && hoursAgo(data.as_of) > STALE_AFTER_HOURS;
+  const isStale = !historyMode && !!liveData?.as_of && hoursAgo(liveData.as_of) > STALE_AFTER_HOURS;
 
   return (
     <div className="flex-1 overflow-y-auto bg-background p-4 sm:p-6 lg:p-8">
@@ -64,19 +87,53 @@ export default function Pipeline() {
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-3xl">
               CRM Active Pipeline, scraped periodically. Rows flag amber when overdue, red when lost.
             </p>
-            {data?.as_of && (
+            {!historyMode && liveData?.as_of && (
               <p className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500 mt-1.5">
                 <Clock size={11} className="shrink-0" />
-                Last synced {new Date(data.as_of).toLocaleString()}
+                Last synced {new Date(liveData.as_of).toLocaleString()}
               </p>
             )}
           </div>
 
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              {isStale && data?.as_of && (
+              {isAdmin && (
+                <div className="flex items-center h-9 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setHistoryMode((v) => !v)}
+                    className={`flex items-center gap-1.5 h-full px-3 text-xs font-semibold whitespace-nowrap transition-colors ${
+                      historyMode
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <History size={12} className="shrink-0" /> Past logs
+                  </button>
+                  {historyMode && (
+                    <select
+                      value={historyDate}
+                      onChange={(e) => setHistoryDate(e.target.value)}
+                      disabled={!historyDates?.dates.length}
+                      className="h-full pl-2.5 pr-3 border-l border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+                    >
+                      {historyDates?.dates.length ? (
+                        <>
+                          <option value="">Select a date…</option>
+                          {historyDates.dates.map((d) => (
+                            <option key={d.snapshot_date} value={d.snapshot_date}>{formatDate(d.snapshot_date)} ({d.count})</option>
+                          ))}
+                        </>
+                      ) : (
+                        <option value="">No history yet</option>
+                      )}
+                    </select>
+                  )}
+                </div>
+              )}
+              {isStale && (
                 <span className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-full whitespace-nowrap bg-amber-50 border border-amber-200 text-amber-700 dark:bg-amber-950/20 dark:border-amber-900 dark:text-amber-400">
-                  <Clock size={12} className="shrink-0" /> Sync stale — {relativeSyncTime(data.as_of)}
+                  <Clock size={12} className="shrink-0" /> Sync stale — {relativeSyncTime(liveData!.as_of!)}
                 </span>
               )}
               {data && data.overdue_count > 0 && (
@@ -130,8 +187,8 @@ export default function Pipeline() {
           <table className="w-full text-sm table-fixed">
             <colgroup>
               <col className="w-[12%]" />
-              <col className="w-[24%]" />
-              <col className="w-[8%]" />
+              <col className="w-[20%]" />
+              <col className="w-[12%]" />
               <col className="w-[6%]" />
               <col className="w-[9%]" />
               <col className="w-[11%]" />
@@ -163,9 +220,16 @@ export default function Pipeline() {
                   Couldn't load the pipeline — retrying automatically.
                 </td></tr>
               )}
-              {!isLoading && !isError && items.length === 0 && (
+              {historyMode && !historyDate && (
                 <tr><td colSpan={10} className="px-4 py-8 text-center text-slate-400">
-                  No pipeline rows. Sync happens from the <button onClick={() => navigate('/app/sync')} className="text-primary font-bold hover:underline">CRM Sync page</button>.
+                  Pick a date above to see that day's pipeline snapshot.
+                </td></tr>
+              )}
+              {!isLoading && !isError && (!historyMode || historyDate) && items.length === 0 && (
+                <tr><td colSpan={10} className="px-4 py-8 text-center text-slate-400">
+                  {historyMode
+                    ? 'No archived rows for that date.'
+                    : <>No pipeline rows. Sync happens from the <button onClick={() => navigate('/app/sync')} className="text-primary font-bold hover:underline">CRM Sync page</button>.</>}
                 </td></tr>
               )}
               {items.map((item) => {
@@ -199,7 +263,7 @@ export default function Pipeline() {
                           </span>
                         )}
                       </td>
-                      <td className="px-3 py-2.5 text-slate-500 dark:text-slate-400 truncate">{item.icris_number ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-slate-500 dark:text-slate-400 font-mono text-xs tracking-wide whitespace-nowrap">{item.icris_number ?? '—'}</td>
                       <td className="px-3 py-2.5 text-slate-500 dark:text-slate-400 truncate">{item.country ?? '—'}</td>
                       <td className="px-3 py-2.5 text-right text-slate-700 dark:text-slate-300">{item.weight_kg ?? '—'}</td>
                       <td className="px-3 py-2.5 text-right text-slate-700 dark:text-slate-300 font-medium">{formatMoney(item.revenue_usd)}</td>

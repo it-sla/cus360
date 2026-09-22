@@ -1771,6 +1771,26 @@ def leaderboard(timeframe:str|None=None,date_from:date|None=None,date_to:date|No
     label=c_start.strftime('%B %Y') if c_start.year==c_end.year and c_start.month==c_end.month else f'{c_start:%b %-d, %Y} – {c_end:%b %-d, %Y}'
     return {'period':{'start':str(c_start),'end':str(c_end),'label':label},'leaderboards':by_metric}
 
+@app.get('/api/v1/leaderboard/wins-detail')
+def leaderboard_wins_detail(ae_code:str,date_from:date,date_to:date,db:Session=Depends(get_db),_role:User=Depends(require_role('admin'))):
+    """Drill-down for a single AE's win count — which distinct companies were logged
+    Win in the range, so admin can see e.g. why an AE has wins but no shipment revenue
+    yet (deal closed in the CRM call log, nothing has shipped)."""
+    sql="""
+        SELECT COALESCE(d.crm_customer_id, LOWER(TRIM(d.company_name))) AS company_key,
+               MAX(d.company_name) AS company_name,
+               d.crm_customer_id,
+               MIN(d.call_date) AS first_win_date,
+               MAX(d.call_date) AS last_win_date,
+               COUNT(*)::int AS log_count
+        FROM daily_call_logs d
+        WHERE d.ae_code = :ae_code AND d.stage = 'Win'
+          AND d.call_date >= :start AND d.call_date <= :end
+        GROUP BY 1, 3
+        ORDER BY first_win_date
+    """
+    return {'ae_code':ae_code,'companies':rows(db,sql,{'ae_code':ae_code,'start':date_from,'end':date_to})}
+
 @app.get('/api/v1/analytics/executive-dashboard')
 def executive_dashboard(
     timeframe:str=Query('this_month'),
@@ -2737,6 +2757,29 @@ def list_pipeline(ae_code:str|None=None,overdue_only:bool=False,lost_only:bool=F
     if lost_only:rows=[r for r in rows if r['is_lost']]
     as_of=max((x.scraped_at for x in items),default=None)
     return {'items':rows,'total':len(rows),'overdue_count':sum(1 for r in rows if r['is_overdue']),'lost_count':sum(1 for r in rows if r['is_lost']),'as_of':as_of.isoformat() if as_of else None}
+
+@app.get('/api/v1/pipeline/history')
+def pipeline_history(snapshot_date:date|None=None,ae_code:str|None=None,db:Session=Depends(get_db),_role:User=Depends(require_role('admin'))):
+    """Admin-only drill-down into archived pipeline_snapshots (see PipelineSnapshot /
+    sync_active_pipeline's archive-before-truncate step) — pipeline_items only ever holds
+    the CRM's current state, so this is the only way to see a past Active Pipeline snapshot.
+    Called with no snapshot_date to list available dates for a picker; with one to fetch that
+    day's archived rows, same shape as GET /api/v1/pipeline."""
+    if snapshot_date is None:
+        dates=db.execute(select(PipelineSnapshot.snapshot_date,func.count()).group_by(PipelineSnapshot.snapshot_date).order_by(PipelineSnapshot.snapshot_date.desc())).all()
+        return {'dates':[{'snapshot_date':d.isoformat(),'count':c} for d,c in dates]}
+    today=date.today()
+    query=select(PipelineSnapshot).where(PipelineSnapshot.snapshot_date==snapshot_date).order_by(PipelineSnapshot.expected_date)
+    if ae_code:query=query.where(PipelineSnapshot.ae_code==ae_code)
+    items=db.scalars(query).all()
+    def payload(item):
+        win_loss=(item.win_loss or '').strip()
+        is_lost='loss' in win_loss.casefold()
+        is_overdue=item.expected_date<today and not win_loss
+        return {'id':str(item.id),'expected_date':item.expected_date.isoformat(),'company_name':item.company_name,'icris_number':item.icris_number,'country':item.country,'weight_kg':float(item.weight_kg) if item.weight_kg is not None else None,'revenue_usd':float(item.revenue_usd) if item.revenue_usd is not None else None,'pieces':item.pieces,'category':item.category,'ae_code':item.ae_code,'win_loss':item.win_loss,'remarks':item.remarks,'is_overdue':is_overdue,'is_lost':is_lost,'scraped_at':item.scraped_at.isoformat()}
+    rows=[payload(x) for x in items]
+    return {'snapshot_date':snapshot_date.isoformat(),'items':rows,'total':len(rows),'overdue_count':sum(1 for r in rows if r['is_overdue']),'lost_count':sum(1 for r in rows if r['is_lost'])}
+
 @app.get('/api/v1/crm-sync/diagnose')
 def diagnose_crm_list(db:Session=Depends(get_db),_role:User=Depends(require_role('super_admin'))):
     from datetime import timedelta

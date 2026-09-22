@@ -249,7 +249,7 @@ def run_active_pipeline_sync(db:Session,html,source_url='',dry_run=False,worker_
         run.status='completed_with_errors';run.completed_at=now();run.warnings_count=1
         run.error_message=f'suspicious snapshot: {len(rows)} rows vs {old_count} previously on file — not applied, existing rows retained'
         return run
-    stats=sync_active_pipeline(db,rows,dry_run=dry_run)
+    stats=sync_active_pipeline(db,rows,dry_run=dry_run,sync_run_id=run.id)
     run.shipments_found=stats['total_rows']
     if stats.get('skipped_empty'):
         run.status='completed_with_errors';run.warnings_count=1
@@ -260,7 +260,7 @@ def run_active_pipeline_sync(db:Session,html,source_url='',dry_run=False,worker_
     run.completed_at=now()
     return run
 
-def sync_active_pipeline(db:Session,rows,dry_run=False):
+def sync_active_pipeline(db:Session,rows,dry_run=False,sync_run_id=None):
     """Replace the pipeline_items table with the current CRM Active Pipeline snapshot.
 
     Whole-table replace, not an upsert: the source page has no stable per-row identifier
@@ -273,6 +273,10 @@ def sync_active_pipeline(db:Session,rows,dry_run=False):
     evidence only exists for the instant between fetch and delete, so it's captured here as a
     persistent DataQualityIssue rather than left to the (stateless, replace-only) pipeline
     table to lose on the next sync.
+
+    The outgoing rows are also archived to pipeline_snapshots before the delete, so admins can
+    still see what the pipeline looked like on any past sync date (see /api/v1/pipeline/history)
+    even though pipeline_items itself only ever holds the current state.
     """
     stats={'total_rows':len(rows)}
     old_items=db.scalars(select(PipelineItem)).all()
@@ -286,7 +290,12 @@ def sync_active_pipeline(db:Session,rows,dry_run=False):
     if dry_run:return stats
     today=date.today()
     pushes=_detect_pushed_followups(old_items,rows,today)
-    stamp=now();db.query(PipelineItem).delete()
+    stamp=now()
+    if old_items:
+        archived_at=stamp
+        for item in old_items:
+            db.add(PipelineSnapshot(snapshot_date=today,sync_run_id=sync_run_id,expected_date=item.expected_date,company_name=item.company_name,icris_number=item.icris_number,country=item.country,weight_kg=item.weight_kg,revenue_usd=item.revenue_usd,pieces=item.pieces,category=item.category,ae_code=item.ae_code,win_loss=item.win_loss,remarks=item.remarks,source_detail_ref=item.source_detail_ref,scraped_at=item.scraped_at,archived_at=archived_at))
+    db.query(PipelineItem).delete()
     for row in rows:
         db.add(PipelineItem(expected_date=row['expected_date'],company_name=row['Company Name'].strip(),icris_number=row['Acc No'].strip() or None,country=row['Country'].strip() or None,weight_kg=row['weight_kg'],revenue_usd=row['revenue_usd'],pieces=row['pieces'],category=row['Category'].strip() or None,ae_code=row['AE'].strip() or None,win_loss=row['Win/Loss'].strip() or None,remarks=row['Remarks'].strip() or None,source_detail_ref=row.get('detail_ref') or None,scraped_at=stamp))
     for p in pushes:
