@@ -79,6 +79,7 @@ class CompanyPatch(BaseModel):
 class AliasIn(BaseModel): alias_name:str
 class AssignAeIn(BaseModel): ae_code: str; reason: str|None=None
 class BulkAssignAeIn(BaseModel): company_ids: list[uuid.UUID]; ae_code: str; reason: str|None=None
+class BulkSetCategoryIn(BaseModel): company_ids: list[uuid.UUID]; customer_type: str|None=None
 class ShipmentIn(BaseModel):
     shipment_number:str; company_id:uuid.UUID|None=None; shipment_date:date|None=None; pieces:int|None=Field(None,ge=0); shipment_weight:float|None=Field(None,ge=0); weight_unit:str|None=None; shipper_name:str|None=None; importer_name:str|None=None; importer_telephone:str|None=None; export_country:str|None=None; import_country:str|None=None; goods_description:str|None=None
 class PackageIn(BaseModel): package_id:str; piece_number:int=Field(ge=1); package_weight:float|None=Field(None,ge=0); weight_unit:str|None=None; description:str|None=None; package_status:str|None=None; remarks:str|None=None
@@ -349,6 +350,7 @@ def companies(
             c.customer_type,
             c.email,
             c.phone,
+            c.assigned_ae_code,
             (SELECT s.ae_code FROM shipments s WHERE s.company_id = v.company_id AND s.ae_code IS NOT NULL AND s.ae_code != '' ORDER BY s.created_at DESC LIMIT 1) AS ae_code,
             (SELECT s.import_country FROM shipments s WHERE s.company_id = v.company_id AND s.import_country IS NOT NULL AND s.import_country != '' GROUP BY s.import_country ORDER BY count(*) DESC LIMIT 1) AS country,
             COALESCE((SELECT SUM({REVENUE_AMOUNT_SQL}) FROM shipments s WHERE s.company_id = v.company_id), 0)::float AS revenue,
@@ -771,6 +773,22 @@ def bulk_assign_ae(payload:BulkAssignAeIn, db:Session=Depends(get_db), _role:Use
         reassigned+=1
     commit(db)
     return {'status':'ok','ae_code':new_code,'reassigned_count':reassigned,'unchanged_count':unchanged}
+
+@app.post('/api/v1/companies/bulk-set-category')
+def bulk_set_category(payload:BulkSetCategoryIn, db:Session=Depends(get_db), _role:User=Depends(require_role('admin'))):
+    new_type=payload.customer_type.strip() if payload.customer_type else None
+    if new_type and new_type not in AE_SEGMENTS:raise HTTPException(422,f'customer_type must be one of {list(AE_SEGMENTS)}')
+    if not payload.company_ids:raise HTTPException(422,'company_ids must not be empty')
+    updated=0; unchanged=0
+    for company_id in payload.company_ids:
+        comp=db.get(Company,company_id)
+        if not comp:continue
+        if comp.customer_type==new_type:unchanged+=1;continue
+        comp.customer_type=new_type
+        overrides=set(comp.manual_override_fields or []);overrides.add('customer_type');comp.manual_override_fields=sorted(overrides)
+        updated+=1
+    commit(db)
+    return {'status':'ok','customer_type':new_type,'updated_count':updated,'unchanged_count':unchanged}
 
 @app.get('/api/v1/companies/{company_id}/ae-history')
 def company_ae_history(company_id:uuid.UUID,db:Session=Depends(get_db)):

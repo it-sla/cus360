@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, type AeImportPreview } from '../api';
+import { SEGMENTS } from '../components/AnalyticsFilterBar';
 import {
   UploadCloud, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle, Users,
-  ArrowRight, X, Loader2, Edit2, Check, Trash2, Plus, Search, UserCog
+  ArrowRight, X, Loader2, Edit2, Check, Trash2, Plus, Search, UserCog, Tag
 } from 'lucide-react';
 
 const fmtNum = (n: number | null | undefined) => (n ?? 0).toLocaleString();
@@ -157,29 +158,53 @@ function RosterTab() {
 
 // ── Manual assignment tab ───────────────────────────────────────────────
 
+const PAGE_SIZE = 100;
+
 function ManualAssignTab() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
+  const [aeFilter, setAeFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [targetAe, setTargetAe] = useState('');
-  const [result, setResult] = useState<{ reassigned_count: number; unchanged_count: number } | null>(null);
+  const [targetCategory, setTargetCategory] = useState('');
+  const [result, setResult] = useState<{ kind: 'ae' | 'category'; a: number; b: number } | null>(null);
 
   const debouncedSearch = search.trim();
   const { data: companyPage, isFetching } = useQuery({
-    queryKey: ['companies-for-bulk-assign', debouncedSearch],
-    queryFn: () => api.getCompanies({ q: debouncedSearch || undefined, limit: 50 }),
+    queryKey: ['companies-for-bulk-assign', debouncedSearch, aeFilter, categoryFilter, offset],
+    queryFn: () => api.getCompanies({
+      q: debouncedSearch || undefined,
+      ae_code: aeFilter || undefined,
+      customer_type: categoryFilter || undefined,
+      limit: PAGE_SIZE,
+      offset,
+    }),
   });
   const companies = companyPage?.items ?? [];
+  const total = companyPage?.total ?? 0;
 
   const { data: aes = [] } = useQuery({ queryKey: ['account-executives'], queryFn: () => api.getAccountExecutives() });
+
+  const resetFilter = (fn: () => void) => { fn(); setOffset(0); };
 
   const bulkAssign = useMutation({
     mutationFn: () => api.bulkAssignAE(Array.from(selected), targetAe),
     onSuccess: (data) => {
-      setResult(data);
+      setResult({ kind: 'ae', a: data.reassigned_count, b: data.unchanged_count });
       setSelected(new Set());
       queryClient.invalidateQueries({ queryKey: ['companies-for-bulk-assign'] });
       queryClient.invalidateQueries({ queryKey: ['account-executives'] });
+    },
+  });
+
+  const bulkCategory = useMutation({
+    mutationFn: () => api.bulkSetCategory(Array.from(selected), targetCategory === '__clear__' ? null : targetCategory),
+    onSuccess: (data) => {
+      setResult({ kind: 'category', a: data.updated_count, b: data.unchanged_count });
+      setSelected(new Set());
+      queryClient.invalidateQueries({ queryKey: ['companies-for-bulk-assign'] });
     },
   });
 
@@ -189,47 +214,106 @@ function ManualAssignTab() {
     return next;
   });
 
+  const allOnPageSelected = companies.length > 0 && companies.every(c => selected.has(c.company_id));
+  const toggleAllOnPage = () => setSelected(s => {
+    const next = new Set(s);
+    if (allOnPageSelected) companies.forEach(c => next.delete(c.company_id));
+    else companies.forEach(c => next.add(c.company_id));
+    return next;
+  });
+
+  const rangeStart = total === 0 ? 0 : offset + 1;
+  const rangeEnd = Math.min(offset + PAGE_SIZE, total);
+
   return (
     <div className="space-y-4">
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
         <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-1">Manual Reassignment</h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-          Search and select companies, choose an AE, then reassign them all at once.
+          Search and select companies (across pages), then reassign their AE or set their category.
         </p>
 
-        <div className="flex items-center gap-2 mb-3">
-          <div className="relative flex-1">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <div className="relative flex-1 min-w-[200px]">
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => resetFilter(() => setSearch(e.target.value))}
               placeholder="Search companies by name or ICRIS..."
               className="w-full h-9 pl-8 pr-3 border border-slate-300 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-900 outline-none focus:border-indigo-400"
             />
           </div>
           <select
-            value={targetAe}
-            onChange={e => setTargetAe(e.target.value)}
+            value={aeFilter}
+            onChange={e => resetFilter(() => setAeFilter(e.target.value))}
             className="h-9 px-3 border border-slate-300 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-900 outline-none focus:border-indigo-400"
           >
-            <option value="">Assign to AE...</option>
+            <option value="">Any AE</option>
             {aes.map(ae => (
               <option key={ae.ae_code} value={ae.ae_code}>{ae.ae_code}{ae.display_name ? ` — ${ae.display_name}` : ''}</option>
             ))}
           </select>
-          <button
-            disabled={!targetAe || selected.size === 0 || bulkAssign.isPending}
-            onClick={() => bulkAssign.mutate()}
-            className="h-9 px-4 bg-indigo-600 text-white rounded-lg text-sm font-bold flex items-center gap-1.5 disabled:opacity-40 hover:bg-indigo-500"
+          <select
+            value={categoryFilter}
+            onChange={e => resetFilter(() => setCategoryFilter(e.target.value))}
+            className="h-9 px-3 border border-slate-300 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-900 outline-none focus:border-indigo-400"
           >
-            {bulkAssign.isPending ? <Loader2 size={14} className="animate-spin" /> : <UserCog size={14} />}
-            Reassign ({selected.size})
-          </button>
+            <option value="">Any category</option>
+            {SEGMENTS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3 px-3 py-2 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 rounded-lg">
+          <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+            {selected.size > 0 ? `${selected.size} selected` : 'No customers selected'}
+            {selected.size > 0 && (
+              <button onClick={() => setSelected(new Set())} className="ml-2 text-indigo-600 dark:text-indigo-400 font-bold">Clear</button>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={targetAe}
+              onChange={e => setTargetAe(e.target.value)}
+              className="h-9 px-3 border border-slate-300 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-900 outline-none focus:border-indigo-400"
+            >
+              <option value="">Assign to AE...</option>
+              {aes.map(ae => (
+                <option key={ae.ae_code} value={ae.ae_code}>{ae.ae_code}{ae.display_name ? ` — ${ae.display_name}` : ''}</option>
+              ))}
+            </select>
+            <button
+              disabled={!targetAe || selected.size === 0 || bulkAssign.isPending}
+              onClick={() => bulkAssign.mutate()}
+              className="h-9 px-4 bg-indigo-600 text-white rounded-lg text-sm font-bold flex items-center gap-1.5 disabled:opacity-40 hover:bg-indigo-500"
+            >
+              {bulkAssign.isPending ? <Loader2 size={14} className="animate-spin" /> : <UserCog size={14} />}
+              Reassign ({selected.size})
+            </button>
+            <select
+              value={targetCategory}
+              onChange={e => setTargetCategory(e.target.value)}
+              className="h-9 px-3 border border-slate-300 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-900 outline-none focus:border-indigo-400"
+            >
+              <option value="">Set category...</option>
+              {SEGMENTS.map(s => <option key={s} value={s}>{s}</option>)}
+              <option value="__clear__">Clear category</option>
+            </select>
+            <button
+              disabled={!targetCategory || selected.size === 0 || bulkCategory.isPending}
+              onClick={() => bulkCategory.mutate()}
+              className="h-9 px-4 bg-slate-800 dark:bg-slate-700 text-white rounded-lg text-sm font-bold flex items-center gap-1.5 disabled:opacity-40 hover:bg-slate-700"
+            >
+              {bulkCategory.isPending ? <Loader2 size={14} className="animate-spin" /> : <Tag size={14} />}
+              Apply ({selected.size})
+            </button>
+          </div>
         </div>
 
         {result && (
           <div className="mb-3 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 rounded-lg text-xs text-emerald-700 dark:text-emerald-400 font-semibold">
-            Reassigned {result.reassigned_count}, {result.unchanged_count} already on that AE.
+            {result.kind === 'ae'
+              ? `Reassigned ${result.a}, ${result.b} already on that AE.`
+              : `Updated category for ${result.a}, ${result.b} already set.`}
           </div>
         )}
 
@@ -237,18 +321,21 @@ function ManualAssignTab() {
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
               <tr className="text-[10px] uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">
-                <th className="px-4 py-2 w-8"></th>
+                <th className="px-4 py-2 w-8">
+                  <input type="checkbox" checked={allOnPageSelected} onChange={toggleAllOnPage} />
+                </th>
                 <th className="px-4 py-2">Company</th>
                 <th className="px-4 py-2">ICRIS</th>
-                <th className="px-4 py-2">Current AE</th>
+                <th className="px-4 py-2">Category</th>
+                <th className="px-4 py-2">Assigned AE</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
               {isFetching && (
-                <tr><td colSpan={4} className="px-4 py-6 text-center text-slate-400">Loading…</td></tr>
+                <tr><td colSpan={5} className="px-4 py-6 text-center text-slate-400">Loading…</td></tr>
               )}
               {!isFetching && companies.length === 0 && (
-                <tr><td colSpan={4} className="px-4 py-6 text-center text-slate-400">No companies found.</td></tr>
+                <tr><td colSpan={5} className="px-4 py-6 text-center text-slate-400">No companies found.</td></tr>
               )}
               {companies.map(c => (
                 <tr key={c.company_id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 cursor-pointer" onClick={() => toggle(c.company_id)}>
@@ -257,11 +344,32 @@ function ManualAssignTab() {
                   </td>
                   <td className="px-4 py-2.5 font-medium text-slate-800 dark:text-slate-200">{c.company_name}</td>
                   <td className="px-4 py-2.5 font-mono text-slate-500">{c.icris_number || '—'}</td>
-                  <td className="px-4 py-2.5 text-slate-500">{c.ae_code || '—'}</td>
+                  <td className="px-4 py-2.5 text-slate-500">{c.customer_type || '—'}</td>
+                  <td className="px-4 py-2.5 text-slate-500">{c.assigned_ae_code || '—'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+
+        <div className="flex items-center justify-between mt-3 text-xs text-slate-500 dark:text-slate-400">
+          <span>{total > 0 ? `${rangeStart}–${rangeEnd} of ${total}` : '0 of 0'}</span>
+          <div className="flex items-center gap-2">
+            <button
+              disabled={offset === 0 || isFetching}
+              onClick={() => setOffset(o => Math.max(0, o - PAGE_SIZE))}
+              className="px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg font-semibold disabled:opacity-40"
+            >
+              Prev
+            </button>
+            <button
+              disabled={offset + PAGE_SIZE >= total || isFetching}
+              onClick={() => setOffset(o => o + PAGE_SIZE)}
+              className="px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg font-semibold disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
         </div>
       </div>
     </div>

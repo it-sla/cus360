@@ -316,6 +316,7 @@ export interface CompanySummary {
   days_since_last_shipment: number | null;
   inactivity_status: 'active' | 'quiet' | 'inactive' | 'dormant';
   ae_code?: string | null;
+  assigned_ae_code?: string | null;
   country?: string | null;
   revenue?: number;
   total_weight?: number;
@@ -961,6 +962,10 @@ export const api = {
   },
   bulkAssignAE: async (company_ids: string[], ae_code: string, reason?: string): Promise<{ status: string; ae_code: string; reassigned_count: number; unchanged_count: number }> => {
     const response = await apiClient.post('/companies/bulk-assign-ae', { company_ids, ae_code, reason });
+    return response.data;
+  },
+  bulkSetCategory: async (company_ids: string[], customer_type: string | null): Promise<{ status: string; customer_type: string | null; updated_count: number; unchanged_count: number }> => {
+    const response = await apiClient.post('/companies/bulk-set-category', { company_ids, customer_type });
     return response.data;
   },
   getCompanyAeHistory: async (companyId: string): Promise<AeReassignmentLogEntry[]> => {
