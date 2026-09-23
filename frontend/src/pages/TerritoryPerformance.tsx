@@ -69,10 +69,11 @@ export default function TerritoryPerformance() {
       trigger: 'item',
       formatter: (params: any) => `${items[params.dataIndex].territory}<br/>${fmt$(params.value)} (${params.percent}%)`,
     },
-    legend: { show: false },
+    legend: { bottom: 0, icon: 'circle', textStyle: { fontSize: 11, fontWeight: 'bold' }, data: items.map(i => shortLabel(i.territory)) },
     series: [{
-      type: 'pie', radius: ['45%', '75%'], avoidLabelOverlap: true,
-      label: { formatter: (p: any) => `${shortLabel(items[p.dataIndex].territory)}\n{d}%`.replace('{d}', p.percent.toFixed(0)), fontSize: 11, fontWeight: 'bold' },
+      type: 'pie', radius: ['45%', '72%'], center: ['50%', '42%'], avoidLabelOverlap: true,
+      label: { show: false },
+      labelLine: { show: false },
       data: items.map(i => ({ name: shortLabel(i.territory), value: i.revenue })),
     }],
   };

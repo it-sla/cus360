@@ -76,17 +76,11 @@ export default function ExecutiveOverview() {
   
   const totalShipments = d.sp_manifest_report?.total_shipment_count || 0;
 
-  // "Synced Xm ago" for the live-data indicator — mirrors the relativeDate/daysAgo helpers
-  // in app-shell.tsx but scoped locally since this is the only other call site.
-  const syncLabel = (() => {
-    if (!d.last_crm_sync) return 'No sync yet';
-    const minutes = Math.floor((Date.now() - new Date(d.last_crm_sync).getTime()) / 60000);
-    if (minutes < 1) return 'Synced just now';
-    if (minutes < 60) return `Synced ${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `Synced ${hours}h ago`;
-    return `Synced ${Math.floor(hours / 24)}d ago`;
-  })();
+  // Latest MAWB manifest date for the live-data indicator (more operationally meaningful
+  // than the CRM scraper's last-run time).
+  const syncLabel = d.latest_manifest_date
+    ? `Latest manifest: ${new Date(d.latest_manifest_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`
+    : 'No manifests yet';
 
   const arpu = kpi.avg_revenue_per_customer?.value || 0;
   
@@ -197,7 +191,7 @@ export default function ExecutiveOverview() {
             <span>"What is happening right now?" — Today's operational snapshot.</span>
             <span
               className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600"
-              title={d.last_crm_sync ? new Date(d.last_crm_sync).toLocaleString() : undefined}
+              title={d.latest_manifest_date ? new Date(d.latest_manifest_date).toLocaleDateString() : undefined}
             >
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />

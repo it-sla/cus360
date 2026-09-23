@@ -2334,8 +2334,12 @@ def executive_dashboard(
         WHERE (:is_all = true) OR (manifest_date >= :c_start AND manifest_date <= :c_end)
     """, {'is_all': is_all_time, 'c_start': c_start, 'c_end': c_end})
     fuel_surcharge=round(mawb_fuel[0]['fuel_surcharge'] if mawb_fuel else 0.0, 2)
-    last_sync_row=rows(db,"SELECT max(last_synced_at) AS last_crm_sync FROM master_air_waybills")
-    last_crm_sync=last_sync_row[0]['last_crm_sync'] if last_sync_row else None
+    last_sync_row=rows(db,f"""
+        SELECT max(m.manifest_date) AS latest_manifest_date
+        FROM master_air_waybills m
+        WHERE EXISTS (SELECT 1 FROM shipments s WHERE s.mawb_id = m.id AND coalesce({REVENUE_AMOUNT_SQL},0) > 0)
+    """)
+    latest_manifest_date=last_sync_row[0]['latest_manifest_date'] if last_sync_row else None
 
     sp_manifest_report={
         'report_title': 'SP Export Manifest Report',
@@ -2401,7 +2405,7 @@ def executive_dashboard(
     return {
         'timeframe': timeframe,
         'bounds': {'c_start': str(c_start), 'c_end': str(c_end), 'p_start': str(p_start), 'p_end': str(p_end)},
-        'last_crm_sync': last_crm_sync.isoformat() if last_crm_sync else None,
+        'latest_manifest_date': latest_manifest_date.isoformat() if latest_manifest_date else None,
         'sp_manifest_report': sp_manifest_report,
         'ae_performance': ae_performance,
         'kpi_cards': {

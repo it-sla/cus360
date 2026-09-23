@@ -175,11 +175,11 @@ export function DateRangeControl({ timeframe, dateFrom, dateTo, bounds, onPreset
       <button
         ref={triggerRef}
         onClick={() => { if (open) { setOpen(false); return; } setShowCustom(isCustom); setDraftFrom(dateFrom || isoDaysAgo(29)); setDraftTo(dateTo || TODAY_ISO); setOpen(true); }}
-        className={`h-9 pl-8 ${isFiltered ? 'pr-8' : 'pr-3'} bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 shadow-sm transition-colors flex flex-col items-start justify-center relative min-w-[148px]`}
+        className={`min-h-9 py-1 pl-8 ${isFiltered ? 'pr-8' : 'pr-3'} bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 shadow-sm transition-colors flex flex-col items-start justify-center relative min-w-[190px]`}
       >
         <Calendar size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-tight">{label}</span>
-        {resolved && !isCustom && <span className="text-[9.5px] text-slate-400 font-semibold leading-tight">{resolved}</span>}
+        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-tight whitespace-nowrap">{label}</span>
+        {resolved && !isCustom && <span className="text-[9.5px] text-slate-400 font-semibold leading-tight whitespace-nowrap">{resolved}</span>}
       </button>
       {isFiltered && (
         <button

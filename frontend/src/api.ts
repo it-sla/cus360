@@ -106,7 +106,7 @@ export interface CustomerAnalyticsRow {
 export interface DashboardResponse {
   timeframe: string;
   bounds: { c_start: string; c_end: string; p_start: string; p_end: string };
-  last_crm_sync: string | null;
+  latest_manifest_date: string | null;
   sp_manifest_report: {
     total_weight: number;
     total_pieces: number;
