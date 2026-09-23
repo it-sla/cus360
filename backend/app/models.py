@@ -77,6 +77,7 @@ class AccountExecutive(UUIDPK, Timestamps, Base):
     ae_code: Mapped[str]=mapped_column(String,nullable=False,unique=True,index=True)
     display_name: Mapped[str|None]=mapped_column(String)
     is_active: Mapped[bool]=mapped_column(Boolean,default=True)
+    territory_name: Mapped[str|None]=mapped_column(String)
 
 class AeReassignmentLog(UUIDPK, Base):
     __tablename__="ae_reassignment_log"

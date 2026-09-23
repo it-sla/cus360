@@ -55,6 +55,7 @@ const NAV_ITEMS: NavItem[] = [
       { label: "Revenue Analytics", path: "/app/analytics#revenue", icon: DollarSign },
       { label: "Customer Analytics", path: "/app/customer-analytics", icon: UserCheck },
       { label: "AE Performance", path: "/app/ae-performance", icon: Award },
+      { label: "Territory Performance", path: "/app/territory-performance", icon: MapPin },
       { label: "Geography", path: "/app/geography", icon: MapPin },
       { label: "Document Type", path: "/app/doc-type", icon: FileStack },
       { label: "Operational KPIs", path: "/app/operations", icon: Activity },
@@ -319,6 +320,69 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   {items.map(item => {
                     const isActive = isItemActive(location.pathname, item.path);
                     const badge = badgeFor(item.path);
+
+                    if (item.subItems) {
+                      return (
+                        <DropdownMenu.Root key={item.path}>
+                          <Tooltip delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <DropdownMenu.Trigger asChild>
+                                <button
+                                  className={cn(
+                                    "relative w-full flex items-center justify-center py-2.5 rounded-md transition-colors",
+                                    isActive ? "text-zinc-50 bg-zinc-800" : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-50"
+                                  )}
+                                >
+                                  <item.icon size={20} />
+                                  {badge > 0 && <span className="absolute top-1 right-2.5 w-1.5 h-1.5 rounded-full bg-rose-500" />}
+                                </button>
+                              </DropdownMenu.Trigger>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">{item.label}</TooltipContent>
+                          </Tooltip>
+                          <DropdownMenu.Portal>
+                            <DropdownMenu.Content
+                              side="right"
+                              align="start"
+                              sideOffset={8}
+                              className="z-50 min-w-[220px] bg-zinc-900 border border-zinc-800 rounded-md p-1 shadow-md animate-in fade-in zoom-in-95"
+                            >
+                              <DropdownMenu.Item asChild>
+                                <Link
+                                  to={item.path}
+                                  className={cn(
+                                    "flex items-center gap-2.5 px-2.5 py-2 rounded-sm text-[13px] font-semibold outline-none cursor-pointer transition-colors",
+                                    isActive ? "text-zinc-50 bg-zinc-800" : "text-zinc-200 hover:bg-zinc-800"
+                                  )}
+                                >
+                                  <item.icon size={14} />
+                                  {item.label}
+                                </Link>
+                              </DropdownMenu.Item>
+                              <DropdownMenu.Separator className="h-px bg-zinc-800 my-1" />
+                              {item.subItems.map(subItem => {
+                                const subActive = location.pathname + location.hash === subItem.path;
+                                return (
+                                  <DropdownMenu.Item key={subItem.path} asChild>
+                                    <Link
+                                      to={subItem.path}
+                                      className={cn(
+                                        "flex items-center gap-2.5 px-2.5 py-1.5 rounded-sm text-[12px] font-medium outline-none cursor-pointer transition-colors",
+                                        subActive ? "text-emerald-400 bg-zinc-950" : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                                      )}
+                                    >
+                                      {subItem.icon && <subItem.icon size={13} className="shrink-0" />}
+                                      {subItem.label}
+                                    </Link>
+                                  </DropdownMenu.Item>
+                                );
+                              })}
+                            </DropdownMenu.Content>
+                          </DropdownMenu.Portal>
+                        </DropdownMenu.Root>
+                      );
+                    }
+
                     return (
                       <Tooltip key={item.path} delayDuration={200}>
                         <TooltipTrigger asChild>

@@ -37,6 +37,7 @@ import Roles from './pages/admin/Roles';
 import AuditLogs from './pages/admin/AuditLogs';
 import Settings from './pages/admin/Settings';
 import AEPerformance from './pages/AEPerformance';
+import TerritoryPerformance from './pages/TerritoryPerformance';
 
 import { TooltipProvider } from '@/components/ui/tooltip';
 
@@ -105,6 +106,7 @@ export default function App() {
             <Route path="operations" element={<OperationalAnalytics />} />
             <Route path="customer-analytics" element={<CustomerAnalytics />} />
             <Route path="ae-performance" element={<AEPerformance />} />
+            <Route path="territory-performance" element={<TerritoryPerformance />} />
             <Route path="search" element={<UniversalSearch />} />
 
             {/* CUSTOMERS */}

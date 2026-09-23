@@ -78,6 +78,7 @@ class CompanyPatch(BaseModel):
     company_name:str|None=None; legal_name:str|None=None; phone:str|None=None; email:str|None=None; address:str|None=None; pan_vat_number:str|None=None; customer_type:str|None=None; status:str|None=None; notes:str|None=None
 class AliasIn(BaseModel): alias_name:str
 class AssignAeIn(BaseModel): ae_code: str; reason: str|None=None
+class BulkAssignAeIn(BaseModel): company_ids: list[uuid.UUID]; ae_code: str; reason: str|None=None
 class ShipmentIn(BaseModel):
     shipment_number:str; company_id:uuid.UUID|None=None; shipment_date:date|None=None; pieces:int|None=Field(None,ge=0); shipment_weight:float|None=Field(None,ge=0); weight_unit:str|None=None; shipper_name:str|None=None; importer_name:str|None=None; importer_telephone:str|None=None; export_country:str|None=None; import_country:str|None=None; goods_description:str|None=None
 class PackageIn(BaseModel): package_id:str; piece_number:int=Field(ge=1); package_weight:float|None=Field(None,ge=0); weight_unit:str|None=None; description:str|None=None; package_status:str|None=None; remarks:str|None=None
@@ -753,6 +754,23 @@ def assign_ae(company_id:uuid.UUID, payload: AssignAeIn, db:Session=Depends(get_
     updated=reassign_company(db,comp,new_code,reason=payload.reason,source='manual',changed_by_user_id=None)
     commit(db)
     return {'status':'reassigned','ae_code':new_code,'shipments_updated':updated}
+
+@app.post('/api/v1/companies/bulk-assign-ae')
+def bulk_assign_ae(payload:BulkAssignAeIn, db:Session=Depends(get_db), _role:User=Depends(require_role('admin'))):
+    new_code=payload.ae_code.strip().upper()
+    if not new_code:raise HTTPException(422,'ae_code is required')
+    if not payload.company_ids:raise HTTPException(422,'company_ids must not be empty')
+    ae=db.scalar(select(AccountExecutive).where(AccountExecutive.ae_code==new_code))
+    if not ae:ae=AccountExecutive(ae_code=new_code,is_active=True);db.add(ae)
+    reassigned=0; unchanged=0
+    for company_id in payload.company_ids:
+        comp=db.get(Company,company_id)
+        if not comp:continue
+        if comp.assigned_ae_code==new_code:unchanged+=1;continue
+        reassign_company(db,comp,new_code,reason=payload.reason,source='manual',changed_by_user_id=None)
+        reassigned+=1
+    commit(db)
+    return {'status':'ok','ae_code':new_code,'reassigned_count':reassigned,'unchanged_count':unchanged}
 
 @app.get('/api/v1/companies/{company_id}/ae-history')
 def company_ae_history(company_id:uuid.UUID,db:Session=Depends(get_db)):
@@ -1691,6 +1709,96 @@ def ae_performance(
             'segments':list(AE_SEGMENTS)+['Unclassified'],
             'items':out}
 
+@app.get('/api/v1/analytics/territory-performance')
+def territory_performance(
+    timeframe:str=Query('this_month'),
+    date_from:date|None=None,
+    date_to:date|None=None,
+    year_from:int|None=None,
+    year_to:int|None=None,
+    compare_mode:str=Query('pop'),
+    db:Session=Depends(get_db),
+):
+    """Same shape as ae-performance but grouped by AccountExecutive.territory_name
+    instead of by individual AE. Only AEs with a territory_name are included (SLR/AJ/RT
+    are unclassified for now — see migration 20260923_0001); their shipments are excluded
+    rather than dumped into a misleading catch-all bucket."""
+    c_start,c_end,p_start,p_end=get_timeframe_bounds(timeframe,date_from,date_to,year_from,year_to,compare_mode)
+
+    territory_by_ae={a.ae_code:a.territory_name for a in db.scalars(select(AccountExecutive)).all() if a.territory_name}
+
+    period_sql=f"""
+        SELECT COALESCE(NULLIF(TRIM(s.ae_code), ''), 'UNASSIGNED') AS ae,
+               s.company_id, c.company_name, c.icris_number,
+               SUM({REVENUE_AMOUNT_SQL})::float AS revenue,
+               COUNT(s.id)::int AS shipments,
+               SUM(COALESCE(s.shipment_weight, s.actual_weight, 0))::float AS weight
+        FROM shipments s
+        LEFT JOIN companies c ON c.id = s.company_id
+        WHERE s.shipment_date IS NOT NULL AND s.shipment_date >= :start AND s.shipment_date <= :end
+        GROUP BY 1,2,3,4
+    """
+    cur_rows=rows(db,period_sql,{'start':c_start,'end':c_end})
+    prev_rows=rows(db,period_sql,{'start':p_start,'end':p_end})
+
+    prev_by_territory={}
+    for r in prev_rows:
+        territory=territory_by_ae.get(r['ae'].strip().upper())
+        if not territory: continue
+        e=prev_by_territory.setdefault(territory,{'revenue':0.0,'shipments':0,'companies':set()})
+        e['revenue']+=r['revenue']; e['shipments']+=r['shipments']
+        if r['company_id']: e['companies'].add(r['company_id'])
+
+    territory_map={}
+    for r in cur_rows:
+        ae=r['ae'].strip().upper()
+        territory=territory_by_ae.get(ae)
+        if not territory: continue
+        e=territory_map.setdefault(territory,{
+            'territory':territory,'revenue':0.0,'shipments':0,'weight':0.0,
+            'companies':set(),'ae_breakdown':{},'customers':[]})
+        e['revenue']+=r['revenue']; e['shipments']+=r['shipments']; e['weight']+=r['weight']
+        if r['company_id']: e['companies'].add(r['company_id'])
+
+        ae_e=e['ae_breakdown'].setdefault(ae,{'ae_code':ae,'revenue':0.0,'shipments':0,'companies':set()})
+        ae_e['revenue']+=r['revenue']; ae_e['shipments']+=r['shipments']
+        if r['company_id']: ae_e['companies'].add(r['company_id'])
+
+        if r['company_id']:
+            e['customers'].append({
+                'company_id':r['company_id'],'company_name':r['company_name'],
+                'icris_number':r['icris_number'],'ae_code':ae,
+                'revenue':round(r['revenue'],2),'shipments':r['shipments'],
+                'weight':round(r['weight'],2)})
+
+    grand_revenue=sum(e['revenue'] for e in territory_map.values()) or 0.0
+    out=[]
+    for e in territory_map.values():
+        p=prev_by_territory.get(e['territory'],{'revenue':0.0,'shipments':0,'companies':set()})
+        e['customers'].sort(key=lambda x:x['revenue'],reverse=True)
+        e['companies']=len(e['companies'])
+        e['revenue']=round(e['revenue'],2); e['weight']=round(e['weight'],2)
+        e['prev_revenue']=round(p['revenue'],2)
+        e['prev_shipments']=p['shipments']
+        e['prev_companies']=len(p['companies'])
+        e['revenue_growth_pct']=calc_pop(e['revenue'],p['revenue'])
+        e['shipment_growth_pct']=calc_pop(e['shipments'],p['shipments'])
+        e['revenue_share_pct']=round(100.0*e['revenue']/grand_revenue,1) if grand_revenue else 0.0
+        e['avg_revenue_per_customer']=round(e['revenue']/e['companies'],2) if e['companies'] else 0.0
+        ae_list=[]
+        for ae_e in e['ae_breakdown'].values():
+            ae_e['companies']=len(ae_e['companies'])
+            ae_e['revenue']=round(ae_e['revenue'],2)
+            ae_list.append(ae_e)
+        ae_list.sort(key=lambda x:x['revenue'],reverse=True)
+        e['ae_breakdown']=ae_list
+        out.append(e)
+
+    out.sort(key=lambda x:x['revenue'],reverse=True)
+    return {'timeframe':timeframe,
+            'bounds':{'c_start':str(c_start),'c_end':str(c_end),'p_start':str(p_start),'p_end':str(p_end)},
+            'items':out}
+
 @app.get('/api/v1/leaderboard')
 def leaderboard(timeframe:str|None=None,date_from:date|None=None,date_to:date|None=None,db:Session=Depends(get_db),user:User=Depends(get_current_user)):
     """Deliberately unscoped — every role sees the same full board, unlike every other
@@ -2226,6 +2334,8 @@ def executive_dashboard(
         WHERE (:is_all = true) OR (manifest_date >= :c_start AND manifest_date <= :c_end)
     """, {'is_all': is_all_time, 'c_start': c_start, 'c_end': c_end})
     fuel_surcharge=round(mawb_fuel[0]['fuel_surcharge'] if mawb_fuel else 0.0, 2)
+    last_sync_row=rows(db,"SELECT max(last_synced_at) AS last_crm_sync FROM master_air_waybills")
+    last_crm_sync=last_sync_row[0]['last_crm_sync'] if last_sync_row else None
 
     sp_manifest_report={
         'report_title': 'SP Export Manifest Report',
@@ -2291,6 +2401,7 @@ def executive_dashboard(
     return {
         'timeframe': timeframe,
         'bounds': {'c_start': str(c_start), 'c_end': str(c_end), 'p_start': str(p_start), 'p_end': str(p_end)},
+        'last_crm_sync': last_crm_sync.isoformat() if last_crm_sync else None,
         'sp_manifest_report': sp_manifest_report,
         'ae_performance': ae_performance,
         'kpi_cards': {

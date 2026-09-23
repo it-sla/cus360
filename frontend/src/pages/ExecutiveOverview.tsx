@@ -76,6 +76,18 @@ export default function ExecutiveOverview() {
   
   const totalShipments = d.sp_manifest_report?.total_shipment_count || 0;
 
+  // "Synced Xm ago" for the live-data indicator — mirrors the relativeDate/daysAgo helpers
+  // in app-shell.tsx but scoped locally since this is the only other call site.
+  const syncLabel = (() => {
+    if (!d.last_crm_sync) return 'No sync yet';
+    const minutes = Math.floor((Date.now() - new Date(d.last_crm_sync).getTime()) / 60000);
+    if (minutes < 1) return 'Synced just now';
+    if (minutes < 60) return `Synced ${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `Synced ${hours}h ago`;
+    return `Synced ${Math.floor(hours / 24)}d ago`;
+  })();
+
   const arpu = kpi.avg_revenue_per_customer?.value || 0;
   
   const formatMoney = (val: number | undefined | null) => {
@@ -101,7 +113,9 @@ export default function ExecutiveOverview() {
   const getTierColor = (tierName: string, index: number) => {
     if (!tierName) return '#ec4899';
     const name = tierName.toLowerCase();
+    if (name.includes('key')) return '#3b82f6'; // Bright Blue
     if (name.includes('strategic')) return '#3b82f6'; // Bright Blue
+    if (name.includes('reseller')) return '#8b5cf6'; // Violet
     if (name.includes('large')) return '#10b981'; // Emerald Green
     if (name.includes('sme')) return '#f59e0b'; // Amber Gold
     if (name.includes('small')) return '#ec4899'; // Pink / Magenta
@@ -179,8 +193,18 @@ export default function ExecutiveOverview() {
           <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
             Executive Command Center
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
-            "What is happening right now?" — Today's operational snapshot.
+          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1 flex items-center gap-2 flex-wrap">
+            <span>"What is happening right now?" — Today's operational snapshot.</span>
+            <span
+              className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600"
+              title={d.last_crm_sync ? new Date(d.last_crm_sync).toLocaleString() : undefined}
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              </span>
+              {syncLabel}
+            </span>
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -211,10 +235,11 @@ export default function ExecutiveOverview() {
           className="border-t-2 border-t-zinc-50"
           onClick={() => setSelectedKpi({ title: 'Active Customers', value: cust.value.toLocaleString(), data: { 'Strategic Accounts': strategicCount, 'Dormant Customers': dormantCount, 'Active Customers List': cust.list || [] } })}
         />
-        <KpiCard 
-          title="Total Shipments (AWBs)" 
-          value={totalShipments.toLocaleString()} 
-          icon={Package} 
+        <KpiCard
+          title="Total Shipments (AWBs)"
+          value={totalShipments.toLocaleString()}
+          icon={Package}
+          trend={kpi.total_invoices?.pop_pct}
           className="border-t-2 border-t-zinc-50"
           onClick={() => setSelectedKpi({ title: 'Total Shipments', value: totalShipments.toLocaleString(), data: { 'Total Packages': (d.operational_analytics as any)?.total_packages || 0, 'Avg Pkgs / Shipment': (d.operational_analytics as any)?.avg_packages_per_shipment?.toFixed(1) || 0, 'Countries Served': countriesServedCount } })}
         />

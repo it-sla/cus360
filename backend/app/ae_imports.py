@@ -31,6 +31,18 @@ NAME_TO_CODE={
     'dinesh':'DN','rupesh':'RT','akrit':'AJ',
 }
 
+# Confirmed 2026-09-23: the 4 geographic AEs get a "Territory N" label, DN is "Resellers".
+# SLR/AJ/RT stay unclassified (None) — user will divide AJ/RT later. Same map used by
+# migration 20260923_0001 to seed existing rows; applied here too so any AE created fresh
+# via import (a code never seen before) also gets the right territory_name.
+TERRITORY_NAMES={
+    'AS':'Territory 1 — North & West Kathmandu (Thamel to Sitapaila)',
+    'PR':'Territory 2 — Northeast & East Kathmandu (Baneshwor to Boudha)',
+    'PS':'Territory 3 — Southeast Kathmandu (Koteshwor to Kupondole)',
+    'NT':'Territory 4 — Southwest Kathmandu (Kirtipur to Jawalakhel)',
+    'DN':'Resellers',
+}
+
 def clean_header(value):return ' '.join(str(value or '').replace(' ',' ').split()).strip()
 def clean_text(value):
     if value is None:return ''
@@ -169,7 +181,7 @@ def import_ae_assignments(db:Session,data:bytes,filename:str,worksheet:str|None,
         # Add any never-before-seen code to the roster rather than silently rejecting it —
         # this file is a legitimate source of AE identity, not just a report.
         if row['ae_code'] not in known_codes:
-            db.add(AccountExecutive(ae_code=row['ae_code'],display_name=None,is_active=True));known_codes.add(row['ae_code'])
+            db.add(AccountExecutive(ae_code=row['ae_code'],display_name=None,is_active=True,territory_name=TERRITORY_NAMES.get(row['ae_code'])));known_codes.add(row['ae_code'])
 
         previous=company.assigned_ae_code
         if previous==row['ae_code']:

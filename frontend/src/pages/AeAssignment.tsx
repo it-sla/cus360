@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, type AeImportPreview } from '../api';
 import {
   UploadCloud, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle, Users,
-  ArrowRight, X, Loader2, Edit2, Check, Trash2, Plus
+  ArrowRight, X, Loader2, Edit2, Check, Trash2, Plus, Search, UserCog
 } from 'lucide-react';
 
 const fmtNum = (n: number | null | undefined) => (n ?? 0).toLocaleString();
@@ -151,6 +151,119 @@ function RosterTab() {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+// ── Manual assignment tab ───────────────────────────────────────────────
+
+function ManualAssignTab() {
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [targetAe, setTargetAe] = useState('');
+  const [result, setResult] = useState<{ reassigned_count: number; unchanged_count: number } | null>(null);
+
+  const debouncedSearch = search.trim();
+  const { data: companyPage, isFetching } = useQuery({
+    queryKey: ['companies-for-bulk-assign', debouncedSearch],
+    queryFn: () => api.getCompanies({ q: debouncedSearch || undefined, limit: 50 }),
+  });
+  const companies = companyPage?.items ?? [];
+
+  const { data: aes = [] } = useQuery({ queryKey: ['account-executives'], queryFn: () => api.getAccountExecutives() });
+
+  const bulkAssign = useMutation({
+    mutationFn: () => api.bulkAssignAE(Array.from(selected), targetAe),
+    onSuccess: (data) => {
+      setResult(data);
+      setSelected(new Set());
+      queryClient.invalidateQueries({ queryKey: ['companies-for-bulk-assign'] });
+      queryClient.invalidateQueries({ queryKey: ['account-executives'] });
+    },
+  });
+
+  const toggle = (id: string) => setSelected(s => {
+    const next = new Set(s);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
+        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-1">Manual Reassignment</h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+          Search and select companies, choose an AE, then reassign them all at once.
+        </p>
+
+        <div className="flex items-center gap-2 mb-3">
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search companies by name or ICRIS..."
+              className="w-full h-9 pl-8 pr-3 border border-slate-300 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-900 outline-none focus:border-indigo-400"
+            />
+          </div>
+          <select
+            value={targetAe}
+            onChange={e => setTargetAe(e.target.value)}
+            className="h-9 px-3 border border-slate-300 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-900 outline-none focus:border-indigo-400"
+          >
+            <option value="">Assign to AE...</option>
+            {aes.map(ae => (
+              <option key={ae.ae_code} value={ae.ae_code}>{ae.ae_code}{ae.display_name ? ` — ${ae.display_name}` : ''}</option>
+            ))}
+          </select>
+          <button
+            disabled={!targetAe || selected.size === 0 || bulkAssign.isPending}
+            onClick={() => bulkAssign.mutate()}
+            className="h-9 px-4 bg-indigo-600 text-white rounded-lg text-sm font-bold flex items-center gap-1.5 disabled:opacity-40 hover:bg-indigo-500"
+          >
+            {bulkAssign.isPending ? <Loader2 size={14} className="animate-spin" /> : <UserCog size={14} />}
+            Reassign ({selected.size})
+          </button>
+        </div>
+
+        {result && (
+          <div className="mb-3 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 rounded-lg text-xs text-emerald-700 dark:text-emerald-400 font-semibold">
+            Reassigned {result.reassigned_count}, {result.unchanged_count} already on that AE.
+          </div>
+        )}
+
+        <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+              <tr className="text-[10px] uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">
+                <th className="px-4 py-2 w-8"></th>
+                <th className="px-4 py-2">Company</th>
+                <th className="px-4 py-2">ICRIS</th>
+                <th className="px-4 py-2">Current AE</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+              {isFetching && (
+                <tr><td colSpan={4} className="px-4 py-6 text-center text-slate-400">Loading…</td></tr>
+              )}
+              {!isFetching && companies.length === 0 && (
+                <tr><td colSpan={4} className="px-4 py-6 text-center text-slate-400">No companies found.</td></tr>
+              )}
+              {companies.map(c => (
+                <tr key={c.company_id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 cursor-pointer" onClick={() => toggle(c.company_id)}>
+                  <td className="px-4 py-2.5">
+                    <input type="checkbox" checked={selected.has(c.company_id)} onChange={() => toggle(c.company_id)} onClick={e => e.stopPropagation()} />
+                  </td>
+                  <td className="px-4 py-2.5 font-medium text-slate-800 dark:text-slate-200">{c.company_name}</td>
+                  <td className="px-4 py-2.5 font-mono text-slate-500">{c.icris_number || '—'}</td>
+                  <td className="px-4 py-2.5 text-slate-500">{c.ae_code || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
@@ -351,7 +464,7 @@ function ImportTab() {
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default function AeAssignment() {
-  const [tab, setTab] = useState<'import' | 'roster'>('import');
+  const [tab, setTab] = useState<'import' | 'roster' | 'manual'>('import');
 
   return (
     <div className="flex-1 flex flex-col h-full bg-background overflow-hidden">
@@ -361,7 +474,7 @@ export default function AeAssignment() {
           Import territory assignments and manage the Account Executive roster.
         </p>
         <div className="flex gap-0 -mb-px mt-4">
-          {[{ id: 'import' as const, label: 'Import', icon: UploadCloud }, { id: 'roster' as const, label: 'AE Roster', icon: Users }].map(t => {
+          {[{ id: 'import' as const, label: 'Import', icon: UploadCloud }, { id: 'roster' as const, label: 'AE Roster', icon: Users }, { id: 'manual' as const, label: 'Manual Assignment', icon: UserCog }].map(t => {
             const active = tab === t.id;
             return (
               <button
@@ -381,7 +494,7 @@ export default function AeAssignment() {
       </div>
       <div className="flex-1 overflow-auto p-4 sm:p-6">
         <div className="max-w-[1000px] mx-auto">
-          {tab === 'import' ? <ImportTab /> : <RosterTab />}
+          {tab === 'import' ? <ImportTab /> : tab === 'roster' ? <RosterTab /> : <ManualAssignTab />}
         </div>
       </div>
     </div>

@@ -106,6 +106,7 @@ export interface CustomerAnalyticsRow {
 export interface DashboardResponse {
   timeframe: string;
   bounds: { c_start: string; c_end: string; p_start: string; p_end: string };
+  last_crm_sync: string | null;
   sp_manifest_report: {
     total_weight: number;
     total_pieces: number;
@@ -229,6 +230,46 @@ export interface AEPerformanceResponse {
   health_thresholds: { active_days: number; warning_days: number; reactivation_gap_months: number };
   segments: string[];
   items: AEPerformanceItem[];
+}
+
+export interface TerritoryCustomer {
+  company_id: string;
+  company_name: string;
+  icris_number: string | null;
+  ae_code: string;
+  revenue: number;
+  shipments: number;
+  weight: number;
+}
+
+export interface TerritoryAeBreakdown {
+  ae_code: string;
+  revenue: number;
+  shipments: number;
+  companies: number;
+}
+
+export interface TerritoryPerformanceItem {
+  territory: string;
+  revenue: number;
+  prev_revenue: number;
+  revenue_growth_pct: number;
+  revenue_share_pct: number;
+  shipments: number;
+  prev_shipments: number;
+  shipment_growth_pct: number;
+  weight: number;
+  companies: number;
+  prev_companies: number;
+  avg_revenue_per_customer: number;
+  ae_breakdown: TerritoryAeBreakdown[];
+  customers: TerritoryCustomer[];
+}
+
+export interface TerritoryPerformanceResponse {
+  timeframe: string;
+  bounds: { c_start: string; c_end: string; p_start: string; p_end: string };
+  items: TerritoryPerformanceItem[];
 }
 
 export interface LeaderboardEntry {
@@ -517,6 +558,7 @@ export interface AccountExecutive {
   ae_code: string;
   display_name: string | null;
   is_active: boolean;
+  territory_name: string | null;
   created_at: string;
   updated_at: string;
   assigned_customer_count: number;
@@ -878,6 +920,12 @@ export const api = {
     return response.data;
   },
 
+  // Territory Performance endpoint — AE Performance grouped by territory_name
+  getTerritoryPerformance: async (params?: AnalyticsFilterParams): Promise<TerritoryPerformanceResponse> => {
+    const response = await apiClient.get('/analytics/territory-performance', { params });
+    return response.data;
+  },
+
   // Gamified AE leaderboard — unscoped (every role sees the same board), fixed to the
   // current month. Distinct from getAEPerformance, which is the admin/sales_lead
   // drill-down and is row-scoped per AE for 'ae'-role callers. `params` (timeframe/
@@ -909,6 +957,10 @@ export const api = {
   // Assign AE
   assignAE: async (companyId: string, ae_code: string, reason?: string) => {
     const response = await apiClient.post(`/companies/${companyId}/assign-ae`, { ae_code, reason });
+    return response.data;
+  },
+  bulkAssignAE: async (company_ids: string[], ae_code: string, reason?: string): Promise<{ status: string; ae_code: string; reassigned_count: number; unchanged_count: number }> => {
+    const response = await apiClient.post('/companies/bulk-assign-ae', { company_ids, ae_code, reason });
     return response.data;
   },
   getCompanyAeHistory: async (companyId: string): Promise<AeReassignmentLogEntry[]> => {
