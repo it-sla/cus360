@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     crm_active_pipeline_url: str = ""
     crm_daily_call_logs_url: str = ""
     crm_pipeline_lookahead_days: int = 180
+    crm_pipeline_lookback_days: int = 90
     crm_pipeline_schedule_cron: str = "15 6,12,18 * * *"
     crm_pnl_schedule_cron: str = "30 6,12,18 * * *"
     crm_pnl_schedule_lookback_days: int = 31

@@ -275,7 +275,7 @@ def check_pipeline_auto_schedule():
         from .crm_sync import run_active_pipeline_sync
         connector=CrmSessionManager()
         try:
-            date_from=date.today();date_to=date_from+td(days=settings.crm_pipeline_lookahead_days)
+            date_from=date.today()-td(days=settings.crm_pipeline_lookback_days);date_to=date.today()+td(days=settings.crm_pipeline_lookahead_days)
             html=connector.active_pipeline_list(date_from,date_to)
             run=run_active_pipeline_sync(db,html,settings.crm_active_pipeline_url,worker_id='pipeline-scheduler')
             db.commit()

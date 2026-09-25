@@ -159,7 +159,10 @@ export default function BusinessAnalytics() {
       const g = d.revenue_analytics.growth_matrix?.find((gm: any) => gm.company_id === c.company_id) || {};
       return { 
         ...c, 
-        growth: g.pct_growth || 0, 
+        growth: g.pct_growth || 0,
+        prevRevenue: g.prev_revenue || 0,
+        isNew: !!g.is_new,
+        diff: g.diff || 0,
         status: g.is_new ? 'New' : (g.prev_revenue > 0 && c.revenue === 0 ? 'Dormant' : ((g.prev_revenue || 0) === 0 && c.revenue === 0 ? 'No Activity' : 'Active')),
         billType: c.revenue > 10000 ? 'Postpaid' : 'Prepaid',
       };
@@ -193,11 +196,12 @@ export default function BusinessAnalytics() {
       revenue_desc: (a, b) => b.revenue - a.revenue,
       revenue_asc: (a, b) => a.revenue - b.revenue,
       shipments_desc: (a, b) => b.shipments - a.shipments,
-      growth_desc: (a, b) => b.growth - a.growth,
-      growth_asc: (a, b) => a.growth - b.growth,
+      growth_desc: (a, b) => b.diff - a.diff,
+      growth_asc: (a, b) => a.diff - b.diff,
       name_asc: (a, b) => (a.company_name || '').localeCompare(b.company_name || ''),
       recent: (a, b) => new Date(b.last_shipment_date || 0).getTime() - new Date(a.last_shipment_date || 0).getTime(),
     };
+    if (filters.sortBy === 'revenue_asc') base = base.filter((c: any) => c.revenue > 0);
     base.sort(SORTERS[filters.sortBy] || SORTERS.revenue_desc);
 
     const revTotal = base.reduce((sum: number, c: any) => sum + c.revenue, 0);
@@ -778,11 +782,20 @@ export default function BusinessAnalytics() {
                       <td className="px-4 py-3 font-mono text-slate-500">{row.icris_number || '—'}</td>
                       <td className="px-4 py-3 font-black text-slate-900 text-right">{fmt$(row.revenue)}</td>
                       <td className="px-4 py-3 text-right">
-                        {row.growth !== 0 ? (
-                          <span className={`inline-flex items-center gap-0.5 font-bold ${row.growth > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            {row.growth > 0 ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
-                            {Math.abs(row.growth).toFixed(0)}%
-                          </span>
+                        {row.prevRevenue === 0 && row.revenue > 0 ? (
+                          row.isNew
+                            ? <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-100 text-blue-700">New</span>
+                            : <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-700">Returning</span>
+                        ) :row.revenue === 0 && row.prevRevenue > 0 ? (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-100 text-rose-700">Lost</span>
+                        ) : row.growth !== 0 ? (
+                          <div className="inline-flex flex-col items-end">
+                            <span className={`inline-flex items-center gap-0.5 font-bold ${row.growth > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                              {row.growth > 0 ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
+                              {Math.abs(row.growth) > 999 ? '>999' : Math.abs(row.growth).toFixed(0)}%
+                            </span>
+                            <span className="text-[10px] text-slate-400">{row.diff > 0 ? '+' : '−'}{fmt$(Math.abs(row.diff))}</span>
+                          </div>
                         ) : <span className="text-slate-400">—</span>}
                       </td>
                       <td className="px-4 py-3 text-slate-600 font-medium text-right">{row.shipments || 0}</td>

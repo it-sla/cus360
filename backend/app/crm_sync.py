@@ -1,4 +1,5 @@
 import hashlib,json,re,unicodedata
+from datetime import timedelta
 from decimal import Decimal
 from sqlalchemy import func,select
 from sqlalchemy.exc import IntegrityError
@@ -218,6 +219,74 @@ def _detect_pushed_followups(old_items,new_rows,today):
         pushes.append({'company_name':old.company_name,'ae_code':old.ae_code,'old_expected_date':old.expected_date,'new_expected_date':row['expected_date'],'revenue_usd':row['revenue_usd'] or old.revenue_usd,'icris_number':(row['Acc No'] or '').strip() or old.icris_number})
     return pushes
 
+PIPELINE_REAPPEAR_WINDOW_DAYS=90  # how far back a 'vanished' event is still eligible to be linked to a later 'reappeared' row
+
+def _diff_pipeline(db,old_items,new_rows,today):
+    """Full before/after diff of one Active Pipeline sync, for the pipeline_date_events
+    log (distinct from _detect_pushed_followups, which only exists to feed the
+    'pipeline_date_pushed' DataQualityIssue/alert and is left untouched). Same match
+    key as _detect_pushed_followups (company name, AE, country) since the CRM page has
+    no stable row ID; a key matching more than one row on either side is skipped as
+    ambiguous rather than guessed at — a false accusation here is worse than a missed one.
+
+    Produces one event per changed deal:
+      - 'pushed' / 'pulled_in': same key, later/earlier Expected Date, still unresolved.
+      - 'vanished': old key absent from the new rows and the deal was never resolved —
+        covers a cleared date (parser drops blank dates), a date pushed past the sync
+        window, or a deleted deal. A deal that closed with a Win/Loss is not suspicious
+        and is skipped.
+      - 'reappeared': a new key with no match in the old rows, but a 'vanished' event
+        for that same key was logged within PIPELINE_REAPPEAR_WINDOW_DAYS — links the
+        two so a deal can't dodge detection by disappearing and coming back later.
+    """
+    from collections import defaultdict
+    def key_of(name,ae,country):return ((name or '').strip().casefold(),(ae or '').strip(),(country or '').strip().casefold())
+
+    old_by_key=defaultdict(list)
+    for item in old_items:old_by_key[key_of(item.company_name,item.ae_code,item.country)].append(item)
+    new_by_key=defaultdict(list)
+    for row in new_rows:new_by_key[key_of(row['Company Name'],row['AE'],row['Country'])].append(row)
+
+    events=[]
+    for key,old_candidates in old_by_key.items():
+        if len(old_candidates)!=1:continue
+        old=old_candidates[0]
+        new_candidates=new_by_key.get(key)
+        if new_candidates:
+            if len(new_candidates)!=1:continue
+            row=new_candidates[0]
+            if (row['Win/Loss'] or '').strip():continue
+            if row['expected_date']==old.expected_date:continue
+            events.append({'event_type':'pushed' if row['expected_date']>old.expected_date else 'pulled_in',
+                'company_name':old.company_name,'icris_number':(row['Acc No'] or '').strip() or old.icris_number,'ae_code':old.ae_code,'country':old.country,
+                'old_expected_date':old.expected_date,'new_expected_date':row['expected_date'],'days_shifted':(row['expected_date']-old.expected_date).days,
+                'was_overdue':old.expected_date<today,'revenue_usd':row['revenue_usd'] or old.revenue_usd})
+        else:
+            if (old.win_loss or '').strip():continue
+            events.append({'event_type':'vanished',
+                'company_name':old.company_name,'icris_number':old.icris_number,'ae_code':old.ae_code,'country':old.country,
+                'old_expected_date':old.expected_date,'new_expected_date':None,'days_shifted':None,
+                'was_overdue':old.expected_date<today,'revenue_usd':old.revenue_usd})
+
+    cutoff=today-timedelta(days=PIPELINE_REAPPEAR_WINDOW_DAYS)
+    for key,new_candidates in new_by_key.items():
+        if key in old_by_key or len(new_candidates)!=1:continue
+        row=new_candidates[0]
+        company_name=row['Company Name'].strip();ae_code=(row['AE'] or '').strip() or None;country=(row['Country'] or '').strip() or None
+        prior=db.scalar(select(PipelineDateEvent).where(
+            PipelineDateEvent.event_type=='vanished',PipelineDateEvent.event_date>=cutoff,
+            func.lower(func.trim(PipelineDateEvent.company_name))==company_name.casefold(),
+            PipelineDateEvent.ae_code==ae_code,
+            func.lower(func.trim(func.coalesce(PipelineDateEvent.country,''))) == (country or '').casefold()
+        ).order_by(PipelineDateEvent.event_date.desc()).limit(1))
+        if not prior:continue
+        events.append({'event_type':'reappeared',
+            'company_name':company_name,'icris_number':(row['Acc No'] or '').strip() or None,'ae_code':ae_code,'country':country,
+            'old_expected_date':prior.old_expected_date,'new_expected_date':row['expected_date'],
+            'days_shifted':(row['expected_date']-prior.old_expected_date).days if prior.old_expected_date else None,
+            'was_overdue':False,'revenue_usd':row['revenue_usd']})
+    return events
+
 PIPELINE_SNAPSHOT_MIN_RATIO=0.4  # ponytail: heuristic collapse threshold, tune if it false-positives on a real quiet week
 def run_active_pipeline_sync(db:Session,html,source_url='',dry_run=False,worker_id=None):
     """Run-tracked wrapper around sync_active_pipeline — the single path both the manual sync
@@ -290,6 +359,7 @@ def sync_active_pipeline(db:Session,rows,dry_run=False,sync_run_id=None):
     if dry_run:return stats
     today=date.today()
     pushes=_detect_pushed_followups(old_items,rows,today)
+    date_events=_diff_pipeline(db,old_items,rows,today)
     stamp=now()
     if old_items:
         archived_at=stamp
@@ -304,6 +374,9 @@ def sync_active_pipeline(db:Session,rows,dry_run=False,sync_run_id=None):
         severity='high' if days_pushed>14 or (p['revenue_usd'] or 0)>1000 else 'medium'
         db.add(DataQualityIssue(issue_type='pipeline_date_pushed',severity=severity,company_id=company.id if company else None,source_icris_number=p['icris_number'],source_company_name=p['company_name'],details_json={'ae_code':p['ae_code'],'old_expected_date':p['old_expected_date'].isoformat(),'new_expected_date':p['new_expected_date'].isoformat(),'days_pushed':days_pushed,'revenue_usd':float(p['revenue_usd']) if p['revenue_usd'] else None}))
     stats['date_pushed_count']=len(pushes)
+    for e in date_events:
+        db.add(PipelineDateEvent(event_date=today,sync_run_id=sync_run_id,event_type=e['event_type'],company_name=e['company_name'],icris_number=e['icris_number'],ae_code=e['ae_code'],country=e['country'],old_expected_date=e['old_expected_date'],new_expected_date=e['new_expected_date'],days_shifted=e['days_shifted'],was_overdue=e['was_overdue'],revenue_usd=e['revenue_usd']))
+    stats['date_events_count']=len(date_events)
     return stats
 
 def _call_log_hash(row):

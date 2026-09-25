@@ -1680,7 +1680,12 @@ def ae_performance(
         # No lifetime history means the shipment isn't linked to a company at all — that's an
         # unlinked-data problem, not customer dormancy, so it gets its own bucket. Folding it
         # into `dormant` made the leaderboard count disagree with the drill-down list.
-        if days_since is None: status='Unknown'; e['unknown']+=1
+        # Guarded by `if cid` like `companies`/`customers` below: an orphan (company_id IS
+        # NULL) group isn't a customer at all, so it must not be filed into any health
+        # bucket either, or buckets sum to more than `companies`.
+        status=None
+        if not cid: pass
+        elif days_since is None: status='Unknown'; e['unknown']+=1
         elif days_since<=AE_HEALTH_ACTIVE_DAYS: status='Active'; e['active']+=1
         elif days_since<=AE_HEALTH_WARNING_DAYS: status='Warning'; e['warning']+=1
         else: status='Dormant'; e['dormant']+=1
@@ -1988,6 +1993,18 @@ def executive_dashboard(
         cur_rows = [r for r in cur_rows if (r['segment'] or '').lower() == segment.lower()]
     if status:
         cur_rows = [r for r in cur_rows if (r['company_status'] or '').lower() == status.lower()]
+    if min_shipments is not None or max_shipments is not None:
+        # Company-level filter: count each company's shipments in the *current* period
+        # (after the row-level filters above), then keep only rows for companies whose
+        # count falls in range. Applied to both periods so growth/comparison stays
+        # scoped to the same company set, matching how destination/ae_code/segment/status
+        # already filter both cur_rows and prev_rows identically.
+        cur_ship_counts:dict={}
+        for r in cur_rows:
+            if r['company_id']: cur_ship_counts[r['company_id']]=cur_ship_counts.get(r['company_id'],0)+1
+        eligible_companies={cid for cid,cnt in cur_ship_counts.items()
+                             if (min_shipments is None or cnt>=min_shipments) and (max_shipments is None or cnt<=max_shipments)}
+        cur_rows=[r for r in cur_rows if r['company_id'] in eligible_companies]
 
     prev_sql=f"""
         SELECT s.id shipment_id, s.company_id, c.company_name, c.icris_number, c.customer_type as segment, c.status as company_status,
@@ -2024,6 +2041,8 @@ def executive_dashboard(
         prev_rows = [r for r in prev_rows if (r['segment'] or '').lower() == segment.lower()]
     if status:
         prev_rows = [r for r in prev_rows if (r['company_status'] or '').lower() == status.lower()]
+    if min_shipments is not None or max_shipments is not None:
+        prev_rows=[r for r in prev_rows if r['company_id'] in eligible_companies]
 
     all_comp_rows=rows(db,f"""
         SELECT c.id company_id, c.company_name, c.icris_number, c.created_at company_created_at, c.customer_type as segment, c.status as company_status, c.is_provisional,
@@ -2851,13 +2870,15 @@ def sync_ups_pnl(body:CrmUpsPnlSyncIn,db:Session=Depends(get_db),_user:User=Depe
 def sync_active_pipeline_route(body:CrmPipelineSyncIn,db:Session=Depends(get_db),_role:User=Depends(require_role('super_admin'))):
     """Pull the CRM's Active Pipeline grid and replace pipeline_items with the current snapshot.
 
-    Defaults to today through crm_pipeline_lookahead_days ahead, since the pipeline is
-    inherently forward-looking (expected close/delivery dates), unlike manifest sync which
-    looks backward over shipped history."""
+    Defaults to crm_pipeline_lookback_days behind today through crm_pipeline_lookahead_days
+    ahead. The pipeline is forward-looking (expected close/delivery dates), but still looks
+    back a bit past today so a deal that's gone overdue keeps being tracked instead of
+    silently dropping out of every future sync — see pipeline_date_events for what the
+    lookback is protecting."""
     from .crm_connector import CrmSessionManager,ConnectorError,SessionExpired
     from .crm_parser import CrmParseError
-    date_from=body.date_from or date.today()
-    date_to=body.date_to or (date_from+timedelta(days=settings.crm_pipeline_lookahead_days))
+    date_from=body.date_from or (date.today()-timedelta(days=settings.crm_pipeline_lookback_days))
+    date_to=body.date_to or (date.today()+timedelta(days=settings.crm_pipeline_lookahead_days))
     if date_to<date_from:raise HTTPException(422,'date_to must be on or after date_from')
     status=crm_status(db)
     if not status['ready']:raise HTTPException(503,status['message'])
@@ -2892,8 +2913,8 @@ def list_pipeline(ae_code:str|None=None,overdue_only:bool=False,lost_only:bool=F
     return {'items':rows,'total':len(rows),'overdue_count':sum(1 for r in rows if r['is_overdue']),'lost_count':sum(1 for r in rows if r['is_lost']),'as_of':as_of.isoformat() if as_of else None}
 
 @app.get('/api/v1/pipeline/history')
-def pipeline_history(snapshot_date:date|None=None,ae_code:str|None=None,db:Session=Depends(get_db),_role:User=Depends(require_role('admin'))):
-    """Admin-only drill-down into archived pipeline_snapshots (see PipelineSnapshot /
+def pipeline_history(snapshot_date:date|None=None,ae_code:str|None=None,db:Session=Depends(get_db),_role:User=Depends(require_role(['admin','sales_lead']))):
+    """Admin/sales_lead drill-down into archived pipeline_snapshots (see PipelineSnapshot /
     sync_active_pipeline's archive-before-truncate step) — pipeline_items only ever holds
     the CRM's current state, so this is the only way to see a past Active Pipeline snapshot.
     Called with no snapshot_date to list available dates for a picker; with one to fetch that
@@ -2912,6 +2933,32 @@ def pipeline_history(snapshot_date:date|None=None,ae_code:str|None=None,db:Sessi
         return {'id':str(item.id),'expected_date':item.expected_date.isoformat(),'company_name':item.company_name,'icris_number':item.icris_number,'country':item.country,'weight_kg':float(item.weight_kg) if item.weight_kg is not None else None,'revenue_usd':float(item.revenue_usd) if item.revenue_usd is not None else None,'pieces':item.pieces,'category':item.category,'ae_code':item.ae_code,'win_loss':item.win_loss,'remarks':item.remarks,'is_overdue':is_overdue,'is_lost':is_lost,'scraped_at':item.scraped_at.isoformat()}
     rows=[payload(x) for x in items]
     return {'snapshot_date':snapshot_date.isoformat(),'items':rows,'total':len(rows),'overdue_count':sum(1 for r in rows if r['is_overdue']),'lost_count':sum(1 for r in rows if r['is_lost'])}
+
+@app.get('/api/v1/pipeline/date-events')
+def pipeline_date_events(ae_code:str|None=None,event_type:str|None=None,days:int=Query(30,ge=1,le=365),company:str|None=None,db:Session=Depends(get_db),_role:User=Depends(require_role(['admin','sales_lead']))):
+    """Admin/sales_lead log of Expected Date changes detected between consecutive Active
+    Pipeline syncs — see PipelineDateEvent / _diff_pipeline in crm_sync.py. Distinct from
+    the DataQualityIssue-backed 'pipeline_date_pushed' alert: this is the full log (pushed,
+    pulled in, vanished, reappeared), not just the subset that triggers an alert."""
+    cutoff=date.today()-timedelta(days=days)
+    query=select(PipelineDateEvent).where(PipelineDateEvent.event_date>=cutoff).order_by(PipelineDateEvent.event_date.desc(),PipelineDateEvent.id.desc())
+    if ae_code:query=query.where(PipelineDateEvent.ae_code==ae_code)
+    if event_type:query=query.where(PipelineDateEvent.event_type==event_type)
+    if company and company.strip():query=query.where(PipelineDateEvent.company_name.ilike(f'%{escape_like(company.strip())}%',escape='\\'))
+    events=db.scalars(query).all()
+    def payload(e):
+        return {'id':e.id,'event_date':e.event_date.isoformat(),'event_type':e.event_type,'company_name':e.company_name,'icris_number':e.icris_number,'ae_code':e.ae_code,'country':e.country,
+                'old_expected_date':e.old_expected_date.isoformat() if e.old_expected_date else None,'new_expected_date':e.new_expected_date.isoformat() if e.new_expected_date else None,
+                'days_shifted':e.days_shifted,'was_overdue':e.was_overdue,'revenue_usd':float(e.revenue_usd) if e.revenue_usd is not None else None}
+    items=[payload(e) for e in events]
+    by_ae:dict={}
+    for e in events:
+        ae=e.ae_code or 'UNASSIGNED'
+        a=by_ae.setdefault(ae,{'ae_code':ae,'pushed':0,'days_pushed_total':0,'vanished':0,'reappeared':0})
+        if e.event_type=='pushed':a['pushed']+=1;a['days_pushed_total']+=(e.days_shifted or 0)
+        elif e.event_type=='vanished':a['vanished']+=1
+        elif e.event_type=='reappeared':a['reappeared']+=1
+    return {'items':items,'total':len(items),'by_ae':sorted(by_ae.values(),key=lambda x:x['pushed'],reverse=True)}
 
 @app.get('/api/v1/crm-sync/diagnose')
 def diagnose_crm_list(db:Session=Depends(get_db),_role:User=Depends(require_role('super_admin'))):

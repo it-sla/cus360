@@ -1,19 +1,25 @@
 from pathlib import Path
 from datetime import date, timedelta
 from decimal import Decimal
+import uuid
 import pytest
 from sqlalchemy import func, select
 from app.crm_sync import sync_active_pipeline, run_active_pipeline_sync
 from app.crm_connector import SessionExpired
 from app.crm_parser import CrmParseError
 from app.db import SessionLocal
-from app.models import CrmSyncRun, DataQualityIssue, PipelineItem
+from app.models import CrmSyncRun, DataQualityIssue, PipelineDateEvent, PipelineItem, User
 
 FIX = Path(__file__).parent / 'fixtures'
 
 TODAY = date.today()
 OVERDUE = TODAY - timedelta(days=5)
 PUSHED = TODAY + timedelta(days=3)
+NOT_YET_OVERDUE = TODAY + timedelta(days=10)
+PUSHED_FURTHER = TODAY + timedelta(days=20)
+
+def date_events_for(db, company_name):
+    return db.scalars(select(PipelineDateEvent).where(PipelineDateEvent.company_name == company_name).order_by(PipelineDateEvent.id)).all()
 
 def row(company_name, expected_date, ae='AS', country='US', win_loss='', revenue=None, icris=''):
     return {
@@ -179,6 +185,162 @@ def test_run_active_pipeline_sync_allows_normal_sized_snapshot_after_populated_t
         assert db.scalar(select(func.count()).select_from(PipelineItem)) == 8
     finally:
         db.rollback(); db.close()
+
+def test_date_event_pushed_not_yet_overdue():
+    db = SessionLocal()
+    try:
+        db.query(PipelineItem).delete(); db.query(PipelineDateEvent).where(PipelineDateEvent.company_name == 'Early Push Co').delete()
+        sync_active_pipeline(db, [row('Early Push Co', NOT_YET_OVERDUE, revenue=Decimal('500'))])
+        db.flush()
+        sync_active_pipeline(db, [row('Early Push Co', PUSHED_FURTHER, revenue=Decimal('500'))])
+        db.flush()
+        events = date_events_for(db, 'Early Push Co')
+        assert len(events) == 1
+        assert events[0].event_type == 'pushed'
+        assert events[0].was_overdue is False
+        assert events[0].days_shifted == (PUSHED_FURTHER - NOT_YET_OVERDUE).days
+    finally:
+        db.rollback(); db.close()
+
+def test_date_event_pushed_while_overdue_keeps_dataqualityissue():
+    db = SessionLocal()
+    try:
+        db.query(PipelineItem).delete()
+        db.query(PipelineDateEvent).where(PipelineDateEvent.company_name == 'Overdue Push Co').delete()
+        db.query(DataQualityIssue).where(DataQualityIssue.source_company_name == 'Overdue Push Co').delete()
+        sync_active_pipeline(db, [row('Overdue Push Co', OVERDUE, revenue=Decimal('5000'))])
+        db.flush()
+        sync_active_pipeline(db, [row('Overdue Push Co', PUSHED, revenue=Decimal('5000'))])
+        db.flush()
+        events = date_events_for(db, 'Overdue Push Co')
+        assert len(events) == 1
+        assert events[0].event_type == 'pushed'
+        assert events[0].was_overdue is True
+        # the original pipeline_date_pushed alert/DataQualityIssue must still fire alongside the log
+        assert db.scalar(select(DataQualityIssue).where(DataQualityIssue.issue_type == 'pipeline_date_pushed', DataQualityIssue.source_company_name == 'Overdue Push Co')) is not None
+    finally:
+        db.rollback(); db.close()
+
+def test_date_event_vanished_when_dropped_unresolved():
+    db = SessionLocal()
+    try:
+        db.query(PipelineItem).delete(); db.query(PipelineDateEvent).where(PipelineDateEvent.company_name == 'Vanish Co').delete()
+        sync_active_pipeline(db, [row('Vanish Co', PUSHED)])
+        db.flush()
+        sync_active_pipeline(db, [row('Someone Else Co', PUSHED)])
+        db.flush()
+        events = date_events_for(db, 'Vanish Co')
+        assert len(events) == 1
+        assert events[0].event_type == 'vanished'
+        assert events[0].old_expected_date == PUSHED
+        assert events[0].new_expected_date is None
+    finally:
+        db.rollback(); db.close()
+
+def test_date_event_not_logged_when_resolved_deal_drops_out():
+    db = SessionLocal()
+    try:
+        db.query(PipelineItem).delete(); db.query(PipelineDateEvent).where(PipelineDateEvent.company_name == 'Closed Deal Co').delete()
+        sync_active_pipeline(db, [row('Closed Deal Co', PUSHED, win_loss='Win')])
+        db.flush()
+        sync_active_pipeline(db, [row('Someone Else Co', PUSHED)])
+        db.flush()
+        assert date_events_for(db, 'Closed Deal Co') == []
+    finally:
+        db.rollback(); db.close()
+
+def test_date_event_reappeared_links_to_prior_vanished():
+    db = SessionLocal()
+    try:
+        db.query(PipelineItem).delete(); db.query(PipelineDateEvent).where(PipelineDateEvent.company_name == 'Comeback Co').delete()
+        sync_active_pipeline(db, [row('Comeback Co', PUSHED)])
+        db.flush()
+        sync_active_pipeline(db, [row('Someone Else Co', PUSHED)])  # Comeback Co vanishes here
+        db.flush()
+        sync_active_pipeline(db, [row('Comeback Co', PUSHED_FURTHER), row('Someone Else Co', PUSHED)])
+        db.flush()
+        events = date_events_for(db, 'Comeback Co')
+        assert [e.event_type for e in events] == ['vanished', 'reappeared']
+        reappeared = events[1]
+        assert reappeared.old_expected_date == PUSHED
+        assert reappeared.new_expected_date == PUSHED_FURTHER
+    finally:
+        db.rollback(); db.close()
+
+def test_date_event_ambiguous_key_is_skipped():
+    db = SessionLocal()
+    try:
+        db.query(PipelineItem).delete(); db.query(PipelineDateEvent).where(PipelineDateEvent.company_name == 'Dup Event Co').delete()
+        sync_active_pipeline(db, [row('Dup Event Co', OVERDUE), row('Dup Event Co', OVERDUE - timedelta(days=1))])
+        db.flush()
+        sync_active_pipeline(db, [row('Dup Event Co', PUSHED)])
+        db.flush()
+        assert date_events_for(db, 'Dup Event Co') == []
+    finally:
+        db.rollback(); db.close()
+
+def test_date_events_not_written_on_collapsed_or_empty_snapshot():
+    db = SessionLocal()
+    try:
+        db.query(PipelineItem).delete(); db.query(PipelineDateEvent).delete()
+        sync_active_pipeline(db, [row(f'Collapse Co {i}', PUSHED) for i in range(10)])
+        db.flush()
+        before = db.scalar(select(func.count()).select_from(PipelineDateEvent))
+        run_active_pipeline_sync(db, pipeline_html(2), 'http://crm.example/pipeline')  # 2 of 10 -> refused as suspicious collapse
+        db.flush()
+        stats = sync_active_pipeline(db, [])  # empty snapshot -> skipped, existing rows retained
+        assert stats.get('skipped_empty') is True
+        after = db.scalar(select(func.count()).select_from(PipelineDateEvent))
+        assert after == before
+    finally:
+        db.rollback(); db.close()
+
+def _login_as(role):
+    from fastapi.testclient import TestClient
+    from app.auth import hash_password
+    from app.main import app
+    db = SessionLocal()
+    tag = uuid.uuid4().hex[:8].upper()
+    email = f'pipeline-role-{role}-{tag.lower()}@customer360.test'
+    try:
+        db.add(User(email=email, display_name=f'Role {role}', role=role, password_hash=hash_password('test-password-not-real'), is_active=True))
+        db.commit()
+    finally:
+        db.close()
+    c = TestClient(app)
+    res = c.post('/api/v1/auth/login', json={'email': email, 'password': 'test-password-not-real'})
+    assert res.status_code == 200
+    return c, email
+
+def _forget(email):
+    db = SessionLocal()
+    try:
+        db.query(User).filter(User.email == email).delete()
+        db.commit()
+    finally:
+        db.close()
+
+@pytest.mark.parametrize('role,expected', [
+    ('super_admin', 200), ('admin', 200), ('sales_lead', 200), ('ae', 403), ('user', 403),
+])
+def test_pipeline_date_events_role_boundary(role, expected):
+    c, email = _login_as(role)
+    try:
+        res = c.get('/api/v1/pipeline/date-events')
+        assert res.status_code == expected
+    finally:
+        _forget(email)
+
+@pytest.mark.parametrize('role,expected', [
+    ('super_admin', 200), ('admin', 200), ('sales_lead', 200), ('ae', 403), ('user', 403),
+])
+def test_pipeline_history_role_boundary(role, expected):
+    c, email = _login_as(role)
+    try:
+        res = c.get('/api/v1/pipeline/history')
+        assert res.status_code == expected
+    finally:
+        _forget(email)
 
 def test_run_active_pipeline_sync_bad_structure_marks_run_failed():
     db = SessionLocal()

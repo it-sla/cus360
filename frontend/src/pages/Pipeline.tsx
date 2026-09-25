@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '@/api';
 import type { PipelineItem } from '@/api';
 import { useAuth } from '@/auth';
-import { AlertTriangle, XCircle, Clock, MessageSquare, CheckCircle2, History } from 'lucide-react';
+import { AlertTriangle, XCircle, Clock, MessageSquare, CheckCircle2, History, ArrowRightCircle, Ghost, RotateCcw } from 'lucide-react';
 
 function formatMoney(value: number | null) {
   if (value === null || value === undefined) return '—';
@@ -32,15 +32,21 @@ const STALE_AFTER_HOURS = 24;
 
 export default function Pipeline() {
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { hasRole } = useAuth();
+  // Past logs (snapshots + the date-change log) are a drill-down into archived history
+  // rather than the everyday "what's active right now" view every role gets — restricted
+  // to the roles that actually chase AEs on pipeline hygiene.
+  const canSeeLogs = hasRole(['admin', 'sales_lead']);
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [lostOnly, setLostOnly] = useState(false);
   const [aeFilter, setAeFilter] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  // Past-snapshot view — admin only, since it's a drill-down into archived history rather
-  // than the everyday "what's active right now" view every role gets.
   const [historyMode, setHistoryMode] = useState(false);
   const [historyDate, setHistoryDate] = useState('');
+  // Within Past logs: snapshot view (pick a day, see that day's grid) vs date-change log
+  // (every pushed/vanished/reappeared Expected Date, with an AE summary).
+  const [logView, setLogView] = useState<'snapshot' | 'date-changes'>('snapshot');
+  const [eventTypeFilter, setEventTypeFilter] = useState('');
 
   const { data: liveData, isLoading: liveLoading, isError: liveError } = useQuery({
     queryKey: ['pipeline', overdueOnly, lostOnly, aeFilter],
@@ -52,18 +58,25 @@ export default function Pipeline() {
   const { data: historyDates } = useQuery({
     queryKey: ['pipeline-history-dates'],
     queryFn: () => api.getPipelineHistoryDates(),
-    enabled: isAdmin && historyMode,
+    enabled: canSeeLogs && historyMode && logView === 'snapshot',
   });
 
   const { data: historyData, isLoading: historyLoading, isError: historyError } = useQuery({
     queryKey: ['pipeline-history', historyDate, aeFilter],
     queryFn: () => api.getPipelineHistory(historyDate, aeFilter || undefined),
-    enabled: isAdmin && historyMode && !!historyDate,
+    enabled: canSeeLogs && historyMode && logView === 'snapshot' && !!historyDate,
   });
 
+  const { data: dateEventsData, isLoading: dateEventsLoading, isError: dateEventsError } = useQuery({
+    queryKey: ['pipeline-date-events', aeFilter, eventTypeFilter],
+    queryFn: () => api.getPipelineDateEvents({ ae_code: aeFilter || undefined, event_type: eventTypeFilter || undefined }),
+    enabled: canSeeLogs && historyMode && logView === 'date-changes',
+  });
+
+  const showDateChanges = historyMode && logView === 'date-changes';
   const data = historyMode ? historyData : liveData;
-  const isLoading = historyMode ? (!!historyDate && historyLoading) : liveLoading;
-  const isError = historyMode ? historyError : liveError;
+  const isLoading = showDateChanges ? dateEventsLoading : historyMode ? (!!historyDate && historyLoading) : liveLoading;
+  const isError = showDateChanges ? dateEventsError : historyMode ? historyError : liveError;
 
   // Unfiltered, so the AE dropdown keeps every option once an AE is selected —
   // deriving codes from the filtered `items` would collapse the list to just
@@ -97,7 +110,7 @@ export default function Pipeline() {
 
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              {isAdmin && (
+              {canSeeLogs && (
                 <div className="flex items-center h-9 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
                   <button
                     type="button"
@@ -111,23 +124,56 @@ export default function Pipeline() {
                     <History size={12} className="shrink-0" /> Past logs
                   </button>
                   {historyMode && (
-                    <select
-                      value={historyDate}
-                      onChange={(e) => setHistoryDate(e.target.value)}
-                      disabled={!historyDates?.dates.length}
-                      className="h-full pl-2.5 pr-3 border-l border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
-                    >
-                      {historyDates?.dates.length ? (
-                        <>
-                          <option value="">Select a date…</option>
-                          {historyDates.dates.map((d) => (
-                            <option key={d.snapshot_date} value={d.snapshot_date}>{formatDate(d.snapshot_date)} ({d.count})</option>
-                          ))}
-                        </>
-                      ) : (
-                        <option value="">No history yet</option>
+                    <>
+                      <div className="flex items-center h-full border-l border-slate-200 dark:border-slate-800">
+                        <button
+                          type="button"
+                          onClick={() => setLogView('snapshot')}
+                          className={`h-full px-2.5 text-xs font-semibold whitespace-nowrap ${logView === 'snapshot' ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                        >
+                          Snapshot
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setLogView('date-changes')}
+                          className={`h-full px-2.5 text-xs font-semibold whitespace-nowrap ${logView === 'date-changes' ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                        >
+                          Date changes
+                        </button>
+                      </div>
+                      {logView === 'snapshot' && (
+                        <select
+                          value={historyDate}
+                          onChange={(e) => setHistoryDate(e.target.value)}
+                          disabled={!historyDates?.dates.length}
+                          className="h-full pl-2.5 pr-3 border-l border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+                        >
+                          {historyDates?.dates.length ? (
+                            <>
+                              <option value="">Select a date…</option>
+                              {historyDates.dates.map((d) => (
+                                <option key={d.snapshot_date} value={d.snapshot_date}>{formatDate(d.snapshot_date)} ({d.count})</option>
+                              ))}
+                            </>
+                          ) : (
+                            <option value="">No history yet</option>
+                          )}
+                        </select>
                       )}
-                    </select>
+                      {logView === 'date-changes' && (
+                        <select
+                          value={eventTypeFilter}
+                          onChange={(e) => setEventTypeFilter(e.target.value)}
+                          className="h-full pl-2.5 pr-3 border-l border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                        >
+                          <option value="">All changes</option>
+                          <option value="pushed">Pushed</option>
+                          <option value="vanished">Vanished</option>
+                          <option value="reappeared">Reappeared</option>
+                          <option value="pulled_in">Pulled in</option>
+                        </select>
+                      )}
+                    </>
                   )}
                 </div>
               )}
@@ -159,30 +205,114 @@ export default function Pipeline() {
                   <option key={code} value={code}>{code}</option>
                 ))}
               </select>
-              <div className="flex items-center gap-1 h-9 px-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg">
-                <button
-                  type="button"
-                  onClick={() => setOverdueOnly((v) => !v)}
-                  className={`h-7 px-2.5 rounded-md text-xs font-semibold whitespace-nowrap transition-colors ${
-                    overdueOnly ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  Needs follow-up
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLostOnly((v) => !v)}
-                  className={`h-7 px-2.5 rounded-md text-xs font-semibold whitespace-nowrap transition-colors ${
-                    lostOnly ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  Lost only
-                </button>
-              </div>
+              {!showDateChanges && (
+                <div className="flex items-center gap-1 h-9 px-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setOverdueOnly((v) => !v)}
+                    className={`h-7 px-2.5 rounded-md text-xs font-semibold whitespace-nowrap transition-colors ${
+                      overdueOnly ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    Needs follow-up
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLostOnly((v) => !v)}
+                    className={`h-7 px-2.5 rounded-md text-xs font-semibold whitespace-nowrap transition-colors ${
+                      lostOnly ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    Lost only
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
+        {showDateChanges && (
+          <div className="space-y-4">
+            {dateEventsData && dateEventsData.by_ae.length > 0 && (
+              <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-900 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 capitalize tracking-wide">
+                      <th className="px-3 py-2.5">AE</th>
+                      <th className="px-3 py-2.5 text-right">Pushed</th>
+                      <th className="px-3 py-2.5 text-right">Days pushed</th>
+                      <th className="px-3 py-2.5 text-right">Vanished</th>
+                      <th className="px-3 py-2.5 text-right">Reappeared</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dateEventsData.by_ae.map((a) => (
+                      <tr key={a.ae_code} className="border-t border-slate-100 dark:border-slate-800">
+                        <td className="px-3 py-2 font-semibold text-slate-900 dark:text-white">{a.ae_code}</td>
+                        <td className="px-3 py-2 text-right text-amber-700 dark:text-amber-400 font-medium">{a.pushed || '—'}</td>
+                        <td className="px-3 py-2 text-right text-slate-600 dark:text-slate-300">{a.days_pushed_total || '—'}</td>
+                        <td className="px-3 py-2 text-right text-rose-700 dark:text-rose-400 font-medium">{a.vanished || '—'}</td>
+                        <td className="px-3 py-2 text-right text-sky-700 dark:text-sky-400 font-medium">{a.reappeared || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-900 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 capitalize tracking-wide">
+                    <th className="px-3 py-2.5">Date</th>
+                    <th className="px-3 py-2.5">Company</th>
+                    <th className="px-3 py-2.5">AE</th>
+                    <th className="px-3 py-2.5">Change</th>
+                    <th className="px-3 py-2.5 text-right">Revenue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isLoading && (
+                    <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">Loading…</td></tr>
+                  )}
+                  {isError && (
+                    <tr><td colSpan={5} className="px-4 py-8 text-center text-rose-600 dark:text-rose-400 font-semibold">Couldn't load the date-change log.</td></tr>
+                  )}
+                  {!isLoading && !isError && (dateEventsData?.items.length ?? 0) === 0 && (
+                    <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-400">No date changes in the last 30 days.</td></tr>
+                  )}
+                  {dateEventsData?.items.map((e) => (
+                    <tr key={e.id} className="border-t border-slate-100 dark:border-slate-800">
+                      <td className="px-3 py-2.5 text-slate-500 dark:text-slate-400 whitespace-nowrap">{formatDate(e.event_date)}</td>
+                      <td className="px-3 py-2.5 text-slate-900 dark:text-white font-medium">{e.company_name}</td>
+                      <td className="px-3 py-2.5 text-slate-500 dark:text-slate-400">{e.ae_code ?? '—'}</td>
+                      <td className="px-3 py-2.5">
+                        {e.event_type === 'vanished' ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-rose-700 dark:text-rose-400">
+                            <Ghost size={12} className="shrink-0" /> Vanished{e.old_expected_date ? ` (was ${formatDate(e.old_expected_date)}${e.was_overdue ? ', overdue' : ''})` : ''}
+                          </span>
+                        ) : e.event_type === 'reappeared' ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-sky-700 dark:text-sky-400">
+                            <RotateCcw size={12} className="shrink-0" /> Reappeared {e.old_expected_date ? formatDate(e.old_expected_date) : '—'} → {e.new_expected_date ? formatDate(e.new_expected_date) : '—'}
+                          </span>
+                        ) : (
+                          <span className={`inline-flex items-center gap-1 text-xs font-semibold ${e.event_type === 'pushed' ? 'text-amber-700 dark:text-amber-400' : 'text-slate-600 dark:text-slate-300'}`}>
+                            <ArrowRightCircle size={12} className="shrink-0" />
+                            {e.old_expected_date ? formatDate(e.old_expected_date) : '—'} → {e.new_expected_date ? formatDate(e.new_expected_date) : '—'}
+                            {e.days_shifted != null && ` (${e.days_shifted > 0 ? '+' : ''}${e.days_shifted}d)`}
+                            {e.was_overdue && ' · was overdue'}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-right text-slate-700 dark:text-slate-300 font-medium">{formatMoney(e.revenue_usd)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {!showDateChanges && (
         <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
           <table className="w-full text-sm table-fixed">
             <colgroup>
@@ -301,6 +431,7 @@ export default function Pipeline() {
             </tbody>
           </table>
         </div>
+        )}
       </div>
     </div>
   );

@@ -20,13 +20,29 @@ def _seed_icris_issue(db, issue_type, shipment_date, bill_amount=Decimal('100'),
     return s, issue
 
 
+def _cleanup(db, shipment_ids=(), issue_ids=(), company_ids=()):
+    # These tests commit mid-test (so the app under test sees the rows via its own
+    # session), which means a `db.rollback()` afterwards is a no-op -- without this,
+    # every run leaves its seeded rows in the shared test DB forever. Confirmed 687+
+    # accumulated leftover 'stuck' issues from repeated historical runs before this fix.
+    db.rollback()
+    if issue_ids:
+        db.query(DataQualityIssue).filter(DataQualityIssue.id.in_(issue_ids)).delete(synchronize_session=False)
+    if shipment_ids:
+        db.query(DataQualityIssue).filter(DataQualityIssue.shipment_id.in_(shipment_ids)).delete(synchronize_session=False)
+        db.query(Shipment).filter(Shipment.id.in_(shipment_ids)).delete(synchronize_session=False)
+    if company_ids:
+        db.query(Company).filter(Company.id.in_(company_ids)).delete(synchronize_session=False)
+    db.commit()
+
+
 def test_buffer_applies_to_both_blank_and_invalid_icris(client):
     """The 30-day buffer must cover crm_invalid_icris too, not just crm_blank_icris —
     that's the whole point of unifying the two under one accounting-buffer rule."""
     db = SessionLocal()
     try:
-        _s1, blank_issue = _seed_icris_issue(db, 'crm_blank_icris', date.today() - timedelta(days=90), bill_amount=Decimal('111'))
-        _s2, invalid_issue = _seed_icris_issue(db, 'crm_invalid_icris', date.today() - timedelta(days=90), bill_amount=Decimal('222'))
+        s1, blank_issue = _seed_icris_issue(db, 'crm_blank_icris', date.today() - timedelta(days=90), bill_amount=Decimal('111'))
+        s2, invalid_issue = _seed_icris_issue(db, 'crm_invalid_icris', date.today() - timedelta(days=90), bill_amount=Decimal('222'))
         db.commit()
 
         res = client.get('/api/v1/data-quality/issues', params={'icris_buffer_state': 'stuck', 'limit': 500})
@@ -35,21 +51,21 @@ def test_buffer_applies_to_both_blank_and_invalid_icris(client):
         assert str(blank_issue.id) in ids and ids[str(blank_issue.id)]['icris_buffer_state'] == 'stuck'
         assert str(invalid_issue.id) in ids and ids[str(invalid_issue.id)]['icris_buffer_state'] == 'stuck'
     finally:
-        db.rollback()
+        _cleanup(db, shipment_ids=[s1.id, s2.id])
         db.close()
 
 
 def test_recent_icris_issue_is_pending_not_stuck(client):
     db = SessionLocal()
     try:
-        _s, issue = _seed_icris_issue(db, 'crm_invalid_icris', date.today() - timedelta(days=5))
+        s, issue = _seed_icris_issue(db, 'crm_invalid_icris', date.today() - timedelta(days=5))
         db.commit()
 
         res = client.get('/api/v1/data-quality/issues', params={'icris_buffer_state': 'pending', 'limit': 500})
         ids = {i['id'] for i in res.json()['items']}
         assert str(issue.id) in ids
     finally:
-        db.rollback()
+        _cleanup(db, shipment_ids=[s.id])
         db.close()
 
 
@@ -59,43 +75,45 @@ def test_icris_not_in_master_is_excluded_from_the_buffer(client):
     filtering even if the underlying shipment is old."""
     db = SessionLocal()
     try:
-        _s, issue = _seed_icris_issue(db, 'crm_icris_not_in_master', date.today() - timedelta(days=90))
+        s, issue = _seed_icris_issue(db, 'crm_icris_not_in_master', date.today() - timedelta(days=90))
         db.commit()
         issue_id = str(issue.id)
-    finally:
-        db.rollback()
-        db.close()
 
-    res = client.get('/api/v1/data-quality/issues', params={'icris_buffer_state': 'stuck', 'limit': 500})
-    ids = {i['id'] for i in res.json()['items']}
-    assert issue_id not in ids
+        res = client.get('/api/v1/data-quality/issues', params={'icris_buffer_state': 'stuck', 'limit': 500})
+        ids = {i['id'] for i in res.json()['items']}
+        assert issue_id not in ids
+    finally:
+        _cleanup(db, shipment_ids=[s.id])
+        db.close()
 
 
 def test_sort_by_revenue_still_works_across_both_types(client):
     db = SessionLocal()
     try:
-        _s1, low = _seed_icris_issue(db, 'crm_blank_icris', date.today() - timedelta(days=90), bill_amount=Decimal('5'))
-        _s2, high = _seed_icris_issue(db, 'crm_invalid_icris', date.today() - timedelta(days=90), bill_amount=Decimal('8888'))
+        s1, low = _seed_icris_issue(db, 'crm_blank_icris', date.today() - timedelta(days=90), bill_amount=Decimal('5'))
+        s2, high = _seed_icris_issue(db, 'crm_invalid_icris', date.today() - timedelta(days=90), bill_amount=Decimal('8888'))
         db.commit()
 
         res = client.get('/api/v1/data-quality/issues', params={'sort': 'revenue', 'icris_buffer_state': 'stuck', 'limit': 500})
         order = [i['id'] for i in res.json()['items']]
         assert order.index(str(high.id)) < order.index(str(low.id))
     finally:
-        db.rollback()
+        _cleanup(db, shipment_ids=[s1.id, s2.id])
         db.close()
 
 
 def test_summary_reports_icris_buffer_age_and_not_in_master_count(client):
     db = SessionLocal()
     try:
-        _seed_icris_issue(db, 'crm_blank_icris', date.today() - timedelta(days=90), bill_amount=Decimal('500'))
+        s, _issue = _seed_icris_issue(db, 'crm_blank_icris', date.today() - timedelta(days=90), bill_amount=Decimal('500'))
         tag = uuid.uuid4().hex[:8].upper()
         company = Company(icris_number=f'NIM{tag}', company_name='Not In Master Co', normalized_name=f'not in master co {tag}', is_provisional=True)
         db.add(company)
         db.flush()
-        db.add(DataQualityIssue(issue_type='crm_icris_not_in_master', severity='info', status='open',
-                                 company_id=company.id, source_company_name='Not In Master Co', details_json={}))
+        nim_issue = DataQualityIssue(issue_type='crm_icris_not_in_master', severity='info', status='open',
+                                      company_id=company.id, source_company_name='Not In Master Co', details_json={})
+        db.add(nim_issue)
+        db.flush()
         db.commit()
 
         res = client.get('/api/v1/data-quality/summary')
@@ -106,30 +124,31 @@ def test_summary_reports_icris_buffer_age_and_not_in_master_count(client):
         assert 'stuck' in states
         assert data['icris_not_in_master_open'] >= 1
     finally:
-        db.rollback()
+        _cleanup(db, shipment_ids=[s.id], issue_ids=[nim_issue.id], company_ids=[company.id])
         db.close()
 
 
 def test_manual_resolve_records_admin_as_resolved_by(client):
     db = SessionLocal()
     try:
-        _s, issue = _seed_icris_issue(db, 'crm_blank_icris', date.today())
+        s, issue = _seed_icris_issue(db, 'crm_blank_icris', date.today())
         db.commit()
         issue_id = str(issue.id)
+        shipment_id = s.id
     finally:
         db.rollback()
         db.close()
 
-    res = client.patch(f'/api/v1/data-quality/issues/{issue_id}', json={'status': 'resolved'})
-    assert res.status_code == 200
-
     db = SessionLocal()
     try:
+        res = client.patch(f'/api/v1/data-quality/issues/{issue_id}', json={'status': 'resolved'})
+        assert res.status_code == 200
+
         refreshed = db.get(DataQualityIssue, issue.id)
         assert refreshed.status == 'resolved'
         assert refreshed.resolved_by == 'test-admin@customer360.test'
     finally:
-        db.rollback()
+        _cleanup(db, shipment_ids=[shipment_id])
         db.close()
 
 
@@ -152,15 +171,15 @@ def test_resolution_log_shows_before_and_after(client):
         db.add(issue)
         db.commit()
         issue_id = str(issue.id)
-    finally:
-        db.rollback()
-        db.close()
 
-    res = client.get('/api/v1/data-quality/resolution-log', params={'resolved_by': 'crm_sync', 'limit': 500})
-    assert res.status_code == 200
-    items = {i['id']: i for i in res.json()['items']}
-    assert issue_id in items
-    row = items[issue_id]
-    assert row['before_company_name'] == 'Resolved Co (old)'
-    assert row['after_company_name'] == 'Resolved Co'
-    assert row['resolved_by'] == 'crm_sync'
+        res = client.get('/api/v1/data-quality/resolution-log', params={'resolved_by': 'crm_sync', 'limit': 500})
+        assert res.status_code == 200
+        items = {i['id']: i for i in res.json()['items']}
+        assert issue_id in items
+        row = items[issue_id]
+        assert row['before_company_name'] == 'Resolved Co (old)'
+        assert row['after_company_name'] == 'Resolved Co'
+        assert row['resolved_by'] == 'crm_sync'
+    finally:
+        _cleanup(db, shipment_ids=[s.id], company_ids=[company.id])
+        db.close()

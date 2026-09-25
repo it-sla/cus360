@@ -763,6 +763,35 @@ export interface PipelineHistoryResponse {
   lost_count: number;
 }
 
+export interface PipelineDateEvent {
+  id: number;
+  event_date: string;
+  event_type: 'pushed' | 'pulled_in' | 'vanished' | 'reappeared';
+  company_name: string;
+  icris_number: string | null;
+  ae_code: string | null;
+  country: string | null;
+  old_expected_date: string | null;
+  new_expected_date: string | null;
+  days_shifted: number | null;
+  was_overdue: boolean;
+  revenue_usd: number | null;
+}
+
+export interface PipelineDateEventAeSummary {
+  ae_code: string;
+  pushed: number;
+  days_pushed_total: number;
+  vanished: number;
+  reappeared: number;
+}
+
+export interface PipelineDateEventsResponse {
+  items: PipelineDateEvent[];
+  total: number;
+  by_ae: PipelineDateEventAeSummary[];
+}
+
 // Shape of crm_run_payload() in main.py — a full CrmSyncRun column dump plus computed
 // progress. Typed with just the fields the CrmSync page reads; the run itself carries many
 // more (manifest-sync-only) columns that a pipeline run leaves null.
@@ -1325,8 +1354,8 @@ export const api = {
     return data;
   },
 
-  // Admin-only: past Active Pipeline snapshots (archived before each sync truncates
-  // pipeline_items). No snapshot_date lists available dates for a picker.
+  // Admin/sales_lead only: past Active Pipeline snapshots (archived before each sync
+  // truncates pipeline_items). No snapshot_date lists available dates for a picker.
   getPipelineHistoryDates: async (): Promise<PipelineHistoryDates> => {
     const { data } = await apiClient.get('/pipeline/history');
     return data;
@@ -1334,6 +1363,13 @@ export const api = {
 
   getPipelineHistory: async (snapshot_date: string, ae_code?: string): Promise<PipelineHistoryResponse> => {
     const { data } = await apiClient.get('/pipeline/history', { params: { snapshot_date, ae_code } });
+    return data;
+  },
+
+  // Admin/sales_lead only: log of Expected Date changes (pushed/pulled_in/vanished/reappeared)
+  // detected between consecutive Active Pipeline syncs.
+  getPipelineDateEvents: async (params?: { ae_code?: string; event_type?: string; days?: number; company?: string }): Promise<PipelineDateEventsResponse> => {
+    const { data } = await apiClient.get('/pipeline/date-events', { params });
     return data;
   },
 

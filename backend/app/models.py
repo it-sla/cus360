@@ -297,6 +297,20 @@ class PipelineSnapshot(Base):
     scraped_at: Mapped[datetime]=mapped_column(DateTime(timezone=True))
     archived_at: Mapped[datetime]=mapped_column(DateTime(timezone=True),default=now)
 
+class PipelineDateEvent(Base):
+    """Append-only log of Expected Date changes detected between two consecutive
+    Active Pipeline syncs: a date pushed later, pulled earlier, a deal vanishing
+    (cleared date / fell out of the lookback-lookahead window / deleted), or a
+    vanished deal reappearing with a new date. Never updated after insert."""
+    __tablename__="pipeline_date_events"
+    id: Mapped[int]=mapped_column(Integer,primary_key=True,autoincrement=True)
+    event_date: Mapped[date]=mapped_column(Date,index=True); sync_run_id: Mapped[uuid.UUID|None]=mapped_column(ForeignKey("crm_sync_runs.id"),index=True)
+    event_type: Mapped[str]=mapped_column(String,index=True)  # pushed | pulled_in | vanished | reappeared
+    company_name: Mapped[str]=mapped_column(String,index=True); icris_number: Mapped[str|None]=mapped_column(String,index=True); ae_code: Mapped[str|None]=mapped_column(String,index=True); country: Mapped[str|None]=mapped_column(String)
+    old_expected_date: Mapped[date|None]=mapped_column(Date); new_expected_date: Mapped[date|None]=mapped_column(Date); days_shifted: Mapped[int|None]=mapped_column(Integer)
+    was_overdue: Mapped[bool]=mapped_column(Boolean,default=False); revenue_usd: Mapped[Decimal|None]=mapped_column(Numeric(16,2))
+    created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True),default=now)
+
 class DailyCallLog(UUIDPK, Base):
     __tablename__="daily_call_logs"
     call_date: Mapped[date]=mapped_column(Date,index=True)
