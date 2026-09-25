@@ -3,9 +3,11 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api';
 import ReactECharts from 'echarts-for-react';
 import {
-  RefreshCw, MapPin, DollarSign, Package, Weight, Users, Download, Activity,
+  RefreshCw, MapPin, DollarSign, Package, Weight, Users, Activity,
 } from 'lucide-react';
 import { KpiCard } from '@/components/KpiCard';
+import { ExportButton } from '@/components/ExportButton';
+import { exportXlsx } from '@/lib/exportXlsx';
 import { DateRangeControl, CompareModeSelect } from '@/components/AnalyticsFilterBar';
 
 const fmt$ = (v: number) => `$${v >= 1_000_000 ? (v / 1_000_000).toFixed(2) + 'M' : v >= 1000 ? (v / 1000).toFixed(1) + 'k' : Math.round(v || 0).toLocaleString()}`;
@@ -117,20 +119,30 @@ export default function TerritoryPerformance() {
       <div className="bg-white rounded-[16px] border border-[#E2E8F0] shadow-[0_2px_4px_rgba(15,23,42,0.04)] dark:bg-zinc-900 dark:border-zinc-800 overflow-hidden">
         <div className="p-5 pb-2 flex items-center justify-between">
           <h3 className="text-sm font-bold text-slate-900 tracking-tight dark:text-white">Territories</h3>
-          <button
-            onClick={() => {
-              const head = ['Territory', 'Revenue', 'Prev Revenue', 'Growth %', 'Share %', 'Shipments', 'Customers', 'Weight (kg)'];
-              const body = items.map(i => [i.territory, i.revenue, i.prev_revenue, i.revenue_growth_pct, i.revenue_share_pct, i.shipments, i.companies, i.weight]);
-              const csv = [head, ...body].map(r => r.map(v => `"${String(v ?? '')}"`).join(',')).join('\n');
-              const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-              const a = document.createElement('a'); a.href = url;
-              a.download = `territory-performance-${data.bounds.c_start}_${data.bounds.c_end}.csv`;
-              a.click(); URL.revokeObjectURL(url);
-            }}
-            className="h-8 px-3 bg-white border border-[#DCE3EC] text-slate-700 rounded-lg text-xs font-bold flex items-center gap-1.5 hover:bg-slate-50 shadow-sm dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-300"
-          >
-            <Download size={13} /> Export
-          </button>
+          <ExportButton
+            disabled={items.length === 0}
+            onExport={() => exportXlsx(`territory-performance-${data.bounds.c_start}_${data.bounds.c_end}`, [
+              {
+                name: 'Territories',
+                rows: items.map(i => ({
+                  Territory: i.territory, Revenue: i.revenue, 'Prev Revenue': i.prev_revenue, 'Growth %': i.revenue_growth_pct / 100,
+                  'Share %': i.revenue_share_pct / 100, Shipments: i.shipments, Customers: i.companies, 'Weight (kg)': i.weight,
+                  'Avg Rev/Customer': i.avg_revenue_per_customer,
+                })),
+                formats: { Revenue: 'currency', 'Prev Revenue': 'currency', 'Growth %': 'signedPercent', 'Share %': 'percent', 'Weight (kg)': 'decimal', 'Avg Rev/Customer': 'currency' },
+              },
+              {
+                name: 'AE Breakdown',
+                rows: items.flatMap(i => i.ae_breakdown.map(a => ({ Territory: i.territory, AE: a.ae_code, Revenue: a.revenue, Shipments: a.shipments, Customers: a.companies }))),
+                formats: { Revenue: 'currency' },
+              },
+              {
+                name: 'Customers',
+                rows: items.flatMap(i => i.customers.map(c => ({ Territory: i.territory, Customer: c.company_name, ICRIS: c.icris_number ?? '', AE: c.ae_code, Revenue: c.revenue, Shipments: c.shipments, 'Weight (kg)': c.weight }))),
+                formats: { Revenue: 'currency', 'Weight (kg)': 'decimal' },
+              },
+            ])}
+          />
         </div>
         <table className="w-full text-sm">
           <thead>

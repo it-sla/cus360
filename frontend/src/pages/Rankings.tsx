@@ -3,9 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
   Trophy, Users, UserCog, Route as RouteIcon, DollarSign, Package, Weight,
-  ArrowUpRight, ArrowDownRight, Medal, Download, MapPin, Globe,
+  ArrowUpRight, ArrowDownRight, Medal, MapPin, Globe,
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { ExportButton } from '@/components/ExportButton';
+import { exportXlsx } from '@/lib/exportXlsx';
 import { api } from '@/api';
 import { DateRangeControl } from '@/components/AnalyticsFilterBar';
 import { LeaderboardRankings } from '@/components/ui/leaderboard-rankings';
@@ -85,7 +86,6 @@ export default function Rankings() {
   const [timeframe, setTimeframe] = useState('this_quarter');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [exporting, setExporting] = useState(false);
 
   // `timeframe` must still be sent as 'custom' even in the date_from/date_to branch — every
   // backend endpoint here defaults its `timeframe` param when it's omitted from the query
@@ -177,84 +177,78 @@ export default function Rankings() {
     let sheetName: string;
     let fileTag: string;
 
-    setExporting(true);
-    try {
-      if (tab === 'customers') {
-        sheetName = 'Top Customers';
-        fileTag = `all-customers-by-${metric}`;
-        const full = await api.getTopCustomers({ ...tfParams, metric, limit: 2000 });
-        rows = full.items.map((c) => ({
-          Rank: c.rank,
-          Customer: c.company_name,
-          ICRIS: c.icris_number ?? '',
-          Segment: c.segment ?? '',
-          Revenue: c.revenue,
-          Shipments: c.shipments,
-          'Weight (kg)': c.weight,
-          'Growth vs Prior (%)': typeof c.pct_growth === 'number' ? c.pct_growth : '',
-        }));
-      } else if (tab === 'ae') {
-        sheetName = 'Account Executives';
-        fileTag = 'all-aes';
-        const allAes = [...(aeQuery.data?.items || [])].sort((a, b) => b.revenue - a.revenue);
-        rows = allAes.map((ae, i) => ({
-          Rank: i + 1,
-          AE: aeNameByCode[ae.ae] || ae.ae,
-          'AE Code': ae.ae,
-          Revenue: ae.revenue,
-          Customers: ae.companies,
-          Shipments: ae.shipments,
-          'Avg Revenue / Customer': ae.avg_revenue_per_customer,
-          'Growth vs Prior (%)': ae.revenue_growth_pct,
-        }));
-      } else if (tab === 'routes') {
-        sheetName = 'Routes by Profit';
-        fileTag = 'all-routes-by-profit';
-        const full = bounds
-          ? await api.getMawbPnlRoutes({ manifest_date_from: bounds.c_start, manifest_date_to: bounds.c_end, limit: 1000 })
-          : [];
-        rows = full.map((r, i) => ({
-          Rank: i + 1,
-          Route: r.route,
-          MAWBs: r.mawb_count,
-          'Bill Amount': r.bill_amount,
-          'Profit / Loss': r.profit_loss,
-        }));
-      } else if (tab === 'destinations') {
-        sheetName = 'Destinations';
-        fileTag = 'all-destinations';
-        const full = await api.getGeographyDashboard({ ...tfParams, destinations_limit: 1000 });
-        rows = (full.top_destinations || []).map((d: any, i: number) => ({
-          Rank: i + 1,
-          Destination: d.destination,
-          Revenue: d.revenue,
-          Shipments: d.shipments,
-          'Weight (kg)': d.weight,
-          Customers: d.customers,
-        }));
-      } else {
-        sheetName = 'Customers by Country';
-        fileTag = 'all-customers-by-country';
-        rows = countryItems.map((c: any, i: number) => ({
-          Rank: i + 1,
-          Country: c.country,
-          Customers: c.customers,
-          Shipments: c.shipments,
-          'Weight (kg)': c.weight,
-          Revenue: c.revenue,
-        }));
-      }
-
-      if (rows.length === 0) return;
-
-      const sheet = XLSX.utils.json_to_sheet(rows);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
-      const periodTag = bounds?.c_start && bounds?.c_end ? `${bounds.c_start}_${bounds.c_end}` : timeframe;
-      XLSX.writeFile(workbook, `${fileTag}-${periodTag}.xlsx`);
-    } finally {
-      setExporting(false);
+    if (tab === 'customers') {
+      sheetName = 'Top Customers';
+      fileTag = `all-customers-by-${metric}`;
+      const full = await api.getTopCustomers({ ...tfParams, metric, limit: 2000 });
+      rows = full.items.map((c) => ({
+        Rank: c.rank,
+        Customer: c.company_name,
+        ICRIS: c.icris_number ?? '',
+        Segment: c.segment ?? '',
+        Revenue: c.revenue,
+        Shipments: c.shipments,
+        'Weight (kg)': c.weight,
+        'Growth vs Prior (%)': typeof c.pct_growth === 'number' ? c.pct_growth : '',
+      }));
+    } else if (tab === 'ae') {
+      sheetName = 'Account Executives';
+      fileTag = 'all-aes';
+      const allAes = [...(aeQuery.data?.items || [])].sort((a, b) => b.revenue - a.revenue);
+      rows = allAes.map((ae, i) => ({
+        Rank: i + 1,
+        AE: aeNameByCode[ae.ae] || ae.ae,
+        'AE Code': ae.ae,
+        Revenue: ae.revenue,
+        Customers: ae.companies,
+        Shipments: ae.shipments,
+        'Avg Revenue / Customer': ae.avg_revenue_per_customer,
+        'Growth vs Prior (%)': ae.revenue_growth_pct,
+      }));
+    } else if (tab === 'routes') {
+      sheetName = 'Routes by Profit';
+      fileTag = 'all-routes-by-profit';
+      const full = bounds
+        ? await api.getMawbPnlRoutes({ manifest_date_from: bounds.c_start, manifest_date_to: bounds.c_end, limit: 1000 })
+        : [];
+      rows = full.map((r, i) => ({
+        Rank: i + 1,
+        Route: r.route,
+        MAWBs: r.mawb_count,
+        'Bill Amount': r.bill_amount,
+        'Profit / Loss': r.profit_loss,
+      }));
+    } else if (tab === 'destinations') {
+      sheetName = 'Destinations';
+      fileTag = 'all-destinations';
+      const full = await api.getGeographyDashboard({ ...tfParams, destinations_limit: 1000 });
+      rows = (full.top_destinations || []).map((d: any, i: number) => ({
+        Rank: i + 1,
+        Destination: d.destination,
+        Revenue: d.revenue,
+        Shipments: d.shipments,
+        'Weight (kg)': d.weight,
+        Customers: d.customers,
+      }));
+    } else {
+      sheetName = 'Customers by Country';
+      fileTag = 'all-customers-by-country';
+      rows = countryItems.map((c: any, i: number) => ({
+        Rank: i + 1,
+        Country: c.country,
+        Customers: c.customers,
+        Shipments: c.shipments,
+        'Weight (kg)': c.weight,
+        Revenue: c.revenue,
+      }));
     }
+
+    const periodTag = bounds?.c_start && bounds?.c_end ? `${bounds.c_start}_${bounds.c_end}` : timeframe;
+    exportXlsx(`${fileTag}-${periodTag}`, [{
+      name: sheetName,
+      rows,
+      formats: { Revenue: 'currency', 'Avg Revenue / Customer': 'currency', 'Bill Amount': 'currency', 'Profit / Loss': 'currency' },
+    }]);
   };
 
   const activeTabHasRows = tab === 'customers' ? customerItems.length > 0
@@ -290,13 +284,7 @@ export default function Rankings() {
             onCustom={(f, t) => { setTimeframe('custom'); setDateFrom(f); setDateTo(t); }}
             defaultPreset="this_quarter"
           />
-          <button
-            onClick={exportRankings}
-            disabled={!activeTabHasRows || exporting}
-            className="h-9 px-3 flex items-center gap-1.5 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 rounded-lg text-xs font-bold hover:bg-slate-50 dark:hover:bg-zinc-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Download size={14} /> {exporting ? 'Exporting…' : 'Export Excel (All)'}
-          </button>
+          <ExportButton onExport={exportRankings} disabled={!activeTabHasRows} label="Export Excel (All)" />
         </div>
       </div>
 

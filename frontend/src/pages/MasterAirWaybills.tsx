@@ -9,6 +9,8 @@ import { api } from '../api';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ShipmentDetailDrawer } from './AirWaybills';
 import { DateRangeControl, resolveTimeframeDates } from '@/components/AnalyticsFilterBar';
+import { ExportButton } from '@/components/ExportButton';
+import { exportXlsx, fetchAllPages, warnIfTruncated } from '@/lib/exportXlsx';
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -139,6 +141,21 @@ export default function MasterAirWaybills() {
   const mawbs = mawbsData?.items || [];
   const totalCount = mawbsData?.total ?? mawbs.length;
 
+  const exportExcel = async () => {
+    const { limit: _limit, offset: _offset, ...filterParams } = queryParams;
+    const { items, truncated } = await fetchAllPages((offset, limit) => api.getMawbs({ ...filterParams, offset, limit }));
+    exportXlsx('master-awbs', [{
+      name: 'Master AWBs',
+      rows: items.map((m) => ({
+        'MAWB Number': m.mawb_number, 'Manifest Date': m.manifest_date, Flight: m.flight_number ?? '',
+        Origin: m.origin ?? '', Destination: m.destination ?? '', Shipments: m.shipment_count ?? 0,
+        Packages: m.row_pieces ?? 0, 'Weight (kg)': m.row_actual_weight ?? null,
+      })),
+      formats: { 'Weight (kg)': 'decimal' },
+    }]);
+    warnIfTruncated(truncated, items.length);
+  };
+
   return (
     <div className="flex-1 overflow-hidden flex flex-col bg-background">
       
@@ -151,6 +168,7 @@ export default function MasterAirWaybills() {
             <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Consolidated air waybills and carrier manifests.</p>
           </div>
         </div>
+        <ExportButton onExport={exportExcel} disabled={totalCount === 0} />
       </div>
 
       {/* Filter Toolbar */}

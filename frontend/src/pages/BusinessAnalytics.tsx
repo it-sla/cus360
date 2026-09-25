@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 
 import { KpiCard } from '@/components/KpiCard';
+import { ExportButton } from '@/components/ExportButton';
+import { exportXlsx } from '@/lib/exportXlsx';
 import { DateRangeControl, CompareModeSelect, TIMEFRAME_LABELS, fmtShortDate } from '@/components/AnalyticsFilterBar';
 
 /** Revenue-tier quick filter (client-side only) — distinct from the canonical account
@@ -272,6 +274,20 @@ export default function BusinessAnalytics() {
   if (!analyticsData) return null;
   const { base, revTotal, shipTotal, countries, aes, concentrationData, statuses, confirmedCount, growingCount, decliningCount } = analyticsData;
 
+  const exportExcel = () => exportXlsx(`revenue-analytics-${d.bounds?.c_start ?? ''}_${d.bounds?.c_end ?? ''}`, [
+    {
+      name: 'Customer Data Grid',
+      rows: base.map((c: any) => ({
+        Company: c.company_name, ICRIS: c.icris_number ?? '', Revenue: c.revenue, 'Prev Revenue': c.prevRevenue, Change: c.diff,
+        Trend: c.prevRevenue === 0 && c.revenue > 0 ? (c.isNew ? 'New' : 'Returning') : c.revenue === 0 && c.prevRevenue > 0 ? 'Lost' : c.growth / 100,
+        AWBs: c.shipments, Packages: c.pieces || 0, 'Weight (kg)': c.weight || 0, Country: c.country || 'Unknown', AE: c.ae_code || '', Status: c.status,
+      })),
+      formats: { Revenue: 'currency', 'Prev Revenue': 'currency', Change: 'currency', Trend: 'signedPercent', 'Weight (kg)': 'decimal' },
+    },
+    { name: 'Revenue by Destination', rows: countries.map((c: any) => ({ Destination: c.name, Revenue: c.revenue, '% of Total': revTotal ? c.revenue / revTotal : 0 })), formats: { Revenue: 'currency', '% of Total': 'percent' } },
+    { name: 'Revenue by AE', rows: aes.map((a: any) => ({ AE: a.name, Revenue: a.revenue, '% of Total': revTotal ? a.revenue / revTotal : 0 })), formats: { Revenue: 'currency', '% of Total': 'percent' } },
+  ]);
+
   const fmt$ = (v: number) => `$${v >= 1000 ? (v/1000).toFixed(1) + 'k' : v.toLocaleString(undefined, { maximumFractionDigits: 1 })}`;
   const fmtNum = (v: number) => v.toLocaleString();
 
@@ -527,6 +543,7 @@ export default function BusinessAnalytics() {
                 </span>
               )}
             </button>
+            <ExportButton onExport={exportExcel} disabled={base.length === 0} />
 
           </div>
         </div>

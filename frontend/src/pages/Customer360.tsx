@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import ReactECharts from 'echarts-for-react';
 import { api, type CompanyDetail, type CompanyShipment, type ActivityLog, type CallLog } from '../api';
+import { ExportButton } from '@/components/ExportButton';
+import { exportXlsx } from '@/lib/exportXlsx';
 import { FilterSelect, DateRangeControl } from '@/components/AnalyticsFilterBar';
 import { useAuth } from '@/auth';
 
@@ -891,6 +893,38 @@ export default function Customer360() {
     }
   };
 
+  const handleExportExcel = async () => {
+    if (!company) return;
+    const [shipments, callLogs, documents] = await Promise.all([
+      api.getCompanyShipments(company.id), api.getCompanyCallLogs(company.id), api.getCompanyDocuments(company.id),
+    ]);
+    exportXlsx(`customer-${(company.icris_number || company.company_name).replace(/[^a-z0-9]+/gi, '_')}`, [
+      {
+        name: 'Shipments',
+        rows: shipments.map((s) => ({
+          'AWB #': s.shipment_number, 'Shipment Date': s.shipment_date ?? '', Origin: s.export_country ?? '', Destination: s.import_country ?? '',
+          Pieces: s.pieces, 'Weight (kg)': s.shipment_weight, Packages: s.package_count, 'Bill Type': s.bill_type ?? '',
+          Shipper: s.shipper_name ?? '', Importer: s.importer_name ?? '', Goods: s.goods_description ?? '', 'Match Status': s.match_status,
+        })),
+        formats: { 'Weight (kg)': 'decimal' },
+      },
+      {
+        name: 'Call Logs',
+        rows: callLogs.items.map((c) => ({
+          Date: c.call_date, AE: c.ae_code ?? '', 'Call Type': c.call_type ?? '', Stage: c.stage ?? '', Contact: c.contact_person ?? '',
+          Phone: c.phone ?? '', Remarks: c.remarks ?? '', 'Supervisor Comment': c.supervisor_comment ?? '', 'Follow-up Date': c.follow_up_date ?? '',
+        })),
+      },
+      {
+        name: 'Documents',
+        rows: documents.map((d) => ({
+          Title: d.title, Category: d.category, 'File Name': d.original_file_name, 'Document Date': d.document_date ?? '',
+          Version: d.version_number, Status: d.status, Uploaded: d.uploaded_at, 'Size (KB)': Math.round(d.file_size_bytes / 1024),
+        })),
+      },
+    ]);
+  };
+
   if (isLoading) {
     return (
       <div className="flex-1 overflow-auto p-8">
@@ -943,6 +977,7 @@ export default function Customer360() {
               {exportingPdf ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
               {exportingPdf ? 'Generating…' : 'PDF'}
             </button>
+            <ExportButton onExport={handleExportExcel} label="Excel" />
           </div>
 
           {/* Tabs */}

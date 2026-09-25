@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api';
+import { ExportButton } from '@/components/ExportButton';
+import { exportXlsx } from '@/lib/exportXlsx';
 import ReactECharts from 'echarts-for-react';
 
 import {
@@ -131,6 +133,11 @@ export default function DocumentTypeAnalytics() {
             onCustom={(f, t) => { updateFilter('timeframe', 'custom'); updateFilter('dateFrom', f); updateFilter('dateTo', t); }}
           />
           <CompareModeSelect icon={Activity} value={filters.compareMode} onChange={(e) => updateFilter('compareMode', e.target.value)} />
+          <ExportButton onExport={() => exportXlsx(`document-type-${data.bounds?.c_start ?? ''}_${data.bounds?.c_end ?? ''}`, [
+            { name: 'By Customer', rows: byCustomer.map((r: any) => ({ Company: r.company_name, 'DOC Revenue': r.doc_revenue, 'DOC Shipments': r.doc_count, 'Unclassified Revenue': r.unclassified_revenue, 'Unclassified Shipments': r.unclassified_count })), formats: { 'DOC Revenue': 'currency', 'Unclassified Revenue': 'currency' } },
+            { name: 'By Destination', rows: byDestination.filter((d: any) => d.doc_count > 0 || d.unclassified_count > 0).map((r: any) => ({ 'Destination Country': r.destination, 'DOC Shipments': r.doc_count, 'Unclassified Shipments': r.unclassified_count })) },
+            { name: 'Unclassified AWBs', rows: (data.unclassified_awbs || []).map((r: any) => ({ AWB: r.shipment_number ?? '', Customer: r.company_name ?? '', Date: r.shipment_date ?? '', Destination: r.destination ?? '', Revenue: r.amount })), formats: { Revenue: 'currency' } },
+          ])} />
         </div>
       </div>
 

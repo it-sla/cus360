@@ -5,8 +5,10 @@ import type { AEPerformanceItem, AECustomer, AeTarget } from '../api';
 import ReactECharts from 'echarts-for-react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@/theme';
+import { ExportButton } from '@/components/ExportButton';
+import { exportXlsx } from '@/lib/exportXlsx';
 import {
-  Download, Calendar, Users, Building2, Activity,
+  Calendar, Users, Building2, Activity,
   ArrowUpRight, ArrowDownRight, RefreshCw, X, Search,
 } from 'lucide-react';
 
@@ -322,17 +324,29 @@ export default function AEPerformance() {
     return drillAE.customers.filter(c => c.status === drillStatus);
   }, [drillAE, drillStatus]);
 
-  const exportCsv = () => {
-    const head = ['AE','Revenue','Prev Revenue','Growth %','Share %','Shipments','Companies','Active','Warning','Dormant','New','Reactivated','Avg Rev/Customer','Weight (kg)','Pieces'];
-    const body = list.map(a => [a.ae, a.revenue, a.prev_revenue, a.revenue_growth_pct, a.revenue_share_pct,
-      a.shipments, a.companies, a.active, a.warning, a.dormant, a.new_customers, a.reactivated,
-      a.avg_revenue_per_customer, a.weight, a.pieces]);
-    const csv = [head, ...body].map(r => r.map(v => `"${String(v ?? '')}"`).join(',')).join('\n');
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `ae-performance-${data?.bounds.c_start ?? ''}_${data?.bounds.c_end ?? ''}.csv`;
-    a.click(); URL.revokeObjectURL(url);
+  const exportExcel = () => {
+    const pct = (v: number | null | undefined) => (typeof v === 'number' ? v / 100 : null);
+    exportXlsx(`ae-performance-${data?.bounds.c_start ?? ''}_${data?.bounds.c_end ?? ''}`, [
+      {
+        name: 'AE Performance',
+        rows: list.map(a => ({
+          AE: a.ae, Revenue: a.revenue, 'Prev Revenue': a.prev_revenue, 'Growth %': pct(a.revenue_growth_pct), 'Share %': pct(a.revenue_share_pct),
+          Shipments: a.shipments, Companies: a.companies, Active: a.active, Warning: a.warning, Dormant: a.dormant,
+          New: a.new_customers, Reactivated: a.reactivated, 'Avg Rev/Customer': a.avg_revenue_per_customer, 'Weight (kg)': a.weight, Pieces: a.pieces,
+        })),
+        formats: { Revenue: 'currency', 'Prev Revenue': 'currency', 'Growth %': 'signedPercent', 'Share %': 'percent', 'Avg Rev/Customer': 'currency', 'Weight (kg)': 'decimal' },
+      },
+      {
+        name: 'Customers by AE',
+        rows: list.flatMap(a => a.customers.map(c => ({
+          AE: a.ae, Customer: c.company_name, ICRIS: c.icris_number ?? '', Segment: c.segment, Status: c.status,
+          Revenue: c.revenue, Shipments: c.shipments, 'Weight (kg)': c.weight, Pieces: c.pieces,
+          'Last Shipment': c.last_shipment_date ?? '', 'Days Since': c.days_since_last_shipment,
+          New: c.is_new ? 'Yes' : 'No', Reactivated: c.is_reactivated ? 'Yes' : 'No',
+        }))),
+        formats: { Revenue: 'currency', 'Weight (kg)': 'decimal' },
+      },
+    ]);
   };
 
   if (isLoading) {
@@ -391,10 +405,7 @@ export default function AEPerformance() {
               <option value="">All Segments</option>
               {(data?.segments ?? []).filter(s => s !== 'Unclassified').map(s => <option key={s} value={s}>{s}</option>)}
             </Select>
-            <button onClick={exportCsv}
-              className="h-9 flex items-center gap-2 bg-zinc-900 border border-zinc-800 text-zinc-300 px-3 rounded-lg hover:bg-zinc-800 transition-colors text-xs font-bold">
-              <Download size={14} /> Export CSV
-            </button>
+<ExportButton variant="zinc" onExport={exportExcel} disabled={list.length === 0} />
           </div>
         </div>
 

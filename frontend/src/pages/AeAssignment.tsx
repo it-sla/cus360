@@ -2,6 +2,8 @@ import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, type AeImportPreview } from '../api';
 import { SEGMENTS } from '../components/AnalyticsFilterBar';
+import { ExportButton } from '@/components/ExportButton';
+import { exportXlsx, warnIfTruncated } from '@/lib/exportXlsx';
 import {
   UploadCloud, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle, Users,
   ArrowRight, X, Loader2, Edit2, Check, Trash2, Plus, Search, UserCog, Tag
@@ -577,10 +579,29 @@ export default function AeAssignment() {
   return (
     <div className="flex-1 flex flex-col h-full bg-background overflow-hidden">
       <div className="shrink-0 px-6 pt-6 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">AE Territory Assignment</h1>
-        <p className="text-sm text-slate-500 font-medium mt-1">
-          Import territory assignments and manage the Account Executive roster.
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">AE Territory Assignment</h1>
+            <p className="text-sm text-slate-500 font-medium mt-1">
+              Import territory assignments and manage the Account Executive roster.
+            </p>
+          </div>
+          <ExportButton
+            label="Export assignments"
+            onExport={async () => {
+              // Same sheet + headers ae_imports.py expects, so this round-trips through Import.
+              // Location is left blank: it isn't stored on the company record (the importer
+              // only reads it for display in the preview).
+              const res = await api.getCompanies({ limit: 5000, offset: 0 });
+              const rows = (res.items || [])
+                .filter((c: any) => c.assigned_ae_code)
+                .sort((a: any, b: any) => a.assigned_ae_code.localeCompare(b.assigned_ae_code) || (a.company_name || '').localeCompare(b.company_name || ''))
+                .map((c: any) => ({ 'Account Executive': c.assigned_ae_code, 'Customer Name': c.company_name, Location: '', 'Customer/ICRIS Code': c.icris_number || '' }));
+              exportXlsx('AE_Territory_Assignment', [{ name: 'AE Territory Assignment', rows }]);
+              warnIfTruncated((res.items?.length ?? 0) < (res.total ?? 0), res.items?.length ?? 0);
+            }}
+          />
+        </div>
         <div className="flex gap-0 -mb-px mt-4">
           {[{ id: 'import' as const, label: 'Import', icon: UploadCloud }, { id: 'roster' as const, label: 'AE Roster', icon: Users }, { id: 'manual' as const, label: 'Manual Assignment', icon: UserCog }].map(t => {
             const active = tab === t.id;

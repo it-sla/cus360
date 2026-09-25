@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { adminApi } from '../../api';
+import { ExportButton } from '@/components/ExportButton';
+import { exportXlsx, fetchAllPages, warnIfTruncated } from '@/lib/exportXlsx';
 import { Search, FileClock } from 'lucide-react';
 
 const PAGE_SIZE = 25;
@@ -41,9 +43,22 @@ export default function AuditLogs() {
 
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Audit Logs</h1>
-          <p className="mt-1 text-xs sm:text-sm text-slate-500 font-medium">A record of administrative actions taken in Customer 360.</p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Audit Logs</h1>
+            <p className="mt-1 text-xs sm:text-sm text-slate-500 font-medium">A record of administrative actions taken in Customer 360.</p>
+          </div>
+          <ExportButton
+            disabled={total === 0}
+            onExport={async () => {
+              const { items: all, truncated } = await fetchAllPages((offset, limit) => adminApi.getAuditLogs({ q: searchQuery || undefined, entity_type: entityType || undefined, limit, offset }));
+              exportXlsx('audit-logs', [{
+                name: 'Audit Logs',
+                rows: all.map((l) => ({ Time: l.created_at, Entity: l.entity_type, Action: l.action, Description: l.description, Source: l.source })),
+              }]);
+              warnIfTruncated(truncated, all.length);
+            }}
+          />
         </div>
 
         <div className="bg-white rounded-[16px] border border-[#E2E8F0] p-4 shadow-[0_2px_4px_rgba(15,23,42,0.04)] space-y-3">

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, type CompanyConflict, type DataQualityIssue } from '../api';
+import { ExportButton } from '@/components/ExportButton';
+import { exportXlsx, fetchAllPages, warnIfTruncated } from '@/lib/exportXlsx';
 import {
   CheckCircle2, ChevronDown, ChevronUp, Combine, ArrowRight, ArrowUpRight, AlertTriangle, ShieldCheck,
   ShieldAlert, Search, X, EyeOff, Inbox, Building2, Package, RefreshCw, Filter, Layers, ExternalLink,
@@ -356,6 +358,25 @@ function IssuesTab() {
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
+          <ExportButton
+            disabled={total === 0}
+            onExport={async () => {
+              const { items: all, truncated } = await fetchAllPages((offset, limit) => api.getDataQualityIssues({
+                issue_type: filters.issue_type || undefined, status: filters.status || undefined, severity: filters.severity || undefined,
+                q: debouncedQ || undefined, icris_buffer_state: filters.icris_buffer_state || undefined, sort: filters.sort || undefined, limit, offset,
+              }), 500);
+              exportXlsx('data-quality-issues', [{
+                name: 'Issues',
+                rows: all.map((i) => ({
+                  Issue: meta(i.issue_type).label, Status: i.status, Severity: i.severity, Customer: i.source_company_name ?? '',
+                  'ICRIS (as sent)': i.source_icris_number ?? '', Detail: issueDetail(i), 'Revenue at Risk': i.revenue_at_risk,
+                  'Shipment Date': i.linked_shipment_date ?? '', 'ICRIS Buffer': i.icris_buffer_state ?? '', 'First Seen': i.first_seen_at, 'Last Seen': i.last_seen_at,
+                })),
+                formats: { 'Revenue at Risk': 'currency' },
+              }]);
+              warnIfTruncated(truncated, all.length);
+            }}
+          />
           <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
             <Filter size={13} className="text-slate-400" />
             <span className="font-bold text-slate-700 dark:text-slate-200">{fmtNum(total)}</span> matching

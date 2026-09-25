@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api';
+import { ExportButton } from '@/components/ExportButton';
+import { exportXlsx } from '@/lib/exportXlsx';
 import ReactECharts from 'echarts-for-react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -126,6 +128,12 @@ export default function OperationalAnalytics() {
             onCustom={(f, t) => { updateFilter('timeframe', 'custom'); updateFilter('dateFrom', f); updateFilter('dateTo', t); }}
           />
           <CompareModeSelect icon={Activity} value={filters.compareMode} onChange={(e) => updateFilter('compareMode', e.target.value)} />
+          <ExportButton onExport={() => exportXlsx(`operational-kpis-${data.bounds?.c_start ?? ''}_${data.bounds?.c_end ?? ''}`, [
+            { name: 'Top MAWBs', rows: data.top_mawbs.map((r: any) => ({ MAWB: r.mawb, Shipments: r.shipments, 'Weight (kg)': r.weight, Revenue: r.revenue })), formats: { Revenue: 'currency', 'Weight (kg)': 'decimal' } },
+            { name: 'Top Shipments', rows: data.top_shipments.map((r: any) => ({ Date: r.shipment_date ?? '', AWB: r.awb, 'Weight (kg)': r.weight, Revenue: r.revenue })), formats: { Revenue: 'currency', 'Weight (kg)': 'decimal' } },
+            { name: 'Top Customers', rows: data.top_customers.map((r: any) => ({ Customer: r.customer, Shipments: r.shipments, 'Weight (kg)': r.weight, Revenue: r.revenue })), formats: { Revenue: 'currency', 'Weight (kg)': 'decimal' } },
+            { name: 'Daily Trend', rows: data.trend.map((r: any) => ({ Date: r.date, Shipments: r.shipments, 'Weight (kg)': r.weight })), formats: { 'Weight (kg)': 'decimal' } },
+          ])} />
         </div>
       </div>
 

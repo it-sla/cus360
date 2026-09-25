@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/api';
+import { ExportButton } from '@/components/ExportButton';
+import { exportXlsx } from '@/lib/exportXlsx';
 import ReactECharts from 'echarts-for-react';
 
 import {
@@ -10,7 +12,6 @@ import {
   Package,
   Weight,
   DollarSign,
-  Download,
   Activity
 } from 'lucide-react';
 import { KpiCard } from '@/components/KpiCard';
@@ -106,9 +107,14 @@ export default function GeographyAnalytics() {
             onCustom={(f, t) => { updateFilter('timeframe', 'custom'); updateFilter('dateFrom', f); updateFilter('dateTo', t); }}
           />
           <CompareModeSelect icon={Activity} value={filters.compareMode} onChange={(e) => updateFilter('compareMode', e.target.value)} />
-          <button className="h-9 px-3 bg-white border border-[#DCE3EC] text-slate-700 rounded-lg text-xs font-bold flex items-center gap-1.5 hover:bg-slate-50 shadow-sm">
-            <Download size={14} /> Export
-          </button>
+          <ExportButton
+            disabled={!data.customers_by_country?.length}
+            onExport={() => exportXlsx(`geography-${data.bounds?.c_start ?? ''}_${data.bounds?.c_end ?? ''}`, [{
+              name: 'Customers by Country',
+              rows: data.customers_by_country.map((r: any) => ({ Country: r.country, Customers: r.customers, Revenue: r.revenue })),
+              formats: { Revenue: 'currency' },
+            }])}
+          />
         </div>
       </div>
 

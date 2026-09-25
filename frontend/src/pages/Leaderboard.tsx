@@ -4,6 +4,8 @@ import { api, type LeaderboardEntry } from '../api';
 import { useAuth } from '@/auth';
 import { LeaderboardRankings, type LeaderboardRankingItem } from '@/components/ui/leaderboard-rankings';
 import { DateRangeControl } from '@/components/AnalyticsFilterBar';
+import { ExportButton } from '@/components/ExportButton';
+import { exportXlsx } from '@/lib/exportXlsx';
 import { Trophy, DollarSign, Package, Weight, Award, Sparkles, X } from 'lucide-react';
 
 type Metric = 'revenue' | 'shipments' | 'weight' | 'wins';
@@ -66,9 +68,19 @@ function WinsDetailModal({ entry, dateFrom, dateTo, onClose }: { entry: Leaderbo
             <h2 className="text-sm font-black text-slate-900 dark:text-white">{entry.display_name}'s wins</h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">{entry.wins} {entry.wins === 1 ? 'company' : 'companies'} marked Win this period</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-2">
+            <ExportButton
+              label="Excel"
+              disabled={!data?.companies.length}
+              onExport={() => exportXlsx(`wins-${entry.ae_code}-${dateFrom}_${dateTo}`, [{
+                name: `${entry.ae_code} wins`,
+                rows: (data?.companies ?? []).map(c => ({ Company: c.company_name, 'CRM Customer ID': c.crm_customer_id ?? '', 'First Win': c.first_win_date, 'Last Win': c.last_win_date, Logs: c.log_count })),
+              }])}
+            />
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+              <X size={18} />
+            </button>
+          </div>
         </div>
         <div className="overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
           {isLoading ? (
@@ -143,14 +155,28 @@ export default function Leaderboard() {
             </div>
           </div>
 
-          {isAdmin && (
-            <DateRangeControl
-              timeframe={timeframe} dateFrom={customFrom} dateTo={customTo}
-              bounds={data?.period ? { c_start: data.period.start, c_end: data.period.end } : undefined}
-              onPreset={(v) => { setTimeframe(v); setCustomFrom(''); setCustomTo(''); }}
-              onCustom={(f, t) => { setTimeframe('custom'); setCustomFrom(f); setCustomTo(t); }}
+          <div className="flex items-center gap-2">
+            {isAdmin && (
+              <DateRangeControl
+                timeframe={timeframe} dateFrom={customFrom} dateTo={customTo}
+                bounds={data?.period ? { c_start: data.period.start, c_end: data.period.end } : undefined}
+                onPreset={(v) => { setTimeframe(v); setCustomFrom(''); setCustomTo(''); }}
+                onCustom={(f, t) => { setTimeframe('custom'); setCustomFrom(f); setCustomTo(t); }}
+              />
+            )}
+            <ExportButton
+              disabled={!data}
+              onExport={() => exportXlsx(`leaderboard-${data!.period.start}_${data!.period.end}`, [{
+                name: 'Leaderboard',
+                rows: [...data!.leaderboards.revenue].sort((a, b) => a.ranks.revenue - b.ranks.revenue).map(e => ({
+                  AE: e.display_name, 'AE Code': e.ae_code, Revenue: e.revenue, 'Revenue Rank': e.ranks.revenue,
+                  Shipments: e.shipments, 'Shipments Rank': e.ranks.shipments, 'Weight (kg)': e.weight, 'Weight Rank': e.ranks.weight,
+                  Wins: e.wins, 'Wins Rank': e.ranks.wins,
+                })),
+                formats: { Revenue: 'currency', 'Weight (kg)': 'decimal' },
+              }])}
             />
-          )}
+          </div>
         </div>
 
         <div className="flex gap-1.5 bg-slate-100 dark:bg-slate-800/60 p-1 rounded-xl w-fit">

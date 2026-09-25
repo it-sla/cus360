@@ -9,6 +9,8 @@ import {
 import { api } from '@/api';
 import { KpiCard } from '@/components/KpiCard';
 import { DateRangeControl } from '@/components/AnalyticsFilterBar';
+import { ExportButton } from '@/components/ExportButton';
+import { exportXlsx, fetchAllPages, warnIfTruncated } from '@/lib/exportXlsx';
 import { useTheme } from '@/theme';
 
 function addDays(iso: string, n: number) { const d = new Date(`${iso}T00:00:00`); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
@@ -116,6 +118,40 @@ export default function Profitability() {
   // full filtered range rather than just the current page — see backend/app/main.py.
   const sortedItems = items;
 
+  const exportExcel = async () => {
+    const [mawbPages, allRoutes, topCustomers] = await Promise.all([
+      fetchAllPages((off, lim) => api.getMawbs({ manifest_date_from: dateFrom, manifest_date_to: dateTo, has_pnl: true, sort: sortKey, limit: lim, offset: off })),
+      api.getMawbPnlRoutes({ manifest_date_from: dateFrom, manifest_date_to: dateTo, limit: 1000 }),
+      api.getCustomerProfitability({ ...tfParams, sort: 'profit', limit: 100 }),
+    ]);
+    const margin = (bill: number | null, pl: number | null) => (bill ? (pl ?? 0) / bill : null);
+    exportXlsx(`profitability-${dateFrom}_${dateTo}`, [
+      {
+        name: 'MAWB P&L',
+        rows: mawbPages.items.map((m) => ({
+          MAWB: m.mawb_number, Date: m.manifest_date, 'Bill Amount': m.pnl_bill_amount, 'UPS Bill Amt': m.pnl_ups_bill_amount,
+          'Profit / Loss': m.pnl_profit_loss, Margin: margin(m.pnl_bill_amount, m.pnl_profit_loss),
+        })),
+        formats: { 'Bill Amount': 'currency', 'UPS Bill Amt': 'currency', 'Profit / Loss': 'currency', Margin: 'percent' },
+      },
+      {
+        name: 'Routes',
+        rows: allRoutes.map((r) => ({ Route: r.route, MAWBs: r.mawb_count, 'Bill Amount': r.bill_amount, 'Profit / Loss': r.profit_loss })),
+        formats: { 'Bill Amount': 'currency', 'Profit / Loss': 'currency' },
+      },
+      {
+        name: 'Top 100 Customers',
+        rows: topCustomers.items.map((c) => ({
+          Customer: c.company_name, ICRIS: c.icris_number ?? '', Segment: c.segment ?? '', Shipments: c.shipments,
+          'Bill Amount': c.bill_amount, 'UPS Bill Amt': c.ups_bill_amount, 'Profit / Loss': c.profit_loss,
+          Margin: c.margin_percent != null ? c.margin_percent / 100 : null, 'Awaiting Cost (shipments)': c.awaiting_cost_shipments,
+        })),
+        formats: { 'Bill Amount': 'currency', 'UPS Bill Amt': 'currency', 'Profit / Loss': 'currency', Margin: 'percent' },
+      },
+    ]);
+    warnIfTruncated(mawbPages.truncated, mawbPages.items.length);
+  };
+
   // Two hardcoded palettes keyed off theme — simpler than getComputedStyle reads on every render.
   const chartPalette = dark
     ? { bg: '#1e293b', border: '#334155', text: '#e2e8f0', axisLabel: '#94a3b8', axisLine: '#334155', splitLine: '#334155', legend: '#94a3b8', barLabel: '#94a3b8' }
@@ -181,6 +217,7 @@ export default function Profitability() {
             onCustom={(f, t) => { setTimeframe('custom'); setCustomFrom(f); setCustomTo(t); setOffset(0); }}
             defaultPreset="last_30_days"
           />
+          <ExportButton onExport={exportExcel} disabled={!hasRange} />
         </div>
       </div>
 

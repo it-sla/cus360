@@ -3,10 +3,11 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Search, RefreshCw, X, ArrowUpDown, ArrowUp, ArrowDown,
-  Building2, Download
+  Building2
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { api } from '../api';
+import { ExportButton } from '@/components/ExportButton';
+import { exportXlsx, warnIfTruncated } from '@/lib/exportXlsx';
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -99,24 +100,21 @@ export default function CustomerDirectory() {
   const rawItems = data?.items || [];
   const backendTotal = data?.total ?? rawItems.length;
 
-  const [exporting, setExporting] = useState(false);
   const exportExcel = async () => {
-    setExporting(true);
-    try {
-      // Re-fetch (rather than exporting the loaded page) so the file reflects every
-      // account matching the current filters, not just the visible slice.
-      const res = await api.getCompanies({
-        q: debouncedSearch || undefined,
-        inactivity_status: filters.inactivityStatus || undefined,
-        customer_type: filters.segment || undefined,
-        pay_term: filters.payTerm || undefined,
-        limit: 5000,
-        offset: 0,
-      });
-      const items = res.items || [];
-      if (items.length === 0) return;
-
-      const rows = items.map((c: any) => ({
+    // Re-fetch (rather than exporting the loaded page) so the file reflects every
+    // account matching the current filters, not just the visible slice.
+    const res = await api.getCompanies({
+      q: debouncedSearch || undefined,
+      inactivity_status: filters.inactivityStatus || undefined,
+      customer_type: filters.segment || undefined,
+      pay_term: filters.payTerm || undefined,
+      limit: 5000,
+      offset: 0,
+    });
+    const items = res.items || [];
+    exportXlsx('customer-directory', [{
+      name: 'Customers',
+      rows: items.map((c: any) => ({
         Company: c.company_name || 'Unlinked Shipments',
         ICRIS: c.icris_number || '',
         Country: c.country || 'Unknown',
@@ -125,15 +123,9 @@ export default function CustomerDirectory() {
         'Weight (kg)': c.total_weight || 0,
         AE: c.ae_code || '',
         Status: c.is_provisional ? 'Provisional' : (c.inactivity_status || ''),
-      }));
-
-      const sheet = XLSX.utils.json_to_sheet(rows);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, sheet, 'Customers');
-      XLSX.writeFile(wb, `customer-directory-${new Date().toISOString().slice(0, 10)}.xlsx`);
-    } finally {
-      setExporting(false);
-    }
+      })),
+    }]);
+    warnIfTruncated(items.length < (res.total ?? 0), items.length);
   };
 
   const { paginatedItems, totalItems, totalPages } = useMemo(() => {
@@ -199,14 +191,7 @@ export default function CustomerDirectory() {
               <RefreshCw size={14} className={`text-zinc-500 ${isFetching ? 'animate-spin' : ''}`} />
               <span>Refresh</span>
             </button>
-            <button
-              onClick={exportExcel}
-              disabled={exporting || rawItems.length === 0}
-              className="flex items-center gap-1.5 px-3 py-2 bg-zinc-800 border border-zinc-700 text-xs font-bold text-zinc-300 hover:bg-zinc-700 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Download size={14} className="text-zinc-500" />
-              <span>{exporting ? 'Exporting…' : 'Export'}</span>
-            </button>
+            <ExportButton variant="zinc" onExport={exportExcel} disabled={rawItems.length === 0} />
           </div>
         </div>
 

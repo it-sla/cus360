@@ -2,6 +2,8 @@ import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/api';
 import type { AeTarget } from '@/api';
+import { ExportButton } from '@/components/ExportButton';
+import { exportXlsx } from '@/lib/exportXlsx';
 import { Target, Upload, X, CheckCircle2, AlertTriangle, Pencil } from 'lucide-react';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -116,6 +118,22 @@ export default function AeTargets() {
                 <option key={y} value={y}>{y}</option>
               ))}
             </select>
+            <ExportButton
+              disabled={targets.length === 0}
+              onExport={() => {
+                // Same sheet name + columns ae_targets.py imports ('All_AE_Flat'), so the file
+                // can be edited in Excel and re-imported as-is. AE is "Name CODE" because the
+                // importer resolves the code from the label's last token.
+                const nameByCode = Object.fromEntries(aes.map((a: any) => [a.ae_code, a.display_name]));
+                const rows = [...targets].sort((a, b) => a.ae_code.localeCompare(b.ae_code) || a.month - b.month).map((t) => ({
+                  Year: t.year, AE: nameByCode[t.ae_code] ? `${nameByCode[t.ae_code]} ${t.ae_code}` : t.ae_code,
+                  MONTH: new Date(2000, t.month - 1, 1).toLocaleString('en-US', { month: 'long' }),
+                  Weight: t.weight_target, Piece: t.piece_target, Revenue: t.revenue_target,
+                  Weight_Imp: t.weight_target_import, Piece_Imp: t.piece_target_import, Revenue_Imp: t.revenue_target_import,
+                }));
+                exportXlsx(`AE_Targets_${year}`, [{ name: 'All_AE_Flat', rows }]);
+              }}
+            />
             <input ref={fileInputRef} type="file" accept=".xlsx,.xlsm" className="hidden" onChange={handleFile} />
             <button
               onClick={() => fileInputRef.current?.click()}

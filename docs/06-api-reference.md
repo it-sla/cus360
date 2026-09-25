@@ -261,7 +261,7 @@ There is **no manifest-import route** — see [05-imports.md](05-imports.md).
 | GET | `/analytics/document-completeness` | |
 | GET | `/analytics/data-quality` | |
 | GET | `/analytics/geography` · `/operations` · `/alerts` | |
-| GET | `/analytics/{report}/export.csv` | `customers` · `destinations` · `import-quality` · `document-completeness` |
+| ~~GET~~ | ~~`/analytics/{report}/export.csv`~~ | **Removed 2026-09-25** — unused, and it ignored AE scope. Excel exports are now built client-side per page (`frontend/src/lib/exportXlsx.ts`), except AWBs: `GET /shipments/export.xlsx` (same filters + AE scope as `GET /shipments`). |
 
 ### `timeframe` values
 

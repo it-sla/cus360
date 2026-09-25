@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '@/api';
 import type { PipelineItem } from '@/api';
 import { useAuth } from '@/auth';
+import { ExportButton } from '@/components/ExportButton';
+import { exportXlsx } from '@/lib/exportXlsx';
 import { AlertTriangle, XCircle, Clock, MessageSquare, CheckCircle2, History, ArrowRightCircle, Ghost, RotateCcw } from 'lucide-react';
 
 function formatMoney(value: number | null) {
@@ -90,6 +92,39 @@ export default function Pipeline() {
   const aeCodes = Array.from(new Set((allAeData?.items ?? []).map((i) => i.ae_code).filter(Boolean))) as string[];
   const revenueAtRisk = items.filter((i) => i.is_overdue).reduce((sum, i) => sum + (i.revenue_usd ?? 0), 0);
   const isStale = !historyMode && !!liveData?.as_of && hoursAgo(liveData.as_of) > STALE_AFTER_HOURS;
+
+  const exportExcel = () => {
+    if (showDateChanges) {
+      exportXlsx('pipeline-date-changes', [
+        {
+          name: 'Date Changes',
+          rows: (dateEventsData?.items ?? []).map((e) => ({
+            Date: e.event_date, Company: e.company_name, ICRIS: e.icris_number ?? '', AE: e.ae_code ?? '', Country: e.country ?? '',
+            Change: e.event_type, 'Old Expected Date': e.old_expected_date ?? '', 'New Expected Date': e.new_expected_date ?? '',
+            'Days Shifted': e.days_shifted, 'Was Overdue': e.was_overdue ? 'Yes' : 'No', Revenue: e.revenue_usd,
+          })),
+          formats: { Revenue: 'currency' },
+        },
+        {
+          name: 'By AE',
+          rows: (dateEventsData?.by_ae ?? []).map((a) => ({
+            AE: a.ae_code, Pushed: a.pushed, 'Days Pushed': a.days_pushed_total, Vanished: a.vanished, Reappeared: a.reappeared,
+          })),
+        },
+      ]);
+      return;
+    }
+    exportXlsx(historyMode ? `pipeline-snapshot-${historyDate}` : 'pipeline', [{
+      name: historyMode ? `Snapshot ${historyDate}` : 'Active Pipeline',
+      rows: items.map((i) => ({
+        'Expected Date': i.expected_date, Company: i.company_name, ICRIS: i.icris_number ?? '', Country: i.country ?? '',
+        'Weight (kg)': i.weight_kg, Revenue: i.revenue_usd, Pieces: i.pieces, Tier: i.category ?? '', AE: i.ae_code ?? '',
+        Status: i.win_loss ?? '', 'Needs Follow-up': i.is_overdue ? 'Yes' : 'No', Remarks: i.remarks ?? '',
+      })),
+      formats: { Revenue: 'currency', 'Weight (kg)': 'decimal' },
+    }]);
+  };
+  const canExport = showDateChanges ? (dateEventsData?.items.length ?? 0) > 0 : items.length > 0;
 
   return (
     <div className="flex-1 overflow-y-auto bg-background p-4 sm:p-6 lg:p-8">
@@ -195,6 +230,7 @@ export default function Pipeline() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <ExportButton onExport={exportExcel} disabled={!canExport} />
               <select
                 value={aeFilter}
                 onChange={(e) => setAeFilter(e.target.value)}

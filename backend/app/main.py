@@ -1,11 +1,11 @@
-import csv, hashlib, io, logging, mimetypes, re, uuid
+import hashlib, io, logging, mimetypes, re, uuid
 from urllib.parse import parse_qs,urlparse
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Annotated,Literal
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, or_, select, text, case, update
 from sqlalchemy.exc import IntegrityError
@@ -939,8 +939,9 @@ def shipment_revenue(s)->float:
     if (s.pay_term or '').strip().upper() not in BILLABLE_PAY_TERMS:return 0.0
     return float(s.bill_amount if s.bill_amount is not None else (s.declared_value or 0))
 
-@app.get('/api/v1/shipments')
-def shipments(q:str|None=None,company_id:uuid.UUID|None=None,shipment_number:str|None=None,package_id:str|None=None,shipper_name:str|None=None,importer_name:str|None=None,importer_telephone:str|None=None,export_country:str|None=None,import_country:str|None=None,bill_type:str|None=None,billing_term:str|None=None,match_status:str|None=None,manifest_batch_id:uuid.UUID|None=None,min_weight:float|None=None,max_weight:float|None=None,date_from:date|None=None,date_to:date|None=None,limit:int=Query(50,le=200),offset:int=0,db:Session=Depends(get_db),ae_scope:str|None=Depends(get_ae_scope)):
+def shipment_filters(q:str|None=None,company_id:uuid.UUID|None=None,shipment_number:str|None=None,package_id:str|None=None,shipper_name:str|None=None,importer_name:str|None=None,importer_telephone:str|None=None,export_country:str|None=None,import_country:str|None=None,bill_type:str|None=None,billing_term:str|None=None,match_status:str|None=None,manifest_batch_id:uuid.UUID|None=None,min_weight:float|None=None,max_weight:float|None=None,date_from:date|None=None,date_to:date|None=None,ae_scope:str|None=Depends(get_ae_scope)):
+    """Shared by the AWB list and its Excel export, so both see identical filters and the
+    same AE scoping — an export can never return rows the list wouldn't."""
     stmt=select(Shipment)
     filters={'company_id':company_id,'billing_term':billing_term,'match_status':match_status,'manifest_batch_id':manifest_batch_id}
     for k,v in filters.items():
@@ -976,9 +977,30 @@ def shipments(q:str|None=None,company_id:uuid.UUID|None=None,shipment_number:str
     # Filters against created_at (not shipment_date) to match the "Date" column the AWB list actually displays.
     if date_from:stmt=stmt.where(func.date(Shipment.created_at)>=date_from)
     if date_to:stmt=stmt.where(func.date(Shipment.created_at)<=date_to)
+    return stmt
+
+@app.get('/api/v1/shipments')
+def shipments(stmt=Depends(shipment_filters),limit:int=Query(50,le=200),offset:int=0,db:Session=Depends(get_db)):
     total=db.scalar(select(func.count()).select_from(stmt.subquery()))
     items=db.scalars(stmt.options(selectinload(Shipment.company),selectinload(Shipment.packages)).order_by(Shipment.created_at.desc()).limit(limit).offset(offset)).all()
     return {'items':[serialize(s,{'company':serialize(s.company) if s.company else None,'package_count':len(s.packages),'revenue':shipment_revenue(s)}) for s in items],'total':total,'limit':limit,'offset':offset}
+
+SHIPMENT_EXPORT_HEADERS=['AWB #','Customer','ICRIS','Shipper','Origin','Destination','Pieces','Weight (kg)','Revenue','Pay Term','Bill Type','Match Status','AE','Shipment Date','Created']
+@app.get('/api/v1/shipments/export.xlsx')
+def shipments_export(stmt=Depends(shipment_filters),db:Session=Depends(get_db)):
+    """Every AWB matching the list's filters as .xlsx — too many rows (57k+) to page through
+    from the browser at the list's 200-row cap. openpyxl write_only keeps memory flat."""
+    from openpyxl import Workbook
+    wb=Workbook(write_only=True);ws=wb.create_sheet('Air Waybills');ws.append(SHIPMENT_EXPORT_HEADERS)
+    query=stmt.options(selectinload(Shipment.company)).order_by(Shipment.created_at.desc()).execution_options(yield_per=2000)
+    for s in db.scalars(query):
+        weight=s.shipment_weight if s.shipment_weight is not None else s.actual_weight
+        ws.append([s.shipment_number,s.company.company_name if s.company else None,s.company.icris_number if s.company else None,s.shipper_name,
+                   s.export_country,s.import_country,s.pieces,float(weight) if weight is not None else None,shipment_revenue(s),s.pay_term,s.bill_type,
+                   s.match_status,s.ae_code,s.shipment_date,s.created_at.replace(tzinfo=None) if s.created_at else None])
+    buf=io.BytesIO();wb.save(buf)
+    return Response(buf.getvalue(),media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    headers={'Content-Disposition':f'attachment; filename="air-waybills-{date.today().isoformat()}.xlsx"'})
 
 @app.get('/api/v1/shipments/stats')
 def shipment_stats(q:str|None=None,company_id:uuid.UUID|None=None,shipment_number:str|None=None,package_id:str|None=None,shipper_name:str|None=None,importer_name:str|None=None,importer_telephone:str|None=None,export_country:str|None=None,import_country:str|None=None,bill_type:str|None=None,billing_term:str|None=None,match_status:str|None=None,manifest_batch_id:uuid.UUID|None=None,db:Session=Depends(get_db)):
@@ -1388,12 +1410,6 @@ def import_quality(db:Session=Depends(get_db),_user:User=Depends(get_current_use
 def completeness(db:Session=Depends(get_db),_user:User=Depends(get_current_user)):return rows(db,'SELECT * FROM vw_company_document_summary ORDER BY active_document_count DESC,company_name')
 @app.get('/api/v1/analytics/data-quality')
 def data_quality(db:Session=Depends(get_db),_user:User=Depends(get_current_user)):return {'shipment_date_coverage':overview(db)['shipment_date_coverage'],'match_status':rows(db,'SELECT match_status,count(*)::int count FROM shipments GROUP BY match_status')}
-EXPORTS={'customers':'SELECT * FROM vw_company_operational_summary ORDER BY company_name','destinations':'SELECT * FROM vw_destination_summary ORDER BY shipment_count DESC','import-quality':'SELECT * FROM vw_manifest_import_quality ORDER BY imported_at DESC','document-completeness':'SELECT * FROM vw_company_document_summary ORDER BY company_name'}
-@app.get('/api/v1/analytics/{report}/export.csv')
-def export_csv(report:str,db:Session=Depends(get_db),_user:User=Depends(get_current_user)):
-    if report not in EXPORTS:raise HTTPException(404,'Export not found')
-    data=rows(db,EXPORTS[report]);out=io.StringIO();writer=csv.DictWriter(out,fieldnames=list(data[0]) if data else ['no_data']);writer.writeheader();writer.writerows(data)
-    return StreamingResponse(iter([out.getvalue()]),media_type='text/csv',headers={'Content-Disposition':f'attachment; filename="{report}.csv"'})
 
 def get_timeframe_bounds(tf:str,d_from:date|None=None,d_to:date|None=None,y_from:int|None=None,y_to:int|None=None,compare_mode:str='pop'):
     import calendar

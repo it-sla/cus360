@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { KpiCard } from '@/components/KpiCard';
+import { ExportButton } from '@/components/ExportButton';
+import { exportXlsx } from '@/lib/exportXlsx';
 import { useNavigate } from 'react-router-dom';
 import { DateRangeControl, CompareModeSelect } from '@/components/AnalyticsFilterBar';
 
@@ -117,6 +119,19 @@ export default function ExecutiveOverview() {
     return colors[index % colors.length];
   };
 
+  const exportExcel = async () => {
+    const all = await api.getTopCustomers({ timeframe, date_from: timeframe === 'custom' ? startDate : undefined, date_to: timeframe === 'custom' ? endDate : undefined, limit: 2000 });
+    exportXlsx(`executive-overview-${d.bounds?.c_start ?? ''}_${d.bounds?.c_end ?? ''}`, [
+      {
+        name: 'Customers',
+        rows: all.items.map((c: any, i: number) => ({ Rank: c.rank ?? i + 1, Company: c.company_name, ICRIS: c.icris_number ?? '', Revenue: c.revenue, AWBs: c.shipments, 'Weight (kg)': c.weight })),
+        formats: { Revenue: 'currency', 'Weight (kg)': 'decimal' },
+      },
+      { name: 'Destinations', rows: countries.map((c: any) => ({ Country: c.name || 'Unknown', Revenue: c.revenue, Shipments: c.value })), formats: { Revenue: 'currency' } },
+      { name: 'Revenue Tiers', rows: tiers.map((t: any) => ({ Tier: t.tier, Accounts: t.count })) },
+    ]);
+  };
+
   const donutData = tiers.map((t: any, i: number) => ({
     value: t.count,
     name: t.tier,
@@ -208,6 +223,7 @@ export default function ExecutiveOverview() {
             onCustom={(f, t) => { setTimeframe('custom'); setStartDate(f); setEndDate(t); }}
           />
           <CompareModeSelect icon={Activity} value={compareMode} onChange={(e) => setCompareMode(e.target.value)} />
+          <ExportButton onExport={exportExcel} />
         </div>
       </div>
 

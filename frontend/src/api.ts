@@ -1121,6 +1121,21 @@ export const api = {
     return response.data;
   },
 
+  // Same filters as getShipments (minus limit/offset); built server-side since the full
+  // AWB set is far too large to page through at the list endpoint's 200-row cap.
+  downloadShipmentsXlsx: async (params?: Record<string, any>): Promise<void> => {
+    const { limit: _limit, offset: _offset, ...filters } = params ?? {};
+    const response = await apiClient.get('/shipments/export.xlsx', { params: filters, responseType: 'blob' });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `air-waybills-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
   getShipment: async (shipmentId: string): Promise<Shipment & { mawb: MawbSummary | null; packages: any[] }> => {
     const response = await apiClient.get(`/shipments/${shipmentId}`);
     return response.data;

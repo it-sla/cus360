@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  Package, Search, Download, RefreshCw,
+  Package, Search, RefreshCw,
   Truck, CheckCircle2, Clock, Hash, MapPin, Globe,
   X, Building2,
   MoreVertical, Copy, Printer, AlertTriangle, FileText, Plus, Weight
@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../api';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DateRangeControl, resolveTimeframeDates } from '@/components/AnalyticsFilterBar';
+import { ExportButton } from '@/components/ExportButton';
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -166,10 +167,7 @@ export default function AirWaybills() {
               <RefreshCw size={14} className="text-zinc-500" />
               <span>Refresh</span>
             </button>
-            <button className="h-9 px-4 rounded-lg border border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white transition-colors text-xs font-semibold flex items-center gap-2">
-              <Download size={14} />
-              Export CSV
-            </button>
+            <ExportButton variant="zinc" disabled={totalCount === 0} onExport={() => api.downloadShipmentsXlsx(queryParams)} />
             <button className="h-9 px-4 rounded-lg bg-teal-600 text-white hover:bg-teal-500 transition-colors text-xs font-semibold flex items-center gap-2">
               <Plus size={14} />
               Create AWB

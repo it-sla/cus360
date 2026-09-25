@@ -3,9 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../api';
 import ReactECharts from 'echarts-for-react';
 import { useNavigate } from 'react-router-dom';
-import * as XLSX from 'xlsx';
+import { ExportButton } from '@/components/ExportButton';
+import { exportXlsx } from '@/lib/exportXlsx';
 import {
-  Download, ArrowUpRight, Users, RefreshCw, AlertTriangle, Activity
+  ArrowUpRight, Users, RefreshCw, AlertTriangle, Activity
 } from 'lucide-react';
 import { KpiCard } from '@/components/KpiCard';
 import { FilterSelect, DateRangeControl, CompareModeSelect, fmtShortDate } from '@/components/AnalyticsFilterBar';
@@ -225,54 +226,34 @@ export default function CustomerAnalytics() {
   };
 
   const exportExcel = () => {
-    const workbook = XLSX.utils.book_new();
-
-    // Sheet columns are sized to their own content (not a fixed guess), and currency/
-    // percent columns get a real Excel number format instead of a pre-baked string —
-    // so the file opens sortable/filterable with native number semantics, not text.
-    const addSheet = (rows: Record<string, any>[], sheetName: string, currencyCols: string[] = [], percentCols: string[] = []) => {
-      if (rows.length === 0) return;
-      const sheet = XLSX.utils.json_to_sheet(rows);
-      const headers = Object.keys(rows[0]);
-      sheet['!cols'] = headers.map(h => ({
-        wch: Math.min(Math.max(h.length, ...rows.map(r => String(r[h] ?? '').length)) + 2, 42),
-      }));
-      rows.forEach((_row, rIdx) => {
-        headers.forEach((h, cIdx) => {
-          const cell = sheet[XLSX.utils.encode_cell({ r: rIdx + 1, c: cIdx })];
-          if (!cell || typeof cell.v !== 'number') return;
-          if (currencyCols.includes(h)) cell.z = '$#,##0.00';
-          else if (percentCols.includes(h)) cell.z = '+0.0%;-0.0%;0.0%';
-        });
-      });
-      sheet['!autofilter'] = { ref: sheet['!ref']! };
-      XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
-    };
-
-    addSheet(base.map((c: any) => ({
-      Customer: c.company_name, ICRIS: c.icris_number ?? '', Segment: c.segment, AE: c.ae_code ?? '',
-      'Prev Revenue': c.prevRevenue, 'Current Revenue': c.revenue, Change: c.revChange, 'Growth %': c.growth / 100,
-      'Prev Shipments': c.prevShipments, Shipments: c.shipments, Pieces: c.pieces, Health: c.health,
-      New: c.isNew ? 'Yes' : 'No', Reactivated: (!c.isNew && c.prevRevenue === 0 && c.revenue > 0) ? 'Yes' : 'No',
-    })), 'All Customers', ['Prev Revenue', 'Current Revenue', 'Change'], ['Growth %']);
-
-    addSheet(gainers.map((c: any, i: number) => ({
+    const money = { 'Prev Revenue': 'currency', 'Current Revenue': 'currency', Change: 'currency' } as const;
+    const rankRow = (c: any, i: number) => ({
       Rank: i + 1, Customer: c.company_name, Segment: c.segment,
       'Prev Revenue': c.prevRevenue, 'Current Revenue': c.revenue, Change: c.revChange, 'Growth %': c.growth / 100, Pieces: c.pieces,
-    })), 'Biggest Gainers', ['Prev Revenue', 'Current Revenue', 'Change'], ['Growth %']);
-
-    addSheet(decliners.map((c: any, i: number) => ({
-      Rank: i + 1, Customer: c.company_name, Segment: c.segment,
-      'Prev Revenue': c.prevRevenue, 'Current Revenue': c.revenue, Change: c.revChange, 'Growth %': c.growth / 100, Pieces: c.pieces,
-    })), 'Biggest Decliners', ['Prev Revenue', 'Current Revenue', 'Change'], ['Growth %']);
-
-    addSheet(segmentsData.map((s: any) => ({
-      Segment: s.name, Customers: s.count, 'Prev Revenue': s.prevRevenue, 'Current Revenue': s.revenue,
-      'Revenue Growth %': s.revGrowth / 100, 'Shipment Growth %': s.shipGrowth / 100, 'Weight Growth %': s.weightGrowth / 100,
-    })), 'By Segment', ['Prev Revenue', 'Current Revenue'], ['Revenue Growth %', 'Shipment Growth %', 'Weight Growth %']);
-
+    });
     const periodTag = d?.bounds?.c_start && d?.bounds?.c_end ? `${d.bounds.c_start}_${d.bounds.c_end}` : filters.timeframe;
-    XLSX.writeFile(workbook, `customer-analytics-${periodTag}.xlsx`);
+    exportXlsx(`customer-analytics-${periodTag}`, [
+      {
+        name: 'All Customers',
+        rows: base.map((c: any) => ({
+          Customer: c.company_name, ICRIS: c.icris_number ?? '', Segment: c.segment, AE: c.ae_code ?? '',
+          'Prev Revenue': c.prevRevenue, 'Current Revenue': c.revenue, Change: c.revChange, 'Growth %': c.growth / 100,
+          'Prev Shipments': c.prevShipments, Shipments: c.shipments, Pieces: c.pieces, Health: c.health,
+          New: c.isNew ? 'Yes' : 'No', Reactivated: (!c.isNew && c.prevRevenue === 0 && c.revenue > 0) ? 'Yes' : 'No',
+        })),
+        formats: { ...money, 'Growth %': 'signedPercent' },
+      },
+      { name: 'Biggest Gainers', rows: gainers.map(rankRow), formats: { ...money, 'Growth %': 'signedPercent' } },
+      { name: 'Biggest Decliners', rows: decliners.map(rankRow), formats: { ...money, 'Growth %': 'signedPercent' } },
+      {
+        name: 'By Segment',
+        rows: segmentsData.map((s: any) => ({
+          Segment: s.name, Customers: s.count, 'Prev Revenue': s.prevRevenue, 'Current Revenue': s.revenue,
+          'Revenue Growth %': s.revGrowth / 100, 'Shipment Growth %': s.shipGrowth / 100, 'Weight Growth %': s.weightGrowth / 100,
+        })),
+        formats: { 'Prev Revenue': 'currency', 'Current Revenue': 'currency', 'Revenue Growth %': 'signedPercent', 'Shipment Growth %': 'signedPercent', 'Weight Growth %': 'signedPercent' },
+      },
+    ]);
   };
 
   if (isLoading || !d) {
@@ -317,9 +298,7 @@ export default function CustomerAnalytics() {
             options={uniqueAEs}
             placeholder="All AEs"
           />
-          <button onClick={exportExcel} disabled={base.length === 0} className="h-9 px-3 bg-white border border-[#DCE3EC] text-slate-700 rounded-lg text-xs font-bold flex items-center gap-1.5 hover:bg-slate-50 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
-            <Download size={14} /> Export
-          </button>
+          <ExportButton onExport={exportExcel} disabled={base.length === 0} />
         </div>
       </div>
 

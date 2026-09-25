@@ -15,7 +15,8 @@ def test_search_exact_icris(client):
 def test_analytics_are_unit_safe(client):
     assert client.get('/api/v1/analytics/weights-by-unit').status_code==200
     assert client.get('/api/v1/analytics/values-by-currency').status_code==200
-    assert client.get('/api/v1/analytics/customers/export.csv').status_code==200
+    # removed: it ignored AE scope, so an 'ae' login could download every customer
+    assert client.get('/api/v1/analytics/customers/export.csv').status_code==404
 def test_business_dashboard_is_decision_ready(client):
     response=client.get('/api/v1/analytics/dashboard');assert response.status_code==200;data=response.json()
     assert {'overview','shipment_trend','top_customers','destinations','bill_types','quality_issues','match_status','recent_mawbs'}<=data.keys()

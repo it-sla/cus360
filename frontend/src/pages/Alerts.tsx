@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/api';
+import { ExportButton } from '@/components/ExportButton';
+import { exportXlsx } from '@/lib/exportXlsx';
 import {
   AlertCircle, ArrowUpRight, ArrowDownRight, UserX, DollarSign, Package, UserPlus,
   RefreshCw, Clock, Search, XCircle, X, Mail, ChevronLeft, ChevronRight,
@@ -269,6 +271,16 @@ export default function Alerts() {
             <option value="severity">Sort: Severity</option>
             <option value="metric">Sort: Impact</option>
           </select>
+          <ExportButton
+            disabled={filtered.length === 0}
+            onExport={() => exportXlsx('alerts', [{
+              name: 'Alerts',
+              rows: filtered.map((a) => ({
+                Severity: a.severity, Category: a.category, Type: a.type, Title: a.title, Description: a.description,
+                Entity: a.entity_name ?? '', 'Entity Type': a.entity_type, AE: a.ae_code ?? '', Metric: a.metric_value, Date: a.date,
+              })),
+            }])}
+          />
         </div>
 
         {/* Alert list */}
