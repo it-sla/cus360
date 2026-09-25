@@ -8,6 +8,7 @@ import {
   RefreshCw, Clock, Search, XCircle, X, Mail, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/auth';
 
 interface Alert {
   id: string;
@@ -80,6 +81,7 @@ export default function Alerts() {
 
   const aeListQuery = useQuery({ queryKey: ['accountExecutives'], queryFn: () => api.getAccountExecutives(true) });
 
+  const { isSuperAdmin } = useAuth();
   const sendTierEmailsMutation = useMutation({ mutationFn: () => api.sendTierAlertEmails() });
   const sendWeeklyReportMutation = useMutation({ mutationFn: () => api.sendWeeklyReport() });
 
@@ -147,22 +149,22 @@ export default function Alerts() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button
+            {isSuperAdmin && <button
               onClick={() => sendTierEmailsMutation.mutate()}
               disabled={sendTierEmailsMutation.isPending}
               title="Sends the Tier Shipping Gap email digest right now, outside its daily schedule"
               className="h-9 px-3 flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
             >
               <Mail size={14} className={sendTierEmailsMutation.isPending ? 'animate-pulse' : ''} /> Send Tier Alert Emails
-            </button>
-            <button
+            </button>}
+            {isSuperAdmin && <button
               onClick={() => sendWeeklyReportMutation.mutate()}
               disabled={sendWeeklyReportMutation.isPending}
               title="Sends the weekly report email right now, outside its Monday schedule"
               className="h-9 px-3 flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
             >
               <Mail size={14} className={sendWeeklyReportMutation.isPending ? 'animate-pulse' : ''} /> Send Weekly Report Now
-            </button>
+            </button>}
             <button
               onClick={() => refetch()}
               className="h-9 px-3 flex items-center gap-1.5 bg-slate-900 text-white dark:bg-white dark:text-slate-900 rounded-lg text-xs font-semibold hover:opacity-90"

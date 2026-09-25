@@ -11,6 +11,7 @@ import { api } from '@/api';
 import { DateRangeControl } from '@/components/AnalyticsFilterBar';
 import { LeaderboardRankings } from '@/components/ui/leaderboard-rankings';
 import type { LeaderboardRankingItem } from '@/components/ui/leaderboard-rankings';
+import { useAuth } from '@/auth';
 
 const fmt$ = (v: number) => `$${(v || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 const fmtNum = (v: number) => (v || 0).toLocaleString();
@@ -80,6 +81,7 @@ const METRIC_OPTIONS: { key: CustomerMetric; label: string; icon: any }[] = [
 ];
 
 export default function Rankings() {
+  const { canSeeProfit } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>('customers');
   const [metric, setMetric] = useState<CustomerMetric>('revenue');
@@ -110,7 +112,7 @@ export default function Rankings() {
   const routesQuery = useQuery({
     queryKey: ['pnlRoutesRankings', bounds?.c_start, bounds?.c_end],
     queryFn: () => api.getMawbPnlRoutes({ manifest_date_from: bounds!.c_start, manifest_date_to: bounds!.c_end, limit: 15 }),
-    enabled: !!bounds,
+    enabled: !!bounds && canSeeProfit,
   });
   const destinationsQuery = useQuery({
     queryKey: ['destinationRankings', timeframe, dateFrom, dateTo],
@@ -260,7 +262,7 @@ export default function Rankings() {
   const TABS: { key: Tab; label: string; icon: any }[] = [
     { key: 'customers', label: 'Top Customers', icon: Users },
     { key: 'ae', label: 'Top Account Executives', icon: UserCog },
-    { key: 'routes', label: 'Top Routes by Profit', icon: RouteIcon },
+    ...(canSeeProfit ? [{ key: 'routes' as Tab, label: 'Top Routes by Profit', icon: RouteIcon }] : []),
     { key: 'destinations', label: 'Top Destinations', icon: MapPin },
     { key: 'countries', label: 'Customers by Country', icon: Globe },
   ];

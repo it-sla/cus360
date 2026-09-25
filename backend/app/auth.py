@@ -172,6 +172,23 @@ def require_role(roles: str | list[str]) -> Callable:
     return dependency
 
 
+PUBLIC_PATHS = {"/health", "/api/v1/auth/login", "/api/v1/auth/logout", "/api/v1/auth/set-password", "/docs", "/redoc", "/openapi.json", "/docs/oauth2-redirect"}
+READ_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+
+def access_guard(request: Request, db: Session = Depends(get_db)) -> None:
+    """App-wide default-deny, registered on FastAPI(dependencies=...). Every route
+    requires a session unless it's in PUBLIC_PATHS, and the 'admin' role is read-only
+    everywhere (only its own notification state is writable). Per-route require_role /
+    get_ae_scope layer finer rules on top — this only guarantees a route someone forgot
+    to guard is never anonymous and never admin-writable."""
+    if request.url.path in PUBLIC_PATHS or request.method == "OPTIONS":
+        return
+    user = get_current_user(request, db)
+    if user.role == "admin" and request.method not in READ_METHODS and not request.url.path.startswith("/api/v1/notifications/"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin accounts are read-only")
+
+
 def get_ae_scope(user: User = Depends(get_current_user)) -> str | None:
     """None means unrestricted (admin/sales_lead). A non-None string is the
     ae_code every scoped query must filter to for this request.

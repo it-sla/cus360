@@ -90,14 +90,14 @@ function InfoRow({ label, value, icon: Icon }: { label: string; value: string | 
 }
 
 function AeAssignRow({ companyId, currentAeCode }: { companyId: string; currentAeCode: string | null }) {
-  const { isAdmin } = useAuth();
+  const { isSuperAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<'idle' | 'saved' | 'error'>('idle');
 
   const { data: roster } = useQuery({
     queryKey: ['account-executives', true],
     queryFn: () => api.getAccountExecutives(true),
-    enabled: isAdmin,
+    enabled: isSuperAdmin,
   });
 
   const mutation = useMutation({
@@ -122,7 +122,7 @@ function AeAssignRow({ companyId, currentAeCode }: { companyId: string; currentA
       <UserCog size={14} className="text-slate-400 dark:text-slate-400 shrink-0" />
       <span className="text-xs text-slate-400 dark:text-slate-400 w-28 shrink-0">Assigned AE</span>
       <div className="flex items-center gap-2 flex-1 min-w-0">
-        {isAdmin ? (
+        {isSuperAdmin ? (
           <>
             <select
               value={currentAeCode || ''}
@@ -524,7 +524,9 @@ function CallLogsTab({ companyId }: { companyId: string }) {
 
 // ── Documents Tab ────────────────────────────────────────────────────────
 
-function DocumentsTab({ companyId }: { companyId: string }) {
+function DocumentsTab({ companyId, company }: { companyId: string; company: CompanyDetail }) {
+  const { canEditCompany } = useAuth();
+  const canEdit = canEditCompany(company);
   const queryClient = useQueryClient();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   
@@ -586,7 +588,7 @@ function DocumentsTab({ companyId }: { companyId: string }) {
 
   return (
     <div className="space-y-6 max-w-5xl">
-      <SectionCard title="Upload Document" subtitle="Add contracts, invoices, or identity files.">
+      {canEdit && <SectionCard title="Upload Document" subtitle="Add contracts, invoices, or identity files.">
         <div className="flex flex-col md:flex-row gap-6">
           <div className="flex-1 space-y-4">
             <div>
@@ -633,7 +635,7 @@ function DocumentsTab({ companyId }: { companyId: string }) {
             )}
           </div>
         </div>
-      </SectionCard>
+      </SectionCard>}
 
       <SectionCard title="Company Documents" subtitle={`${docs.length} files available`}>
         {docs.length === 0 ? (
@@ -653,7 +655,7 @@ function DocumentsTab({ companyId }: { companyId: string }) {
               <tbody className="text-xs divide-y divide-slate-100 dark:divide-slate-800/50 bg-white dark:bg-slate-900/50">
                 {docs.map(d => (
                   <tr key={d.id} className="transition-colors">
-                    {editingDocId === d.id ? (
+                    {canEdit && editingDocId === d.id ? (
                       <>
                         <td className="px-4 py-3">
                           <input type="text" value={editForm.title} onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))} className="w-full h-8 px-2 border border-slate-300 rounded text-xs outline-none focus:border-teal-400" />
@@ -695,12 +697,12 @@ function DocumentsTab({ companyId }: { companyId: string }) {
                             <a href={`/api/v1/documents/${d.id}/download`} target="_blank" rel="noreferrer" className="p-1.5 text-slate-400 dark:text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded transition-colors" title="Download">
                               <Download size={14} />
                             </a>
-                            <button onClick={() => { setEditingDocId(d.id); setEditForm({ title: d.title, category: d.category }); }} className="p-1.5 text-slate-400 dark:text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Edit">
+                            {canEdit && <button onClick={() => { setEditingDocId(d.id); setEditForm({ title: d.title, category: d.category }); }} className="p-1.5 text-slate-400 dark:text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Edit">
                               <Edit2 size={14} />
-                            </button>
-                            <button onClick={() => { if(confirm('Are you sure you want to delete this document?')) archiveMutation.mutate(d.id); }} className="p-1.5 text-slate-400 dark:text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors" title="Delete">
+                            </button>}
+                            {canEdit && <button onClick={() => { if(confirm('Are you sure you want to delete this document?')) archiveMutation.mutate(d.id); }} className="p-1.5 text-slate-400 dark:text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors" title="Delete">
                               <Trash2 size={14} />
-                            </button>
+                            </button>}
                           </div>
                         </td>
                       </>
@@ -753,6 +755,8 @@ function ActivityTab({ companyId }: { companyId: string }) {
 // ── Settings Tab ─────────────────────────────────────────────────────────
 
 function SettingsTab({ company }: { company: CompanyDetail }) {
+  const { canEditCompany, isSuperAdmin } = useAuth();
+  const canEdit = canEditCompany(company);
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
     company_name:    company.company_name    || '',
@@ -796,22 +800,22 @@ function SettingsTab({ company }: { company: CompanyDetail }) {
           ].map((f) => (
             <div key={f.key}>
               <label className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest mb-1.5 block">{f.label}</label>
-              <input type={f.type} value={(form as any)[f.key]}
+              <input type={f.type} value={(form as any)[f.key]} disabled={!canEdit}
                 onChange={(e) => setForm((s) => ({ ...s, [f.key]: e.target.value }))}
-                className={fieldCls} />
+                className={`${fieldCls} disabled:opacity-60 disabled:cursor-not-allowed`} />
             </div>
           ))}
 
           <div>
             <label className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest mb-1.5 block">Address</label>
-            <textarea value={form.address} onChange={(e) => setForm((s) => ({ ...s, address: e.target.value }))} rows={3}
-              className="w-full px-3 py-2 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-xs text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400 transition-all outline-none resize-none" />
+            <textarea value={form.address} disabled={!canEdit} onChange={(e) => setForm((s) => ({ ...s, address: e.target.value }))} rows={3}
+              className="w-full px-3 py-2 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-xs text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400 transition-all outline-none resize-none disabled:opacity-60 disabled:cursor-not-allowed" />
           </div>
 
           <div>
-            <label className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest mb-1.5 block">Status</label>
-            <select value={form.status} onChange={(e) => setForm((s) => ({ ...s, status: e.target.value }))}
-              className={`${fieldCls} cursor-pointer`}>
+            <label className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest mb-1.5 block">Status{!isSuperAdmin && ' (super admin only)'}</label>
+            <select value={form.status} disabled={!isSuperAdmin} onChange={(e) => setForm((s) => ({ ...s, status: e.target.value }))}
+              className={`${fieldCls} cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed`}>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
               <option value="provisional">Provisional</option>
@@ -820,14 +824,14 @@ function SettingsTab({ company }: { company: CompanyDetail }) {
 
           <div>
             <label className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest mb-1.5 block">Notes</label>
-            <textarea value={form.notes} onChange={(e) => setForm((s) => ({ ...s, notes: e.target.value }))} rows={4}
+            <textarea value={form.notes} disabled={!canEdit} onChange={(e) => setForm((s) => ({ ...s, notes: e.target.value }))} rows={4}
               placeholder="Internal notes…"
-              className="w-full px-3 py-2 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:text-slate-400 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400 transition-all outline-none resize-none" />
+              className="w-full px-3 py-2 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:text-slate-400 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400 transition-all outline-none resize-none disabled:opacity-60 disabled:cursor-not-allowed" />
           </div>
         </div>
       </SectionCard>
 
-      <div className="flex items-center gap-3">
+      {(canEdit || isSuperAdmin) && <div className="flex items-center gap-3">
         <button onClick={handleSubmit} disabled={mutation.isPending}
           className="h-9 px-4 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 disabled:opacity-50">
           {mutation.isPending ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
@@ -838,7 +842,7 @@ function SettingsTab({ company }: { company: CompanyDetail }) {
             <CheckCircle2 size={14} /> Saved
           </span>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
@@ -1006,7 +1010,7 @@ export default function Customer360() {
           {activeTab === 'analytics' && <AnalyticsTab companyId={company.id}         />}
           {activeTab === 'shipments' && <ShipmentsTab companyId={company.id}         />}
           {activeTab === 'call-logs' && <CallLogsTab  companyId={company.id}         />}
-          {activeTab === 'documents' && <DocumentsTab companyId={company.id}         />}
+          {activeTab === 'documents' && <DocumentsTab companyId={company.id} company={company} />}
           {activeTab === 'activity'  && <ActivityTab  companyId={company.id}         />}
           {activeTab === 'settings'  && <SettingsTab  company={company}              />}
         </div>

@@ -104,7 +104,8 @@ function WinsDetailModal({ entry, dateFrom, dateTo, onClose }: { entry: Leaderbo
 }
 
 export default function Leaderboard() {
-  const { user, isAdmin } = useAuth();
+  const { user, hasRole } = useAuth();
+  const canPickTimeframe = hasRole(['admin', 'sales_lead']);
   const [metric, setMetric] = useState<Metric>('revenue');
   // Same DateRangeControl used across the analytics suite — admin/super_admin only,
   // since the backend ignores these params (and stays pinned to the current month)
@@ -115,8 +116,8 @@ export default function Leaderboard() {
   const [selectedEntry, setSelectedEntry] = useState<LeaderboardEntry | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['leaderboard', isAdmin ? timeframe : null, isAdmin ? customFrom : null, isAdmin ? customTo : null],
-    queryFn: () => api.getLeaderboard(isAdmin ? { timeframe, date_from: customFrom || undefined, date_to: customTo || undefined } : undefined),
+    queryKey: ['leaderboard', canPickTimeframe ? timeframe : null, canPickTimeframe ? customFrom : null, canPickTimeframe ? customTo : null],
+    queryFn: () => api.getLeaderboard(canPickTimeframe ? { timeframe, date_from: customFrom || undefined, date_to: customTo || undefined } : undefined),
   });
 
   const entries = data?.leaderboards[metric] || [];
@@ -133,7 +134,7 @@ export default function Leaderboard() {
   }));
   // Wins drill-down (which companies made up the count) is admin-only — everyone
   // else just sees the motivational number, same as every other metric here.
-  const winsClickable = isAdmin && metric === 'wins';
+  const winsClickable = canPickTimeframe && metric === 'wins';
   const selectEntryByCode = (aeCode: string) => {
     const e = entries.find(x => x.ae_code === aeCode);
     if (e) setSelectedEntry(e);
@@ -156,7 +157,7 @@ export default function Leaderboard() {
           </div>
 
           <div className="flex items-center gap-2">
-            {isAdmin && (
+            {canPickTimeframe && (
               <DateRangeControl
                 timeframe={timeframe} dateFrom={customFrom} dateTo={customTo}
                 bounds={data?.period ? { c_start: data.period.start, c_end: data.period.end } : undefined}

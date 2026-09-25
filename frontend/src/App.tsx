@@ -120,7 +120,7 @@ export default function App() {
 
             {/* INTELLIGENCE */}
             <Route path="profitability" element={(
-              <RequireRole roles={['admin', 'sales_lead']}>
+              <RequireRole roles={['admin']}>
                 <Profitability />
               </RequireRole>
             )} />

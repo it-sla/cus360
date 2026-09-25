@@ -11,7 +11,7 @@ from sqlalchemy import func, or_, select, text, case, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 from .core import settings
-from .auth import AUTH_COOKIE_NAME, AUTH_SESSION_TTL_SECONDS, LoginRequest, create_session_token, find_user_by_setup_token, generate_setup_token, get_ae_scope, get_current_user, hash_password, require_role, serialize_user, verify_password
+from .auth import AUTH_COOKIE_NAME, AUTH_SESSION_TTL_SECONDS, LoginRequest, access_guard, create_session_token, find_user_by_setup_token, generate_setup_token, get_ae_scope, get_current_user, hash_password, require_role, serialize_user, verify_password
 from .db import get_db
 from .imports import read_file
 from .company_imports import CompanyWorkbookError, analyze as analyze_company_workbook, import_companies, parse_workbook
@@ -25,7 +25,7 @@ from .email_notifications import send_tier_alert_digests, send_weekly_report
 from .models import *
 from .utils import clean, escape_like, jsonable, normalize_icris, normalize_name
 
-log=logging.getLogger('customer360'); app=FastAPI(title='Customer 360',version='1.0.0')
+log=logging.getLogger('customer360'); app=FastAPI(title='Customer 360',version='1.0.0',dependencies=[Depends(access_guard)])
 app.add_middleware(CORSMiddleware,allow_origins=[x.strip() for x in settings.backend_cors_origins.split(',')],allow_credentials=True,allow_methods=['*'],allow_headers=['*'])
 
 # --- Revenue basis -------------------------------------------------------------------
@@ -109,6 +109,18 @@ class AuthUserOut(BaseModel):
     id:str; email:str; display_name:str; role:str; ae_code:str|None=None; must_change_password:bool=False
 def serialize(obj,extra=None):
     data={c.name:getattr(obj,c.name) for c in obj.__table__.columns}; data.update(extra or {}); return data
+PROFIT_ROLES={'admin','super_admin'}
+def strip_pnl(data,user:User):
+    """Profitability (Shipment/MasterAirWaybill pnl_* columns) is a role-gated view, not
+    just a page — these fields must never ride along on /shipments or /mawbs responses,
+    including nested company/shipments/mawb objects, for a role that can't open
+    Profitability."""
+    if user.role in PROFIT_ROLES:return data
+    if isinstance(data,dict):
+        return {k:strip_pnl(v,user) for k,v in data.items() if not k.startswith('pnl_')}
+    if isinstance(data,list):
+        return [strip_pnl(v,user) for v in data]
+    return data
 def one(db,model,id):
     value=db.get(model,id)
     if not value: raise HTTPException(404,f'{model.__name__} not found')
@@ -119,6 +131,17 @@ def scoped_company(db,company_id,ae_scope):
     c=one(db,Company,company_id)
     if ae_scope and c.assigned_ae_code!=ae_scope:raise HTTPException(404,'Company not found')
     return c
+def require_company_write(company_id:uuid.UUID,db:Session=Depends(get_db),user:User=Depends(get_current_user))->Company:
+    """Everyday edits (contact info, notes, documents) — not admin (already read-only
+    via access_guard), not the customer-ownership/archival actions that stay
+    super_admin-only. super_admin and sales_lead may edit any company; an ae only
+    their own assigned company. 404 (not 403) for an ae outside scope, same reasoning
+    as scoped_company."""
+    c=one(db,Company,company_id)
+    if user.role in ('super_admin','sales_lead'):return c
+    if user.role=='ae' and user.ae_code and c.assigned_ae_code==user.ae_code:return c
+    if user.role=='ae':raise HTTPException(404,'Company not found')
+    raise HTTPException(403,'Forbidden')
 def commit(db):
     try: db.commit()
     except IntegrityError as e: db.rollback(); log.exception('Database conflict'); raise HTTPException(409,'A record with this unique identifier already exists') from e
@@ -276,12 +299,12 @@ def admin_issue_setup_link(user_id:uuid.UUID,db:Session=Depends(get_db),admin:Us
 def admin_update_user(user_id:uuid.UUID,body:UserPatch,db:Session=Depends(get_db),admin:User=Depends(require_role('super_admin'))):
     u=one(db,User,user_id)
     changes=body.model_dump(exclude_unset=True)
-    if (changes.get('is_active') is False or ('role' in changes and changes.get('role')!='admin')) and u.id==admin.id:
+    if (changes.get('is_active') is False or ('role' in changes and changes.get('role')!='super_admin')) and u.id==admin.id:
         raise HTTPException(422,'You cannot deactivate or demote your own account')
-    demoting_admin=u.role=='admin' and ('role' in changes and changes.get('role')!='admin')
-    if (changes.get('is_active') is False or demoting_admin) and u.role=='admin':
-        remaining=db.scalar(select(func.count()).select_from(User).where(User.role=='admin',User.is_active==True,User.id!=u.id))
-        if not remaining:raise HTTPException(422,'Cannot deactivate or demote the last active admin')
+    demoting_super_admin=u.role=='super_admin' and ('role' in changes and changes.get('role')!='super_admin')
+    if (changes.get('is_active') is False or demoting_super_admin) and u.role=='super_admin':
+        remaining=db.scalar(select(func.count()).select_from(User).where(User.role=='super_admin',User.is_active==True,User.id!=u.id))
+        if not remaining:raise HTTPException(422,'Cannot deactivate or demote the last active super admin')
     effective_role=changes.get('role',u.role)
     if effective_role=='ae':
         changes['ae_code']=validate_ae_code(db,effective_role,changes.get('ae_code',u.ae_code))
@@ -404,7 +427,7 @@ def companies(
     return {'items': paginated, 'total': len(items), 'limit': limit, 'offset': offset}
 
 @app.post('/api/v1/companies',status_code=201)
-def create_company(body:CompanyIn,db:Session=Depends(get_db)):
+def create_company(body:CompanyIn,db:Session=Depends(get_db),_:User=Depends(require_role('super_admin'))):
     icris=normalize_icris(body.icris_number); name=body.company_name.strip()
     if not icris or not name:raise HTTPException(422,'ICRIS Number and Company Name are required')
     c=Company(**body.model_dump(exclude={'icris_number','company_name'}),icris_number=icris,company_name=name,normalized_name=normalize_name(name),source='manual',name_source='manual',manual_override_fields=['company_name']);db.add(c);commit(db);return serialize(c)
@@ -737,16 +760,19 @@ def company_dossier_pdf(
     )
 
 @app.patch('/api/v1/companies/{company_id}')
-def patch_company(company_id:uuid.UUID,body:CompanyPatch,db:Session=Depends(get_db)):
-    c=one(db,Company,company_id)
-    changes=body.model_dump(exclude_unset=True);overrides=set(c.manual_override_fields or [])
+def patch_company(company_id:uuid.UUID,body:CompanyPatch,db:Session=Depends(get_db),user:User=Depends(get_current_user)):
+    c=require_company_write(company_id,db,user)
+    changes=body.model_dump(exclude_unset=True)
+    if changes.get('status') is not None and user.role!='super_admin':
+        raise HTTPException(403,'Only a super admin can change a customer\'s status')
+    overrides=set(c.manual_override_fields or [])
     for k,v in changes.items(): setattr(c,k,v.strip() if isinstance(v,str) else v);overrides.add(k)
     c.manual_override_fields=sorted(overrides)
     if body.company_name is not None:c.normalized_name=normalize_name(c.company_name)
     commit(db);return serialize(c)
 
 @app.post('/api/v1/companies/{company_id}/assign-ae')
-def assign_ae(company_id:uuid.UUID, payload: AssignAeIn, db:Session=Depends(get_db), _role:User=Depends(require_role('admin'))):
+def assign_ae(company_id:uuid.UUID, payload: AssignAeIn, db:Session=Depends(get_db), _role:User=Depends(require_role('super_admin'))):
     comp=one(db,Company,company_id)
     new_code=payload.ae_code.strip().upper()
     if not new_code:raise HTTPException(422,'ae_code is required')
@@ -758,7 +784,7 @@ def assign_ae(company_id:uuid.UUID, payload: AssignAeIn, db:Session=Depends(get_
     return {'status':'reassigned','ae_code':new_code,'shipments_updated':updated}
 
 @app.post('/api/v1/companies/bulk-assign-ae')
-def bulk_assign_ae(payload:BulkAssignAeIn, db:Session=Depends(get_db), _role:User=Depends(require_role('admin'))):
+def bulk_assign_ae(payload:BulkAssignAeIn, db:Session=Depends(get_db), _role:User=Depends(require_role('super_admin'))):
     new_code=payload.ae_code.strip().upper()
     if not new_code:raise HTTPException(422,'ae_code is required')
     if not payload.company_ids:raise HTTPException(422,'company_ids must not be empty')
@@ -775,7 +801,7 @@ def bulk_assign_ae(payload:BulkAssignAeIn, db:Session=Depends(get_db), _role:Use
     return {'status':'ok','ae_code':new_code,'reassigned_count':reassigned,'unchanged_count':unchanged}
 
 @app.post('/api/v1/companies/bulk-set-category')
-def bulk_set_category(payload:BulkSetCategoryIn, db:Session=Depends(get_db), _role:User=Depends(require_role('admin'))):
+def bulk_set_category(payload:BulkSetCategoryIn, db:Session=Depends(get_db), _role:User=Depends(require_role('super_admin'))):
     new_type=payload.customer_type.strip() if payload.customer_type else None
     if new_type and new_type not in AE_SEGMENTS:raise HTTPException(422,f'customer_type must be one of {list(AE_SEGMENTS)}')
     if not payload.company_ids:raise HTTPException(422,'company_ids must not be empty')
@@ -791,8 +817,8 @@ def bulk_set_category(payload:BulkSetCategoryIn, db:Session=Depends(get_db), _ro
     return {'status':'ok','customer_type':new_type,'updated_count':updated,'unchanged_count':unchanged}
 
 @app.get('/api/v1/companies/{company_id}/ae-history')
-def company_ae_history(company_id:uuid.UUID,db:Session=Depends(get_db)):
-    one(db,Company,company_id)
+def company_ae_history(company_id:uuid.UUID,db:Session=Depends(get_db),ae_scope:str|None=Depends(get_ae_scope)):
+    scoped_company(db,company_id,ae_scope)
     return [serialize(x) for x in db.scalars(select(AeReassignmentLog).where(AeReassignmentLog.company_id==company_id).order_by(AeReassignmentLog.created_at.desc())).all()]
 
 @app.get('/api/v1/account-executives')
@@ -807,7 +833,7 @@ class AccountExecutiveIn(BaseModel): display_name:str|None=None; is_active:bool|
 class AccountExecutiveCreateIn(BaseModel): ae_code:str; display_name:str|None=None
 
 @app.post('/api/v1/account-executives')
-def create_account_executive(body:AccountExecutiveCreateIn,db:Session=Depends(get_db)):
+def create_account_executive(body:AccountExecutiveCreateIn,db:Session=Depends(get_db),_:User=Depends(require_role('super_admin'))):
     code=body.ae_code.strip().upper()
     if not code:raise HTTPException(422,'ae_code is required')
     if db.scalar(select(AccountExecutive).where(AccountExecutive.ae_code==code)):raise HTTPException(409,'AE code already exists')
@@ -815,7 +841,7 @@ def create_account_executive(body:AccountExecutiveCreateIn,db:Session=Depends(ge
     db.add(ae);commit(db);return serialize(ae,{'assigned_customer_count':0})
 
 @app.patch('/api/v1/account-executives/{ae_code}')
-def update_account_executive(ae_code:str,body:AccountExecutiveIn,db:Session=Depends(get_db)):
+def update_account_executive(ae_code:str,body:AccountExecutiveIn,db:Session=Depends(get_db),_:User=Depends(require_role('super_admin'))):
     ae=db.scalar(select(AccountExecutive).where(AccountExecutive.ae_code==ae_code.strip().upper()))
     if not ae:raise HTTPException(404,'AE not found')
     changes=body.model_dump(exclude_unset=True)
@@ -823,7 +849,7 @@ def update_account_executive(ae_code:str,body:AccountExecutiveIn,db:Session=Depe
     commit(db);return serialize(ae)
 
 @app.delete('/api/v1/account-executives/{ae_code}')
-def delete_account_executive(ae_code:str,force:bool=False,db:Session=Depends(get_db)):
+def delete_account_executive(ae_code:str,force:bool=False,db:Session=Depends(get_db),_:User=Depends(require_role('super_admin'))):
     code=ae_code.strip().upper()
     ae=db.scalar(select(AccountExecutive).where(AccountExecutive.ae_code==code))
     if not ae:raise HTTPException(404,'AE not found')
@@ -921,16 +947,19 @@ async def ae_targets_import(file:UploadFile=File(...),worksheet:str|None=Form(No
 @app.get('/api/v1/companies/{company_id}/shipments')
 def company_shipments(company_id:uuid.UUID,db:Session=Depends(get_db),ae_scope:str|None=Depends(get_ae_scope)): scoped_company(db,company_id,ae_scope);return [serialize(x,{'package_count':len(x.packages)}) for x in db.scalars(select(Shipment).options(selectinload(Shipment.packages)).where(Shipment.company_id==company_id)).all()]
 @app.get('/api/v1/companies/{company_id}/aliases')
-def aliases(company_id:uuid.UUID,db:Session=Depends(get_db)): return [serialize(x) for x in db.scalars(select(CompanyAlias).where(CompanyAlias.company_id==company_id)).all()]
+def aliases(company_id:uuid.UUID,db:Session=Depends(get_db),ae_scope:str|None=Depends(get_ae_scope)):
+    scoped_company(db,company_id,ae_scope)
+    return [serialize(x) for x in db.scalars(select(CompanyAlias).where(CompanyAlias.company_id==company_id)).all()]
 @app.delete('/api/v1/companies/{company_id}',status_code=204)
-def delete_company(company_id:uuid.UUID,db:Session=Depends(get_db)):
+def delete_company(company_id:uuid.UUID,db:Session=Depends(get_db),_:User=Depends(require_role('super_admin'))):
     c=one(db,Company,company_id);c.status='archived';commit(db);return Response(status_code=204)
 
 @app.post('/api/v1/companies/{company_id}/aliases',status_code=201)
-def add_alias(company_id:uuid.UUID,body:AliasIn,db:Session=Depends(get_db)):
-    one(db,Company,company_id);name=body.alias_name.strip();a=CompanyAlias(company_id=company_id,alias_name=name,normalized_alias_name=normalize_name(name),source='manual');db.add(a);commit(db);return serialize(a)
+def add_alias(company_id:uuid.UUID,body:AliasIn,db:Session=Depends(get_db),user:User=Depends(get_current_user)):
+    require_company_write(company_id,db,user);name=body.alias_name.strip();a=CompanyAlias(company_id=company_id,alias_name=name,normalized_alias_name=normalize_name(name),source='manual');db.add(a);commit(db);return serialize(a)
 @app.delete('/api/v1/companies/{company_id}/aliases/{alias_id}',status_code=204)
-def delete_alias(company_id:uuid.UUID,alias_id:uuid.UUID,db:Session=Depends(get_db)):
+def delete_alias(company_id:uuid.UUID,alias_id:uuid.UUID,db:Session=Depends(get_db),user:User=Depends(get_current_user)):
+    require_company_write(company_id,db,user)
     a=one(db,CompanyAlias,alias_id)
     if a.company_id!=company_id:raise HTTPException(404,'Alias not found')
     db.delete(a);commit(db)
@@ -980,10 +1009,10 @@ def shipment_filters(q:str|None=None,company_id:uuid.UUID|None=None,shipment_num
     return stmt
 
 @app.get('/api/v1/shipments')
-def shipments(stmt=Depends(shipment_filters),limit:int=Query(50,le=200),offset:int=0,db:Session=Depends(get_db)):
+def shipments(stmt=Depends(shipment_filters),limit:int=Query(50,le=200),offset:int=0,db:Session=Depends(get_db),user:User=Depends(get_current_user)):
     total=db.scalar(select(func.count()).select_from(stmt.subquery()))
     items=db.scalars(stmt.options(selectinload(Shipment.company),selectinload(Shipment.packages)).order_by(Shipment.created_at.desc()).limit(limit).offset(offset)).all()
-    return {'items':[serialize(s,{'company':serialize(s.company) if s.company else None,'package_count':len(s.packages),'revenue':shipment_revenue(s)}) for s in items],'total':total,'limit':limit,'offset':offset}
+    return strip_pnl({'items':[serialize(s,{'company':serialize(s.company) if s.company else None,'package_count':len(s.packages),'revenue':shipment_revenue(s)}) for s in items],'total':total,'limit':limit,'offset':offset},user)
 
 SHIPMENT_EXPORT_HEADERS=['AWB #','Customer','ICRIS','Shipper','Origin','Destination','Pieces','Weight (kg)','Revenue','Pay Term','Bill Type','Match Status','AE','Shipment Date','Created']
 @app.get('/api/v1/shipments/export.xlsx')
@@ -1003,7 +1032,7 @@ def shipments_export(stmt=Depends(shipment_filters),db:Session=Depends(get_db)):
                     headers={'Content-Disposition':f'attachment; filename="air-waybills-{date.today().isoformat()}.xlsx"'})
 
 @app.get('/api/v1/shipments/stats')
-def shipment_stats(q:str|None=None,company_id:uuid.UUID|None=None,shipment_number:str|None=None,package_id:str|None=None,shipper_name:str|None=None,importer_name:str|None=None,importer_telephone:str|None=None,export_country:str|None=None,import_country:str|None=None,bill_type:str|None=None,billing_term:str|None=None,match_status:str|None=None,manifest_batch_id:uuid.UUID|None=None,db:Session=Depends(get_db)):
+def shipment_stats(q:str|None=None,company_id:uuid.UUID|None=None,shipment_number:str|None=None,package_id:str|None=None,shipper_name:str|None=None,importer_name:str|None=None,importer_telephone:str|None=None,export_country:str|None=None,import_country:str|None=None,bill_type:str|None=None,billing_term:str|None=None,match_status:str|None=None,manifest_batch_id:uuid.UUID|None=None,db:Session=Depends(get_db),ae_scope:str|None=Depends(get_ae_scope)):
     stmt = select(
         func.count(Shipment.id).label('total_shipments'),
         func.sum(func.coalesce(Shipment.shipment_weight, Shipment.actual_weight)).label('total_weight'),
@@ -1015,6 +1044,7 @@ def shipment_stats(q:str|None=None,company_id:uuid.UUID|None=None,shipment_numbe
     filters={'company_id':company_id,'billing_term':billing_term,'match_status':match_status,'manifest_batch_id':manifest_batch_id}
     for k,v in filters.items():
         if v is not None:stmt=stmt.where(getattr(Shipment,k)==v)
+    if ae_scope:stmt=stmt.where(Shipment.ae_code==ae_scope)
     if export_country:stmt=stmt.where(Shipment.export_country.ilike(f'%{export_country}%'))
     if import_country:stmt=stmt.where(Shipment.import_country.ilike(f'%{import_country}%'))
     if bill_type:stmt=stmt.where(Shipment.bill_type.ilike(f'%{bill_type}%'))
@@ -1048,16 +1078,22 @@ def shipment_stats(q:str|None=None,company_id:uuid.UUID|None=None,shipment_numbe
         'unmatched_count': int(row['unmatched_count'] or 0),
         'suggested_count': int(row['suggested_count'] or 0)
     }
-@app.post('/api/v1/shipments',status_code=201)
+def scoped_shipment(db,shipment_id,ae_scope):
+    """Same 404-not-403 pattern as scoped_company, applied via the shipment's linked
+    company — an unlinked shipment has no ae_code owner, so it's admin/sales_lead-only."""
+    s=one(db,Shipment,shipment_id)
+    if ae_scope and s.ae_code!=ae_scope:raise HTTPException(404,'Shipment not found')
+    return s
+@app.post('/api/v1/shipments',status_code=201,dependencies=[Depends(require_role('super_admin'))])
 def create_shipment(body:ShipmentIn,db:Session=Depends(get_db)):
     values=body.model_dump();values['shipment_number']=body.shipment_number.strip();s=Shipment(**values,source='manual',match_status='matched' if body.company_id else 'unmatched',matched_by_method='manual' if body.company_id else 'none',manually_matched=bool(body.company_id));db.add(s);commit(db);return serialize(s)
 @app.get('/api/v1/shipments/{shipment_id}')
-def shipment(shipment_id:uuid.UUID,db:Session=Depends(get_db)):
+def shipment(shipment_id:uuid.UUID,db:Session=Depends(get_db),ae_scope:str|None=Depends(get_ae_scope),user:User=Depends(get_current_user)):
+    scoped_shipment(db,shipment_id,ae_scope)
     s=db.scalar(select(Shipment).options(selectinload(Shipment.company),selectinload(Shipment.packages)).where(Shipment.id==shipment_id))
-    if not s:raise HTTPException(404,'Shipment not found')
     mawb=db.get(MasterAirWaybill,s.mawb_id) if s.mawb_id else None
-    return serialize(s,{'company':serialize(s.company) if s.company else None,'mawb':serialize(mawb) if mawb else None,'packages':[serialize(p) for p in s.packages],'revenue':shipment_revenue(s)})
-@app.patch('/api/v1/shipments/{shipment_id}')
+    return strip_pnl(serialize(s,{'company':serialize(s.company) if s.company else None,'mawb':serialize(mawb) if mawb else None,'packages':[serialize(p) for p in s.packages],'revenue':shipment_revenue(s)}),user)
+@app.patch('/api/v1/shipments/{shipment_id}',dependencies=[Depends(require_role('super_admin'))])
 def patch_shipment(shipment_id:uuid.UUID,body:dict,db:Session=Depends(get_db)):
     s=one(db,Shipment,shipment_id);allowed={c.name for c in Shipment.__table__.columns}-{'id','shipment_number','created_at','updated_at'}
     overrides=set(s.manual_override_fields or [])
@@ -1066,28 +1102,31 @@ def patch_shipment(shipment_id:uuid.UUID,body:dict,db:Session=Depends(get_db)):
     s.manual_override_fields=sorted(overrides)
     commit(db);return serialize(s)
 @app.get('/api/v1/shipments/{shipment_id}/packages')
-def shipment_packages(shipment_id:uuid.UUID,db:Session=Depends(get_db)):one(db,Shipment,shipment_id);return [serialize(p) for p in db.scalars(select(Package).where(Package.shipment_id==shipment_id)).all()]
-@app.post('/api/v1/shipments/{shipment_id}/packages',status_code=201)
+def shipment_packages(shipment_id:uuid.UUID,db:Session=Depends(get_db),ae_scope:str|None=Depends(get_ae_scope)):
+    scoped_shipment(db,shipment_id,ae_scope)
+    return [serialize(p) for p in db.scalars(select(Package).where(Package.shipment_id==shipment_id)).all()]
+@app.post('/api/v1/shipments/{shipment_id}/packages',status_code=201,dependencies=[Depends(require_role('super_admin'))])
 def create_package(shipment_id:uuid.UUID,body:PackageIn,db:Session=Depends(get_db)):one(db,Shipment,shipment_id);p=Package(shipment_id=shipment_id,**body.model_dump());db.add(p);commit(db);return serialize(p)
-@app.post('/api/v1/shipments/{shipment_id}/link-company')
+@app.post('/api/v1/shipments/{shipment_id}/link-company',dependencies=[Depends(require_role('super_admin'))])
 def link(shipment_id:uuid.UUID,body:LinkIn,db:Session=Depends(get_db)):
     s=one(db,Shipment,shipment_id);one(db,Company,body.company_id);s.company_id=body.company_id;s.match_status='manually_linked';s.matched_by_method='manual';s.manually_matched=True;s.is_manually_matched=True
     if body.save_as_alias and s.shipper_name:
         norm=normalize_name(s.shipper_name)
         if not db.scalar(select(CompanyAlias).where(CompanyAlias.company_id==body.company_id,CompanyAlias.normalized_alias_name==norm)):db.add(CompanyAlias(company_id=body.company_id,alias_name=s.shipper_name,normalized_alias_name=norm,source='manifest'))
     commit(db);return serialize(s)
-@app.delete('/api/v1/shipments/{shipment_id}/company-link')
+@app.delete('/api/v1/shipments/{shipment_id}/company-link',dependencies=[Depends(require_role('super_admin'))])
 def unlink(shipment_id:uuid.UUID,db:Session=Depends(get_db)):s=one(db,Shipment,shipment_id);s.company_id=None;s.match_status='unmatched';s.matched_by_method='none';s.manually_matched=True;commit(db);return serialize(s)
 @app.get('/api/v1/packages/by-package-id/{package_id}')
-def package_by_id(package_id:str,db:Session=Depends(get_db)):
+def package_by_id(package_id:str,db:Session=Depends(get_db),ae_scope:str|None=Depends(get_ae_scope)):
     p=db.scalar(select(Package).where(Package.package_id==package_id));
     if not p:raise HTTPException(404,'Package not found')
-    return package_detail(p,db)
+    return package_detail(p,db,ae_scope)
 @app.get('/api/v1/packages/{package_uuid}')
-def package(package_uuid:uuid.UUID,db:Session=Depends(get_db)):return package_detail(one(db,Package,package_uuid),db)
-def package_detail(p,db):
-    s=one(db,Shipment,p.shipment_id);return serialize(p,{'shipment':serialize(s),'company':serialize(s.company) if s.company else None})
-@app.patch('/api/v1/packages/{package_uuid}')
+def package(package_uuid:uuid.UUID,db:Session=Depends(get_db),ae_scope:str|None=Depends(get_ae_scope)):return package_detail(one(db,Package,package_uuid),db,ae_scope)
+def package_detail(p,db,ae_scope=None):
+    s=scoped_shipment(db,p.shipment_id,ae_scope)
+    return serialize(p,{'shipment':serialize(s),'company':serialize(s.company) if s.company else None})
+@app.patch('/api/v1/packages/{package_uuid}',dependencies=[Depends(require_role('super_admin'))])
 def patch_package(package_uuid:uuid.UUID,body:dict,db:Session=Depends(get_db)):
     p=one(db,Package,package_uuid);allowed={c.name for c in Package.__table__.columns}-{'id','shipment_id','package_id','created_at','updated_at'}
     for k,v in body.items():
@@ -1201,7 +1240,8 @@ def documents(company_id:uuid.UUID,q:str|None=None,category:str|None=None,status
     return [serialize(x) for x in db.scalars(stmt.order_by(CompanyDocument.uploaded_at.desc())).all()]
 
 @app.get('/api/v1/companies/{company_id}/storage-stats')
-def company_storage_stats(company_id:uuid.UUID,db:Session=Depends(get_db)):
+def company_storage_stats(company_id:uuid.UUID,db:Session=Depends(get_db),ae_scope:str|None=Depends(get_ae_scope)):
+    scoped_company(db,company_id,ae_scope)
     docs = db.scalars(select(CompanyDocument).where(CompanyDocument.company_id==company_id, CompanyDocument.status=='active')).all()
     total_bytes = sum(d.file_size_bytes for d in docs)
     cat_counts: dict[str, dict[str, int]] = {}
@@ -1225,8 +1265,8 @@ def company_storage_stats(company_id:uuid.UUID,db:Session=Depends(get_db)):
     }
 
 @app.post('/api/v1/companies/{company_id}/documents',status_code=201)
-async def upload_document(company_id:uuid.UUID,file:UploadFile=File(...),title:str=Form(...),category:str=Form('other'),description:str|None=Form(None),tags:str=Form(''),document_date:date|None=Form(None),db:Session=Depends(get_db)):
-    one(db,Company,company_id)
+async def upload_document(company_id:uuid.UUID,file:UploadFile=File(...),title:str=Form(...),category:str=Form('other'),description:str|None=Form(None),tags:str=Form(''),document_date:date|None=Form(None),db:Session=Depends(get_db),user:User=Depends(get_current_user)):
+    require_company_write(company_id,db,user)
     if category not in CATEGORIES:raise HTTPException(422,'Invalid document category')
     did=uuid.uuid4();original,stored,relative,data,ext,checksum,is_dup=await store_document(file,company_id,did,db)
     tag_list = [x.strip() for x in tags.split(',') if x.strip()]
@@ -1249,39 +1289,47 @@ async def upload_document(company_id:uuid.UUID,file:UploadFile=File(...),title:s
     res['is_deduplicated'] = is_dup
     return res
 
+def scoped_document(db,document_id,ae_scope)->CompanyDocument:
+    d=one(db,CompanyDocument,document_id)
+    scoped_company(db,d.company_id,ae_scope)
+    return d
+def writable_document(db,document_id,user)->CompanyDocument:
+    d=one(db,CompanyDocument,document_id)
+    require_company_write(d.company_id,db,user)
+    return d
 @app.get('/api/v1/documents/{document_id}')
-def document(document_id:uuid.UUID,db:Session=Depends(get_db)):return serialize(one(db,CompanyDocument,document_id))
+def document(document_id:uuid.UUID,db:Session=Depends(get_db),ae_scope:str|None=Depends(get_ae_scope)):return serialize(scoped_document(db,document_id,ae_scope))
 def document_file(d):
     path=(Path(settings.document_storage_root)/d.relative_storage_path).resolve();root=Path(settings.document_storage_root).resolve()
     if root not in path.parents or not path.is_file():raise HTTPException(404,'Document file not found')
     return path
 @app.get('/api/v1/documents/{document_id}/content')
-def document_content(document_id:uuid.UUID,db:Session=Depends(get_db)):
-    d=one(db,CompanyDocument,document_id)
+def document_content(document_id:uuid.UUID,db:Session=Depends(get_db),ae_scope:str|None=Depends(get_ae_scope)):
+    d=scoped_document(db,document_id,ae_scope)
     if not (d.mime_type=='application/pdf' or d.mime_type.startswith('image/')):raise HTTPException(415,'Browser preview is available for PDF and images only')
     return FileResponse(document_file(d),media_type=d.mime_type,headers={'Content-Disposition':f'inline; filename="{d.original_file_name}"','X-Content-Type-Options':'nosniff'})
 @app.get('/api/v1/documents/{document_id}/download')
-def document_download(document_id:uuid.UUID,db:Session=Depends(get_db)):
-    d=one(db,CompanyDocument,document_id);return FileResponse(document_file(d),media_type='application/octet-stream',filename=d.original_file_name,headers={'X-Content-Type-Options':'nosniff'})
+def document_download(document_id:uuid.UUID,db:Session=Depends(get_db),ae_scope:str|None=Depends(get_ae_scope)):
+    d=scoped_document(db,document_id,ae_scope);return FileResponse(document_file(d),media_type='application/octet-stream',filename=d.original_file_name,headers={'X-Content-Type-Options':'nosniff'})
 @app.patch('/api/v1/documents/{document_id}')
-def patch_document(document_id:uuid.UUID,body:dict,db:Session=Depends(get_db)):
-    d=one(db,CompanyDocument,document_id)
+def patch_document(document_id:uuid.UUID,body:dict,db:Session=Depends(get_db),user:User=Depends(get_current_user)):
+    d=writable_document(db,document_id,user)
     for k in {'title','category','description','tags','document_date','status'}:
         if k in body:setattr(d,k,body[k])
     commit(db);return serialize(d)
 @app.post('/api/v1/documents/{document_id}/archive')
-def archive_document(document_id:uuid.UUID,db:Session=Depends(get_db)):d=one(db,CompanyDocument,document_id);d.status='archived';commit(db);return serialize(d)
+def archive_document(document_id:uuid.UUID,db:Session=Depends(get_db),user:User=Depends(get_current_user)):d=writable_document(db,document_id,user);d.status='archived';commit(db);return serialize(d)
 @app.delete('/api/v1/documents/{document_id}')
-def delete_document(document_id:uuid.UUID,db:Session=Depends(get_db)):d=one(db,CompanyDocument,document_id);d.status='archived';commit(db);return {'status':'success','message':'Document archived successfully','id':str(d.id)}
+def delete_document(document_id:uuid.UUID,db:Session=Depends(get_db),user:User=Depends(get_current_user)):d=writable_document(db,document_id,user);d.status='archived';commit(db);return {'status':'success','message':'Document archived successfully','id':str(d.id)}
 @app.post('/api/v1/documents/{document_id}/replace',status_code=201)
-async def replace_document(document_id:uuid.UUID,file:UploadFile=File(...),db:Session=Depends(get_db)):
-    old=one(db,CompanyDocument,document_id);did=uuid.uuid4();original,stored,relative,data,ext,checksum,is_dup=await store_document(file,old.company_id,did,db);old.status='archived'
+async def replace_document(document_id:uuid.UUID,file:UploadFile=File(...),db:Session=Depends(get_db),user:User=Depends(get_current_user)):
+    old=writable_document(db,document_id,user);did=uuid.uuid4();original,stored,relative,data,ext,checksum,is_dup=await store_document(file,old.company_id,did,db);old.status='archived'
     d=CompanyDocument(id=did,company_id=old.company_id,title=old.title,original_file_name=original,stored_file_name=stored,relative_storage_path=relative,mime_type=file.content_type or mimetypes.guess_type(original)[0] or 'application/octet-stream',file_extension=ext,file_size_bytes=len(data),category=old.category,description=old.description,tags=old.tags,document_date=old.document_date,version_number=old.version_number+1,status='active',checksum_sha256=checksum,replaces_document_id=old.id);db.add(d);commit(db);return serialize(d)
 
 @app.get('/api/v1/matching-review')
 def matching_review(db:Session=Depends(get_db),_role:User=Depends(require_role('super_admin'))):return [serialize(s) for s in db.scalars(select(Shipment).where(Shipment.match_status.in_(['suggested','unmatched'])).order_by(Shipment.created_at.desc())).all()]
 @app.get('/api/v1/matching-review/{shipment_id}')
-def matching_detail(shipment_id:uuid.UUID,db:Session=Depends(get_db),_role:User=Depends(require_role('super_admin'))):return shipment(shipment_id,db)
+def matching_detail(shipment_id:uuid.UUID,db:Session=Depends(get_db),_role:User=Depends(require_role('super_admin'))):return shipment(shipment_id,db,ae_scope=None,user=_role)
 @app.post('/api/v1/matching-review/{shipment_id}/link')
 def matching_link(shipment_id:uuid.UUID,body:LinkIn,db:Session=Depends(get_db),_role:User=Depends(require_role('super_admin'))):return link(shipment_id,body,db)
 @app.post('/api/v1/matching-review/{shipment_id}/reject-suggestion')
@@ -1351,7 +1399,7 @@ def search(q:str=Query(min_length=1),limit:int=Query(20,le=100),db:Session=Depen
 
 def rows(db,sql,args=None):return [dict(x) for x in db.execute(text(sql),args or {}).mappings()]
 @app.get('/api/v1/analytics/overview')
-def overview(db:Session=Depends(get_db),_user:User=Depends(get_current_user)):
+def overview(db:Session=Depends(get_db),_user:User=Depends(require_role(['admin','sales_lead']))):
     sql = """
 WITH company_shipments AS (
     SELECT company_id, 
@@ -1383,9 +1431,9 @@ SELECT
     """
     return dict(db.execute(text(sql)).mappings().one())
 @app.get('/api/v1/analytics/dashboard')
-def analytics_dashboard(db:Session=Depends(get_db),_user:User=Depends(get_current_user)):
+def analytics_dashboard(db:Session=Depends(get_db),_user:User=Depends(require_role(['admin','sales_lead']))):
     return {
-        'overview':dict(overview(db)),
+        'overview':dict(overview(db,_user)),
         'shipment_trend':rows(db,"SELECT to_char(m.manifest_date,'YYYY-MM-DD') period,count(s.id)::int shipments,coalesce(sum(s.pieces),0)::int pieces FROM master_air_waybills m LEFT JOIN shipments s ON s.mawb_id=m.id GROUP BY m.manifest_date ORDER BY m.manifest_date DESC LIMIT 30")[::-1],
         'top_customers':rows(db,'SELECT company_id,company_name,icris_number,shipment_count,package_count,document_count,last_shipment_date FROM vw_company_operational_summary WHERE shipment_count>0 ORDER BY shipment_count DESC,company_name LIMIT 10'),
         'destinations':rows(db,"SELECT coalesce(nullif(import_country,''),'Not supplied') name,count(*)::int value FROM shipments GROUP BY import_country ORDER BY value DESC LIMIT 8"),
@@ -1395,21 +1443,25 @@ def analytics_dashboard(db:Session=Depends(get_db),_user:User=Depends(get_curren
         'recent_mawbs':rows(db,'SELECT id,mawb_number,manifest_date,flight_number,origin,destination,last_synced_at FROM master_air_waybills ORDER BY manifest_date DESC,last_synced_at DESC LIMIT 8'),
     }
 @app.get('/api/v1/analytics/customers')
-def analytics_customers(db:Session=Depends(get_db),_user:User=Depends(get_current_user)):return rows(db,'SELECT v.* FROM vw_company_operational_summary v JOIN companies c ON c.id=v.company_id WHERE (c.is_provisional=false OR v.shipment_count>0) ORDER BY v.shipment_count DESC, v.company_name')
+def analytics_customers(db:Session=Depends(get_db),_user:User=Depends(require_role(['admin','sales_lead']))):return rows(db,'SELECT v.* FROM vw_company_operational_summary v JOIN companies c ON c.id=v.company_id WHERE (c.is_provisional=false OR v.shipment_count>0) ORDER BY v.shipment_count DESC, v.company_name')
 @app.get('/api/v1/analytics/destinations')
-def destinations(db:Session=Depends(get_db),_user:User=Depends(get_current_user)):return rows(db,'SELECT * FROM vw_destination_summary ORDER BY shipment_count DESC')
+def destinations(db:Session=Depends(get_db),ae_scope:str|None=Depends(get_ae_scope)):
+    # Queried straight off shipments (not vw_destination_summary) so an ae's scope can be
+    # applied — the view has no ae_code column to filter on.
+    if not ae_scope:return rows(db,'SELECT * FROM vw_destination_summary ORDER BY shipment_count DESC')
+    return rows(db,"SELECT import_country,export_country,count(*)::int shipment_count FROM shipments WHERE ae_code=:ae GROUP BY import_country,export_country ORDER BY shipment_count DESC",{'ae':ae_scope})
 @app.get('/api/v1/analytics/bill-types')
-def bill_types(db:Session=Depends(get_db),_user:User=Depends(get_current_user)):return rows(db,'SELECT bill_type,count(*)::int shipment_count FROM shipments GROUP BY bill_type ORDER BY shipment_count DESC')
+def bill_types(db:Session=Depends(get_db),_user:User=Depends(require_role(['admin','sales_lead']))):return rows(db,'SELECT bill_type,count(*)::int shipment_count FROM shipments GROUP BY bill_type ORDER BY shipment_count DESC')
 @app.get('/api/v1/analytics/values-by-currency')
-def values_by_currency(db:Session=Depends(get_db),_user:User=Depends(get_current_user)):return rows(db,'SELECT company_id,value_currency currency,sum(declared_value) total_value FROM shipments WHERE declared_value IS NOT NULL GROUP BY company_id,value_currency ORDER BY total_value DESC')
+def values_by_currency(db:Session=Depends(get_db),_user:User=Depends(require_role(['admin','sales_lead']))):return rows(db,'SELECT company_id,value_currency currency,sum(declared_value) total_value FROM shipments WHERE declared_value IS NOT NULL GROUP BY company_id,value_currency ORDER BY total_value DESC')
 @app.get('/api/v1/analytics/weights-by-unit')
-def weights_by_unit(db:Session=Depends(get_db),_user:User=Depends(get_current_user)):return rows(db,'SELECT company_id,weight_unit,sum(shipment_weight) total_weight FROM shipments WHERE shipment_weight IS NOT NULL GROUP BY company_id,weight_unit ORDER BY total_weight DESC')
+def weights_by_unit(db:Session=Depends(get_db),_user:User=Depends(require_role(['admin','sales_lead']))):return rows(db,'SELECT company_id,weight_unit,sum(shipment_weight) total_weight FROM shipments WHERE shipment_weight IS NOT NULL GROUP BY company_id,weight_unit ORDER BY total_weight DESC')
 @app.get('/api/v1/analytics/import-quality')
-def import_quality(db:Session=Depends(get_db),_user:User=Depends(get_current_user)):return rows(db,'SELECT * FROM vw_manifest_import_quality ORDER BY imported_at DESC')
+def import_quality(db:Session=Depends(get_db),_user:User=Depends(require_role(['admin','sales_lead']))):return rows(db,'SELECT * FROM vw_manifest_import_quality ORDER BY imported_at DESC')
 @app.get('/api/v1/analytics/document-completeness')
-def completeness(db:Session=Depends(get_db),_user:User=Depends(get_current_user)):return rows(db,'SELECT * FROM vw_company_document_summary ORDER BY active_document_count DESC,company_name')
+def completeness(db:Session=Depends(get_db),_user:User=Depends(require_role(['admin','sales_lead']))):return rows(db,'SELECT * FROM vw_company_document_summary ORDER BY active_document_count DESC,company_name')
 @app.get('/api/v1/analytics/data-quality')
-def data_quality(db:Session=Depends(get_db),_user:User=Depends(get_current_user)):return {'shipment_date_coverage':overview(db)['shipment_date_coverage'],'match_status':rows(db,'SELECT match_status,count(*)::int count FROM shipments GROUP BY match_status')}
+def data_quality(db:Session=Depends(get_db),_user:User=Depends(require_role(['admin','sales_lead']))):return {'shipment_date_coverage':overview(db,_user)['shipment_date_coverage'],'match_status':rows(db,'SELECT match_status,count(*)::int count FROM shipments GROUP BY match_status')}
 
 def get_timeframe_bounds(tf:str,d_from:date|None=None,d_to:date|None=None,y_from:int|None=None,y_to:int|None=None,compare_mode:str='pop'):
     import calendar
@@ -1566,7 +1618,7 @@ def customer_profitability(
     sort:Literal['profit','margin','bill','loss']='profit',
     limit:int=Query(15,le=100),
     db:Session=Depends(get_db),
-    _user:User=Depends(require_role(['admin','sales_lead']))
+    _user:User=Depends(require_role(['admin']))
 ):
     """Per-customer UPS profitability, from the per-shipment P&L grid (S_MenifestPrevUPS).
 
@@ -1757,6 +1809,7 @@ def territory_performance(
     year_to:int|None=None,
     compare_mode:str=Query('pop'),
     db:Session=Depends(get_db),
+    ae_scope:str|None=Depends(get_ae_scope),
 ):
     """Same shape as ae-performance but grouped by AccountExecutive.territory_name
     instead of by individual AE. Only AEs with a territory_name are included (SLR/AJ/RT
@@ -1766,6 +1819,7 @@ def territory_performance(
 
     territory_by_ae={a.ae_code:a.territory_name for a in db.scalars(select(AccountExecutive)).all() if a.territory_name}
 
+    ae_filter=' AND s.ae_code = :ae_scope' if ae_scope else ''
     period_sql=f"""
         SELECT COALESCE(NULLIF(TRIM(s.ae_code), ''), 'UNASSIGNED') AS ae,
                s.company_id, c.company_name, c.icris_number,
@@ -1774,11 +1828,12 @@ def territory_performance(
                SUM(COALESCE(s.shipment_weight, s.actual_weight, 0))::float AS weight
         FROM shipments s
         LEFT JOIN companies c ON c.id = s.company_id
-        WHERE s.shipment_date IS NOT NULL AND s.shipment_date >= :start AND s.shipment_date <= :end
+        WHERE s.shipment_date IS NOT NULL AND s.shipment_date >= :start AND s.shipment_date <= :end{ae_filter}
         GROUP BY 1,2,3,4
     """
-    cur_rows=rows(db,period_sql,{'start':c_start,'end':c_end})
-    prev_rows=rows(db,period_sql,{'start':p_start,'end':p_end})
+    params_extra={'ae_scope':ae_scope} if ae_scope else {}
+    cur_rows=rows(db,period_sql,{'start':c_start,'end':c_end,**params_extra})
+    prev_rows=rows(db,period_sql,{'start':p_start,'end':p_end,**params_extra})
 
     prev_by_territory={}
     for r in prev_rows:
@@ -1851,7 +1906,7 @@ def leaderboard(timeframe:str|None=None,date_from:date|None=None,date_to:date|No
     the current month regardless of what's passed, since this is a motivational view
     of "how's this month going," not a report anyone should be able to dig through
     historically."""
-    is_admin_tier=user.role in ('admin','super_admin')
+    is_admin_tier=user.role in ('admin','super_admin','sales_lead')
     if is_admin_tier and (timeframe or (date_from and date_to)):
         c_start,c_end,_,_=get_timeframe_bounds(timeframe or 'custom',date_from,date_to)
     else:
@@ -1919,7 +1974,7 @@ def leaderboard(timeframe:str|None=None,date_from:date|None=None,date_to:date|No
     return {'period':{'start':str(c_start),'end':str(c_end),'label':label},'leaderboards':by_metric}
 
 @app.get('/api/v1/leaderboard/wins-detail')
-def leaderboard_wins_detail(ae_code:str,date_from:date,date_to:date,db:Session=Depends(get_db),_role:User=Depends(require_role('admin'))):
+def leaderboard_wins_detail(ae_code:str,date_from:date,date_to:date,db:Session=Depends(get_db),_role:User=Depends(require_role(['admin','sales_lead']))):
     """Drill-down for a single AE's win count — which distinct companies were logged
     Win in the range, so admin can see e.g. why an AE has wins but no shipment revenue
     yet (deal closed in the CRM call log, nothing has shipped)."""
@@ -2625,9 +2680,13 @@ def company_analytics(
         'destination_options': destination_options,
     }
 @app.get('/api/v1/companies/{company_id}/activity')
-def company_activity(company_id:uuid.UUID,db:Session=Depends(get_db)):return [serialize(x) for x in db.scalars(select(ActivityLog).where(ActivityLog.entity_id==company_id).order_by(ActivityLog.created_at.desc())).all()]
+def company_activity(company_id:uuid.UUID,db:Session=Depends(get_db),ae_scope:str|None=Depends(get_ae_scope)):
+    scoped_company(db,company_id,ae_scope)
+    return [serialize(x) for x in db.scalars(select(ActivityLog).where(ActivityLog.entity_id==company_id).order_by(ActivityLog.created_at.desc())).all()]
 @app.get('/api/v1/shipments/{shipment_id}/activity')
-def shipment_activity(shipment_id:uuid.UUID,db:Session=Depends(get_db)):return [serialize(x) for x in db.scalars(select(ActivityLog).where(ActivityLog.entity_id==shipment_id).order_by(ActivityLog.created_at.desc())).all()]
+def shipment_activity(shipment_id:uuid.UUID,db:Session=Depends(get_db),ae_scope:str|None=Depends(get_ae_scope)):
+    scoped_shipment(db,shipment_id,ae_scope)
+    return [serialize(x) for x in db.scalars(select(ActivityLog).where(ActivityLog.entity_id==shipment_id).order_by(ActivityLog.created_at.desc())).all()]
 def call_log_payload(item):
     return {'id':str(item.id),'call_date':item.call_date.isoformat(),'company_name':item.company_name,'crm_customer_id':item.crm_customer_id,'stage':item.stage,'category':item.category,'contact_person':item.contact_person,'phone':item.phone,'call_type':item.call_type,'ae_code':item.ae_code,'remarks':item.remarks,'supervisor_comment':item.supervisor_comment,'follow_up_date':item.follow_up_date.isoformat() if item.follow_up_date else None,'scraped_at':item.scraped_at.isoformat()}
 @app.get('/api/v1/companies/{company_id}/call-logs')
@@ -3093,7 +3152,8 @@ def mawb_summary(m,db):
     summary=db.execute(text('SELECT * FROM vw_mawb_reconciliation WHERE mawb_id=:id'),{'id':m.id}).mappings().first()
     return serialize(m,dict(summary) if summary else {})
 @app.get('/api/v1/mawbs')
-def mawbs(q:str|None=None,manifest_date_from:date|None=None,manifest_date_to:date|None=None,flight_number:str|None=None,origin:str|None=None,destination:str|None=None,sync_status:str|None=None,has_pnl:bool|None=None,sort:str=Query('manifest_date',pattern='^(manifest_date|margin)$'),limit:int=Query(50,le=200),offset:int=0,db:Session=Depends(get_db),ae_scope:str|None=Depends(get_ae_scope)):
+def mawbs(q:str|None=None,manifest_date_from:date|None=None,manifest_date_to:date|None=None,flight_number:str|None=None,origin:str|None=None,destination:str|None=None,sync_status:str|None=None,has_pnl:bool|None=None,sort:str=Query('manifest_date',pattern='^(manifest_date|margin)$'),limit:int=Query(50,le=200),offset:int=0,db:Session=Depends(get_db),ae_scope:str|None=Depends(get_ae_scope),user:User=Depends(get_current_user)):
+    if sort=='margin' and user.role not in PROFIT_ROLES:sort='manifest_date'
     stmt=select(MasterAirWaybill)
     if ae_scope:stmt=stmt.where(MasterAirWaybill.id.in_(select(Shipment.mawb_id).where(Shipment.ae_code==ae_scope,Shipment.mawb_id.is_not(None))))
     if q:stmt=stmt.where(MasterAirWaybill.mawb_number.ilike(f'%{q}%'))
@@ -3115,13 +3175,13 @@ def mawbs(q:str|None=None,manifest_date_from:date|None=None,manifest_date_to:dat
     else:
         order=MasterAirWaybill.manifest_date.desc()
     items=[mawb_summary(m,db) for m in db.scalars(stmt.order_by(order).limit(limit).offset(offset)).all()]
-    return {'items':items,'total':total,'limit':limit,'offset':offset}
+    return strip_pnl({'items':items,'total':total,'limit':limit,'offset':offset},user)
 def _pnl_range_filter(stmt,manifest_date_from,manifest_date_to):
     if manifest_date_from:stmt=stmt.where(MasterAirWaybill.manifest_date>=manifest_date_from)
     if manifest_date_to:stmt=stmt.where(MasterAirWaybill.manifest_date<=manifest_date_to)
     return stmt
 @app.get('/api/v1/mawbs/pnl-summary')
-def mawbs_pnl_summary(manifest_date_from:date|None=None,manifest_date_to:date|None=None,db:Session=Depends(get_db),_user:User=Depends(require_role(['admin','sales_lead']))):
+def mawbs_pnl_summary(manifest_date_from:date|None=None,manifest_date_to:date|None=None,db:Session=Depends(get_db),_user:User=Depends(require_role(['admin']))):
     stmt=_pnl_range_filter(select(func.count().label('mawb_count'),func.coalesce(func.sum(MasterAirWaybill.pnl_bill_amount),0).label('bill_amount'),func.coalesce(func.sum(MasterAirWaybill.pnl_ups_bill_amount),0).label('ups_bill_amount'),func.coalesce(func.sum(MasterAirWaybill.pnl_profit_loss),0).label('profit_loss'),func.max(MasterAirWaybill.pnl_synced_at).label('last_synced_at')).where(MasterAirWaybill.pnl_synced_at.is_not(None)),manifest_date_from,manifest_date_to)
     row=dict(db.execute(stmt).mappings().one())
     base=_pnl_range_filter(select(MasterAirWaybill).where(MasterAirWaybill.pnl_synced_at.is_not(None),MasterAirWaybill.pnl_bill_amount>0),manifest_date_from,manifest_date_to)
@@ -3151,7 +3211,7 @@ def mawbs_pnl_summary(manifest_date_from:date|None=None,manifest_date_to:date|No
     row['shipment_detail_available']=bool(db.scalar(_pnl_range_filter(select(func.count()).select_from(Shipment).join(MasterAirWaybill,Shipment.mawb_id==MasterAirWaybill.id).where(Shipment.pnl_synced_at.is_not(None)),manifest_date_from,manifest_date_to)))
     return row
 @app.get('/api/v1/mawbs/pnl-trend')
-def mawbs_pnl_trend(manifest_date_from:date,manifest_date_to:date,granularity:Literal['day','week','month']='day',db:Session=Depends(get_db),_user:User=Depends(require_role(['admin','sales_lead']))):
+def mawbs_pnl_trend(manifest_date_from:date,manifest_date_to:date,granularity:Literal['day','week','month']='day',db:Session=Depends(get_db),_user:User=Depends(require_role(['admin']))):
     bucket={'day':'day','week':'week','month':'month'}[granularity]
     rows=db.execute(text(f"""
         SELECT date_trunc('{bucket}', manifest_date)::date AS period,
@@ -3165,7 +3225,7 @@ def mawbs_pnl_trend(manifest_date_from:date,manifest_date_to:date,granularity:Li
     """),{'date_from':manifest_date_from,'date_to':manifest_date_to}).mappings().all()
     return [dict(r) for r in rows]
 @app.get('/api/v1/mawbs/pnl-routes')
-def mawbs_pnl_routes(manifest_date_from:date|None=None,manifest_date_to:date|None=None,limit:int=Query(8,le=1000),db:Session=Depends(get_db),_user:User=Depends(require_role(['admin','sales_lead']))):
+def mawbs_pnl_routes(manifest_date_from:date|None=None,manifest_date_to:date|None=None,limit:int=Query(8,le=1000),db:Session=Depends(get_db),_user:User=Depends(require_role(['admin']))):
     stmt=text("""
         WITH mawb_real_destination AS (
             SELECT m.id,
@@ -3191,14 +3251,23 @@ def mawbs_pnl_routes(manifest_date_from:date|None=None,manifest_date_to:date|Non
     """)
     rows=db.execute(stmt,{'date_from':manifest_date_from,'date_to':manifest_date_to,'limit':limit}).mappings().all()
     return [dict(r) for r in rows]
+def scoped_mawbs(db,mawbs_found,ae_scope):
+    """An ae only sees a MAWB that carries at least one of their own shipments — same
+    join /mawbs uses to scope its list."""
+    if not ae_scope:return mawbs_found
+    owned_ids={mid for (mid,) in db.execute(select(Shipment.mawb_id).where(Shipment.ae_code==ae_scope,Shipment.mawb_id.in_([m.id for m in mawbs_found])).distinct())}
+    return [m for m in mawbs_found if m.id in owned_ids]
 @app.get('/api/v1/mawbs/by-number/{mawb_number}')
-def mawb_by_number(mawb_number:str,db:Session=Depends(get_db)):
+def mawb_by_number(mawb_number:str,db:Session=Depends(get_db),ae_scope:str|None=Depends(get_ae_scope),user:User=Depends(get_current_user)):
     found=db.scalars(select(MasterAirWaybill).where(func.lower(MasterAirWaybill.mawb_number)==mawb_number.strip().casefold()).order_by(MasterAirWaybill.manifest_date.desc())).all()
+    found=scoped_mawbs(db,found,ae_scope)
     if not found:raise HTTPException(404,'Master Air Waybill not found')
-    return [mawb_summary(x,db) for x in found]
+    return strip_pnl([mawb_summary(x,db) for x in found],user)
 @app.get('/api/v1/mawbs/{mawb_id}')
-def mawb_detail(mawb_id:uuid.UUID,db:Session=Depends(get_db)):
-    m=one(db,MasterAirWaybill,mawb_id);shipments=db.scalars(select(Shipment).options(selectinload(Shipment.company),selectinload(Shipment.packages)).where(Shipment.mawb_id==m.id).order_by(Shipment.shipment_number)).all()
+def mawb_detail(mawb_id:uuid.UUID,db:Session=Depends(get_db),ae_scope:str|None=Depends(get_ae_scope),user:User=Depends(get_current_user)):
+    m=one(db,MasterAirWaybill,mawb_id)
+    if not scoped_mawbs(db,[m],ae_scope):raise HTTPException(404,'Master Air Waybill not found')
+    shipments=db.scalars(select(Shipment).options(selectinload(Shipment.company),selectinload(Shipment.packages)).where(Shipment.mawb_id==m.id).order_by(Shipment.shipment_number)).all()
     
     prefix = (m.mawb_number or '').split('-')[0] if '-' in (m.mawb_number or '') else (m.mawb_number or '')[:3]
     carrier_names = {
@@ -3232,11 +3301,11 @@ def mawb_detail(mawb_id:uuid.UUID,db:Session=Depends(get_db)):
             'revenue': shipment_revenue(s),
         })
 
-    return mawb_summary(m,db)|{
+    return strip_pnl(mawb_summary(m,db)|{
         'shipments':[shipment_row(s) for s in shipments],
         'carrier_name': carrier,
         'billing_breakdown': billing_counts
-    }
+    },user)
 
 @app.get('/api/v1/quality-issues/company-conflicts')
 def company_conflicts(min_similarity:float=Query(0.6,ge=0.0,le=1.0),limit:int=Query(200,le=500),db:Session=Depends(get_db),_role:User=Depends(require_role('super_admin'))):

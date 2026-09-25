@@ -231,16 +231,18 @@ export default function Pipeline() {
 
             <div className="flex flex-wrap items-center gap-2">
               <ExportButton onExport={exportExcel} disabled={!canExport} />
-              <select
-                value={aeFilter}
-                onChange={(e) => setAeFilter(e.target.value)}
-                className="h-9 px-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
-              >
-                <option value="">All AEs</option>
-                {aeCodes.map((code) => (
-                  <option key={code} value={code}>{code}</option>
-                ))}
-              </select>
+              {canSeeLogs && (
+                <select
+                  value={aeFilter}
+                  onChange={(e) => setAeFilter(e.target.value)}
+                  className="h-9 px-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  <option value="">All AEs</option>
+                  {aeCodes.map((code) => (
+                    <option key={code} value={code}>{code}</option>
+                  ))}
+                </select>
+              )}
               {!showDateChanges && (
                 <div className="flex items-center gap-1 h-9 px-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg">
                   <button

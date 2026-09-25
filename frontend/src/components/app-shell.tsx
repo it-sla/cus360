@@ -71,7 +71,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Master Air Waybills", path: "/app/mawb", icon: FileText, group: "Operations" },
 
   // Intelligence
-  { label: "Profitability", path: "/app/profitability", icon: TrendingUp, group: "Intelligence", roles: ['admin', 'sales_lead'] },
+  { label: "Profitability", path: "/app/profitability", icon: TrendingUp, group: "Intelligence", roles: ['admin'] },
   { label: "Rankings", path: "/app/rankings", icon: Trophy, group: "Intelligence" },
   { label: "Leaderboard", path: "/app/leaderboard", icon: Medal, group: "Intelligence" },
   { label: "Alerts", path: "/app/alerts", icon: Bell, group: "Intelligence" },
