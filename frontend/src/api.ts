@@ -58,6 +58,11 @@ export const authApi = {
     const response = await apiClient.post('/auth/set-password', { token, password });
     return normalizeAuthUser(response.data);
   },
+
+  changePassword: async (currentPassword: string, newPassword: string): Promise<AuthUser> => {
+    const response = await apiClient.post('/auth/change-password', { current_password: currentPassword, new_password: newPassword });
+    return normalizeAuthUser(response.data);
+  },
 };
 
 export interface KpiCardData {
@@ -1491,6 +1496,8 @@ export interface AdminUser {
   has_password: boolean;
   must_change_password: boolean;
   email_alerts_enabled: boolean;
+  last_login_at: string | null;
+  is_locked: boolean;
   created_at: string;
   updated_at: string;
   setup_link?: string;
@@ -1542,6 +1549,16 @@ export const adminApi = {
 
   updateUser: async (userId: string, body: AdminUserPatch): Promise<AdminUser> => {
     const { data } = await apiClient.patch(`/admin/users/${userId}`, body);
+    return data;
+  },
+
+  setPassword: async (userId: string, password: string): Promise<AdminUser> => {
+    const { data } = await apiClient.post(`/admin/users/${userId}/password`, { password });
+    return data;
+  },
+
+  unlockUser: async (userId: string): Promise<AdminUser> => {
+    const { data } = await apiClient.post(`/admin/users/${userId}/unlock`);
     return data;
   },
 

@@ -29,6 +29,13 @@ class User(UUIDPK, Timestamps, Base):
     email_alerts_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     setup_token_hash: Mapped[str|None] = mapped_column(String, unique=True, index=True)
     setup_token_expires_at: Mapped[datetime|None] = mapped_column(DateTime(timezone=True))
+    # Bumped by revoke_sessions() (password change/reset, deactivation) to invalidate every
+    # session token issued before the bump — a session token embeds the version it was
+    # issued under, and get_current_user rejects a stale one even if its signature is valid.
+    session_version: Mapped[int] = mapped_column(Integer, default=0)
+    last_login_at: Mapped[datetime|None] = mapped_column(DateTime(timezone=True))
+    failed_login_count: Mapped[int] = mapped_column(Integer, default=0)
+    locked_until: Mapped[datetime|None] = mapped_column(DateTime(timezone=True))
 
 class UserNotificationState(Base):
     """One row per user, tracking which key-insight alert ids they've already seen —

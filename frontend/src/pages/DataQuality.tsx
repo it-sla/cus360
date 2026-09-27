@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, type CompanyConflict, type DataQualityIssue } from '../api';
+import { CompanyPicker } from '@/components/CompanyPicker';
 import { ExportButton } from '@/components/ExportButton';
 import { exportXlsx, fetchAllPages, warnIfTruncated } from '@/lib/exportXlsx';
 import {
@@ -577,52 +578,6 @@ function IssuesTab() {
   );
 }
 
-/** Company search box shared by the assign-company and merge-target fix flows.
- *  350ms debounce mirrors the issue-list search above. */
-function CompanyPicker({ value, onChange }: { value: { id: string; company_name: string } | null; onChange: (c: { id: string; company_name: string } | null) => void }) {
-  const [q, setQ] = useState('');
-  const [debouncedQ, setDebouncedQ] = useState('');
-  useEffect(() => { const t = setTimeout(() => setDebouncedQ(q), 350); return () => clearTimeout(t); }, [q]);
-  const { data } = useQuery({
-    queryKey: ['company-picker', debouncedQ],
-    queryFn: () => api.getCompanies({ q: debouncedQ, status: 'official', limit: 8 }),
-    enabled: debouncedQ.length >= 2 && !value,
-  });
-  if (value) {
-    return (
-      <div className="flex items-center justify-between px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800/50 rounded-lg text-xs">
-        <span className="font-bold text-indigo-800 dark:text-indigo-300">{value.company_name}</span>
-        <button onClick={() => onChange(null)} className="text-indigo-500"><X size={13} /></button>
-      </div>
-    );
-  }
-  return (
-    <div className="relative">
-      <input
-        autoFocus
-        value={q}
-        onChange={e => setQ(e.target.value)}
-        placeholder="Search company name or ICRIS…"
-        className="w-full h-9 px-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-semibold outline-none focus:border-indigo-400"
-      />
-      {data && data.items.length > 0 && (
-        <div className="absolute z-10 mt-1 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-          {data.items.map(c => (
-            <button
-              key={c.company_id}
-              onClick={() => onChange({ id: c.company_id, company_name: c.company_name })}
-              className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-800 border-b border-slate-100 dark:border-slate-800 last:border-0"
-            >
-              <div className="font-bold text-slate-800 dark:text-slate-200">{c.company_name}</div>
-              <div className="font-mono text-[10px] text-slate-500">{c.icris_number}</div>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 /** The per-row "Fix" modal. Form shape depends on issue_type; every action it can submit
  *  maps 1:1 onto backend/app/main.py's /data-quality/issues/{id}/fix dispatch, so this is
  *  the only place that needs to know what each issue_type's real remediation looks like. */
@@ -671,7 +626,7 @@ function FixDialog({ issue, onClose, onFixed }: { issue: DataQualityIssue | null
         <p className="text-xs text-slate-500 dark:text-slate-400">Link this shipment to the correct customer. The link is manual, so future CRM syncs will never overwrite it.</p>
         {!creatingNew ? (
           <>
-            <CompanyPicker value={company} onChange={setCompany} />
+            <CompanyPicker value={company} onChange={setCompany} autoFocus />
             <button onClick={() => setCreatingNew(true)} className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400">+ Create new company instead</button>
           </>
         ) : (
@@ -731,7 +686,7 @@ function FixDialog({ issue, onClose, onFixed }: { issue: DataQualityIssue | null
     body = (
       <div className="space-y-3">
         <p className="text-xs text-slate-500 dark:text-slate-400">Fold this provisional company into the official one it actually belongs to. This permanently merges its shipments and documents in and deletes the provisional record.</p>
-        <CompanyPicker value={company} onChange={setCompany} />
+        <CompanyPicker value={company} onChange={setCompany} autoFocus />
       </div>
     );
   } else {
@@ -1232,7 +1187,7 @@ function NotInMasterTab() {
                 {mergeSources.map(s => <li key={s.id} className="px-3 py-1.5">{s.name}</li>)}
               </ul>
             )}
-            <CompanyPicker value={mergeTarget} onChange={setMergeTarget} />
+            <CompanyPicker value={mergeTarget} onChange={setMergeTarget} autoFocus />
             {mergeError && (
               <div className="mt-3 p-3 rounded-lg bg-rose-50 dark:bg-rose-900/10 border border-rose-200 dark:border-rose-800/40 text-xs text-rose-700 dark:text-rose-400">
                 <strong>Merge failed:</strong> {mergeError}

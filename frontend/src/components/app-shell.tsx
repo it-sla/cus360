@@ -9,7 +9,7 @@ import {
   ShieldCheck, Globe, ChevronDown, TrendingUp, Trophy, Medal,
   Bell, RefreshCw, CheckSquare, GitBranch, Target, Building2,
   LogOut, PanelLeftClose, PanelLeftOpen, UserCog, X, Plane, ArrowRight, Sun, Moon,
-  DollarSign, UserCheck, Award, MapPin, FileStack, Activity,
+  DollarSign, UserCheck, Award, MapPin, FileStack, Activity, KeyRound,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,7 @@ import { useTheme } from '@/theme';
 import { api } from '@/api';
 import type { KeyInsight, SearchResultItem } from '@/api';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { ChangePasswordDialog } from '@/components/ChangePasswordDialog';
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -154,6 +155,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [bellOpen, setBellOpen] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [insightCategory, setInsightCategory] = useState<string | null>(null);
   const { isSuperAdmin, hasRole, user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -726,6 +728,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   className="z-50 min-w-[160px] bg-zinc-900 border border-zinc-800 rounded-md p-1 shadow-md animate-in fade-in zoom-in-95"
                 >
                   <DropdownMenu.Item
+                    onClick={() => setChangePasswordOpen(true)}
+                    className="flex items-center gap-2 px-2 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-zinc-50 rounded-sm cursor-pointer outline-none transition-colors"
+                  >
+                    <KeyRound size={14} />
+                    Change Password
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Separator className="h-px bg-zinc-800 my-1" />
+                  <DropdownMenu.Item
                     onClick={() => logout()}
                     className="flex items-center gap-2 px-2 py-1.5 text-sm text-rose-400 hover:bg-zinc-800 hover:text-rose-300 rounded-sm cursor-pointer outline-none transition-colors"
                   >
@@ -735,6 +745,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </DropdownMenu.Content>
               </DropdownMenu.Portal>
             </DropdownMenu.Root>
+            <ChangePasswordDialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen} />
             <Separator.Root decorative orientation="vertical" className="w-[1px] h-6 bg-zinc-800" />
             <span className="text-xs font-medium text-zinc-500">Customer 360</span>
           </div>

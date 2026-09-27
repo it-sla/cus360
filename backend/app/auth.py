@@ -125,10 +125,25 @@ def _unsign(token: str) -> str | None:
 # before this change, since old tokens have no ":" to split on.
 AUTH_SESSION_TTL_SECONDS = 60 * 60 * 24 * 14  # 14 days
 
+# Login lockout: after this many consecutive bad passwords, the account is locked for
+# this many minutes. Reset to 0 on any successful login.
+LOCKOUT_THRESHOLD = 5
+LOCKOUT_MINUTES = 15
 
-def create_session_token(user_id: str) -> str:
+
+def create_session_token(user_id: str, session_version: int = 0) -> str:
+    """The token carries the session_version it was issued under (default 0, so a call
+    site that hasn't been updated yet still produces a valid, if never-revocable,
+    token) — get_current_user rejects it once revoke_sessions() bumps the user's
+    current version past what's embedded here."""
     issued_at = int(datetime.now(timezone.utc).timestamp())
-    return _sign(f"{user_id}:{issued_at}")
+    return _sign(f"{user_id}:{issued_at}:{session_version}")
+
+
+def revoke_sessions(user: User) -> None:
+    """Invalidates every session token issued for this user before now — call after a
+    password change/reset or deactivation. Caller is responsible for committing."""
+    user.session_version += 1
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
@@ -140,8 +155,19 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     if not value:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
+    parts = value.split(":")
+    # Old 2-part tokens (user_id:issued_at, from before session_version existed) are
+    # treated as version 0 — same as a fresh token from an unpatched call site — so
+    # this migration doesn't force-logout every existing session on its own.
     try:
-        user_id, issued_at_str = value.rsplit(":", 1)
+        if len(parts) == 3:
+            user_id, issued_at_str, token_version_str = parts
+            token_version = int(token_version_str)
+        elif len(parts) == 2:
+            user_id, issued_at_str = parts
+            token_version = 0
+        else:
+            raise ValueError
         issued_at = int(issued_at_str)
     except ValueError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
@@ -152,6 +178,9 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     user = db.get(User, user_id)
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+
+    if token_version != user.session_version:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session revoked — please sign in again")
 
     return user
 
@@ -185,7 +214,8 @@ def access_guard(request: Request, db: Session = Depends(get_db)) -> None:
     if request.url.path in PUBLIC_PATHS or request.method == "OPTIONS":
         return
     user = get_current_user(request, db)
-    if user.role == "admin" and request.method not in READ_METHODS and not request.url.path.startswith("/api/v1/notifications/"):
+    is_own_state = request.url.path.startswith("/api/v1/notifications/") or request.url.path == "/api/v1/auth/change-password"
+    if user.role == "admin" and request.method not in READ_METHODS and not is_own_state:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin accounts are read-only")
 
 

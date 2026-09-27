@@ -1,6 +1,6 @@
 import hashlib, io, logging, mimetypes, re, uuid
 from urllib.parse import parse_qs,urlparse
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Annotated,Literal
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
@@ -11,7 +11,7 @@ from sqlalchemy import func, or_, select, text, case, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 from .core import settings
-from .auth import AUTH_COOKIE_NAME, AUTH_SESSION_TTL_SECONDS, LoginRequest, access_guard, create_session_token, find_user_by_setup_token, generate_setup_token, get_ae_scope, get_current_user, hash_password, require_role, serialize_user, verify_password
+from .auth import AUTH_COOKIE_NAME, AUTH_SESSION_TTL_SECONDS, LOCKOUT_MINUTES, LOCKOUT_THRESHOLD, LoginRequest, access_guard, create_session_token, find_user_by_setup_token, generate_setup_token, get_ae_scope, get_current_user, hash_password, require_role, revoke_sessions, serialize_user, verify_password
 from .db import get_db
 from .imports import read_file
 from .company_imports import CompanyWorkbookError, analyze as analyze_company_workbook, import_companies, parse_workbook
@@ -105,6 +105,10 @@ class UserPatch(BaseModel):
     display_name:str|None=None; role:Literal['super_admin','admin','sales_lead','ae','user']|None=None; ae_code:str|None=None; is_active:bool|None=None; email_alerts_enabled:bool|None=None
 class SetPasswordIn(BaseModel):
     token:str; password:str=Field(min_length=8)
+class ChangePasswordIn(BaseModel):
+    current_password:str; new_password:str=Field(min_length=8)
+class AdminSetPasswordIn(BaseModel):
+    password:str=Field(min_length=8)
 class AuthUserOut(BaseModel):
     id:str; email:str; display_name:str; role:str; ae_code:str|None=None; must_change_password:bool=False
 def serialize(obj,extra=None):
@@ -157,11 +161,26 @@ def auth_login(body: LoginRequest, response: Response, db: Session = Depends(get
     user = db.scalar(select(User).where(User.email == body.email.strip().lower()))
     if user and not user.password_hash:
         raise HTTPException(status_code=401, detail='This account has not been activated yet — use your setup link to create a password.')
+    if user and user.locked_until:
+        locked_until = user.locked_until if user.locked_until.tzinfo else user.locked_until.replace(tzinfo=timezone.utc)
+        if locked_until > datetime.now(timezone.utc):
+            minutes_left = max(1, int((locked_until - datetime.now(timezone.utc)).total_seconds() // 60) + 1)
+            raise HTTPException(status_code=423, detail=f'Too many failed attempts — try again in {minutes_left} minute(s).')
     if not user or not user.is_active or not verify_password(body.password, user.password_hash):
+        if user and user.is_active:
+            user.failed_login_count += 1
+            if user.failed_login_count >= LOCKOUT_THRESHOLD:
+                user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=LOCKOUT_MINUTES)
+                user.failed_login_count = 0
+            commit(db)
         raise HTTPException(status_code=401, detail='Invalid credentials')
+    user.failed_login_count = 0
+    user.locked_until = None
+    user.last_login_at = datetime.now(timezone.utc)
+    commit(db)
     response.set_cookie(
         key=AUTH_COOKIE_NAME,
-        value=create_session_token(str(user.id)),
+        value=create_session_token(str(user.id), user.session_version),
         httponly=True,
         samesite='lax',
         secure=False,
@@ -193,11 +212,14 @@ def auth_set_password(body: SetPasswordIn, response: Response, db: Session = Dep
     user.must_change_password = False
     user.setup_token_hash = None
     user.setup_token_expires_at = None
+    user.failed_login_count = 0
+    user.locked_until = None
+    revoke_sessions(user)  # any session from before this reset/first-set is now dead
     log_activity(db, 'user', user.id, 'password_set', f'{user.email} set their password via setup link')
     commit(db)
     response.set_cookie(
         key=AUTH_COOKIE_NAME,
-        value=create_session_token(str(user.id)),
+        value=create_session_token(str(user.id), user.session_version),
         httponly=True,
         samesite='lax',
         secure=False,
@@ -206,8 +228,37 @@ def auth_set_password(body: SetPasswordIn, response: Response, db: Session = Dep
     )
     return serialize_user(user)
 
+@app.post('/api/v1/auth/change-password', response_model=AuthUserOut)
+def auth_change_password(body:ChangePasswordIn,response:Response,db:Session=Depends(get_db),user:User=Depends(get_current_user)):
+    """Any logged-in role, including read-only admin (see auth.access_guard's
+    is_own_state exemption) — this only ever touches the caller's own password."""
+    if not user.password_hash or not verify_password(body.current_password,user.password_hash):
+        raise HTTPException(status_code=400,detail='Current password is incorrect')
+    user.password_hash=hash_password(body.new_password)
+    user.must_change_password=False
+    revoke_sessions(user)
+    log_activity(db,'user',user.id,'password_changed',f'{user.email} changed their own password')
+    commit(db)
+    # The caller's own session must survive its own revoke — re-issue their cookie
+    # under the new session_version so they aren't logged out by their own action.
+    response.set_cookie(
+        key=AUTH_COOKIE_NAME,
+        value=create_session_token(str(user.id),user.session_version),
+        httponly=True,
+        samesite='lax',
+        secure=False,
+        path='/',
+        max_age=AUTH_SESSION_TTL_SECONDS,
+    )
+    return serialize_user(user)
+
+def is_locked(u:User)->bool:
+    if not u.locked_until:return False
+    locked_until=u.locked_until if u.locked_until.tzinfo else u.locked_until.replace(tzinfo=timezone.utc)
+    return locked_until>datetime.now(timezone.utc)
+
 def serialize_admin_user(u:User,setup_link:str|None=None)->dict:
-    d={'id':str(u.id),'email':u.email,'display_name':u.display_name,'role':u.role,'ae_code':u.ae_code,'is_active':u.is_active,'has_password':bool(u.password_hash),'must_change_password':u.must_change_password,'email_alerts_enabled':u.email_alerts_enabled,'created_at':u.created_at,'updated_at':u.updated_at}
+    d={'id':str(u.id),'email':u.email,'display_name':u.display_name,'role':u.role,'ae_code':u.ae_code,'is_active':u.is_active,'has_password':bool(u.password_hash),'must_change_password':u.must_change_password,'email_alerts_enabled':u.email_alerts_enabled,'last_login_at':u.last_login_at,'is_locked':is_locked(u),'created_at':u.created_at,'updated_at':u.updated_at}
     if setup_link:d['setup_link']=setup_link
     return d
 
@@ -311,7 +362,33 @@ def admin_update_user(user_id:uuid.UUID,body:UserPatch,db:Session=Depends(get_db
     elif 'role' in changes:
         changes.setdefault('ae_code',None)  # moving away from 'ae' clears a stale ae_code rather than leaving it dangling unused
     for k,v in changes.items():setattr(u,k,v.strip() if isinstance(v,str) else v)
+    if changes.get('is_active') is False:revoke_sessions(u)  # deactivation kills any session they're still holding
     log_activity(db,'user',u.id,'updated',f'{admin.email} updated user {u.email} ({", ".join(changes) or "no fields"})')
+    commit(db);return serialize_admin_user(u)
+
+@app.post('/api/v1/admin/users/{user_id}/password')
+def admin_set_password(user_id:uuid.UUID,body:AdminSetPasswordIn,db:Session=Depends(get_db),admin:User=Depends(require_role('super_admin'))):
+    """Sets a password directly — an alternative to the setup-link flow for when an
+    admin needs the account usable immediately (e.g. over the phone). Signs the user
+    out everywhere: an admin-set password is not something the old session should
+    survive. Never logs the password itself, only that a reset happened."""
+    u=one(db,User,user_id)
+    u.password_hash=hash_password(body.password)
+    u.must_change_password=False
+    u.setup_token_hash=None
+    u.setup_token_expires_at=None
+    u.failed_login_count=0
+    u.locked_until=None
+    revoke_sessions(u)
+    log_activity(db,'user',u.id,'password_reset',f'{admin.email} reset the password for {u.email}')
+    commit(db);return serialize_admin_user(u)
+
+@app.post('/api/v1/admin/users/{user_id}/unlock')
+def admin_unlock_user(user_id:uuid.UUID,db:Session=Depends(get_db),admin:User=Depends(require_role('super_admin'))):
+    u=one(db,User,user_id)
+    u.failed_login_count=0
+    u.locked_until=None
+    log_activity(db,'user',u.id,'unlocked',f'{admin.email} unlocked {u.email}')
     commit(db);return serialize_admin_user(u)
 
 @app.get('/api/v1/admin/audit-logs')

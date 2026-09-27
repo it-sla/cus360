@@ -2,7 +2,8 @@ import { useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi, api, type AdminUser, type AuthRole, type NewUserRow, type BulkCreateUserResult } from '../../api';
 import { useAuth } from '@/auth';
-import { Search, Plus, Users as UsersIcon, X, MoreVertical, ShieldCheck, UserX, UserCheck, KeyRound, Copy, Check, Trash2, ClipboardPaste } from 'lucide-react';
+import { Search, Plus, Users as UsersIcon, X, MoreVertical, ShieldCheck, UserX, UserCheck, KeyRound, Copy, Check, Trash2, ClipboardPaste, Lock, LockOpen, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 const PAGE_SIZE = 25;
 
@@ -28,6 +29,28 @@ function StatusBadge({ isActive, hasPassword }: { isActive: boolean; hasPassword
   if (!isActive) return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">Inactive</span>;
   if (!hasPassword) return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">Pending activation</span>;
   return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>;
+}
+
+function LockedBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-50 text-orange-700 border border-orange-200 ml-1.5">
+      <Lock size={10} /> Locked
+    </span>
+  );
+}
+
+function fmtLastLogin(iso: string | null): string {
+  if (!iso) return 'Never';
+  const d = new Date(iso);
+  const diffMs = Date.now() - d.getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function CopyLinkRow({ link }: { link: string }) {
@@ -81,6 +104,52 @@ function CopyLinkRow({ link }: { link: string }) {
 
 const emptyRow = (): NewUserRow => ({ email: '', display_name: '', role: 'user', ae_code: '' });
 
+function SetPasswordDialog({ user, onClose, onSubmit, isPending, error }: { user: AdminUser | null; onClose: () => void; onSubmit: (password: string) => void; isPending: boolean; error: string }) {
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [show, setShow] = useState(false);
+  if (!user) return null;
+  const tooShort = password.length > 0 && password.length < 8;
+  const mismatch = confirm.length > 0 && password !== confirm;
+  const canSubmit = password.length >= 8 && password === confirm && !isPending;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white border border-slate-200 rounded-xl shadow-2xl w-full max-w-sm p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-slate-800">Set Password — {user.display_name}</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors"><X size={20} /></button>
+        </div>
+        <form onSubmit={(e) => { e.preventDefault(); if (canSubmit) onSubmit(password); }} className="space-y-3">
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">New Password</label>
+            <div className="relative">
+              <input type={show ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} autoFocus
+                className="w-full h-9 px-3 pr-9 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:border-teal-400" />
+              <button type="button" onClick={() => setShow(s => !s)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                {show ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
+            {tooShort && <p className="text-[10px] text-rose-500 mt-1">At least 8 characters.</p>}
+          </div>
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">Confirm Password</label>
+            <input type={show ? 'text' : 'password'} value={confirm} onChange={e => setConfirm(e.target.value)}
+              className="w-full h-9 px-3 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:border-teal-400" />
+            {mismatch && <p className="text-[10px] text-rose-500 mt-1">Passwords don't match.</p>}
+          </div>
+          {error && <p className="text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">{error}</p>}
+          <p className="text-[10px] text-slate-400">This signs {user.display_name} out of every device they're currently signed in on.</p>
+          <button type="submit" disabled={!canSubmit}
+            className="w-full h-9 bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors">
+            {isPending ? <Loader2 size={13} className="animate-spin" /> : null}
+            {isPending ? 'Setting…' : 'Set Password'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function Users() {
   const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
@@ -90,6 +159,8 @@ export default function Users() {
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showRowMenuId, setShowRowMenuId] = useState<string | null>(null);
+  const [passwordTarget, setPasswordTarget] = useState<AdminUser | null>(null);
+  const [passwordError, setPasswordError] = useState('');
 
   // Single add / edit modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -141,6 +212,18 @@ export default function Users() {
     mutationFn: (userId: string) => adminApi.issueSetupLink(userId),
     onSuccess: (res) => { setEditSetupLink(res.setup_link); queryClient.invalidateQueries({ queryKey: ['admin-users'] }); },
     onError: (err: any) => alert(err?.response?.data?.detail || 'Failed to generate setup link'),
+  });
+
+  const setPasswordMutation = useMutation({
+    mutationFn: ({ id, password }: { id: string; password: string }) => adminApi.setPassword(id, password),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-users'] }); setPasswordTarget(null); setPasswordError(''); },
+    onError: (err: any) => setPasswordError(err?.response?.data?.detail || 'Failed to set password'),
+  });
+
+  const unlockMutation = useMutation({
+    mutationFn: (userId: string) => adminApi.unlockUser(userId),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-users'] }); setShowRowMenuId(null); },
+    onError: (err: any) => alert(err?.response?.data?.detail || 'Failed to unlock user'),
   });
 
   const bulkCreateMutation = useMutation({
@@ -317,6 +400,7 @@ export default function Users() {
                   <th className="px-4 py-2.5">Email</th>
                   <th className="px-4 py-2.5">Role</th>
                   <th className="px-4 py-2.5">Status</th>
+                  <th className="px-4 py-2.5">Last Login</th>
                   <th className="px-4 py-2.5">Created</th>
                   <th className="px-4 py-2.5 text-right w-10">Actions</th>
                 </tr>
@@ -329,13 +413,14 @@ export default function Users() {
                       <td className="px-4 py-3"><div className="h-4 bg-slate-100 rounded w-40" /></td>
                       <td className="px-4 py-3"><div className="h-4 bg-slate-100 rounded w-14" /></td>
                       <td className="px-4 py-3"><div className="h-4 bg-slate-100 rounded w-14" /></td>
+                      <td className="px-4 py-3"><div className="h-4 bg-slate-100 rounded w-16" /></td>
                       <td className="px-4 py-3"><div className="h-4 bg-slate-100 rounded w-20" /></td>
                       <td className="px-4 py-3" />
                     </tr>
                   ))
                 ) : items.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-5 py-20 text-center text-slate-400">
+                    <td colSpan={7} className="px-5 py-20 text-center text-slate-400">
                       No users match this filter.
                     </td>
                   </tr>
@@ -348,33 +433,38 @@ export default function Users() {
                       </td>
                       <td className="px-4 py-3 text-slate-600">{u.email}</td>
                       <td className="px-4 py-3"><RoleBadge role={u.role} /></td>
-                      <td className="px-4 py-3"><StatusBadge isActive={u.is_active} hasPassword={u.has_password} /></td>
+                      <td className="px-4 py-3"><StatusBadge isActive={u.is_active} hasPassword={u.has_password} />{u.is_locked && <LockedBadge />}</td>
+                      <td className="px-4 py-3 text-slate-500">{fmtLastLogin(u.last_login_at)}</td>
                       <td className="px-4 py-3 text-slate-500">{new Date(u.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
                       <td className="px-4 py-3 text-right relative">
-                        <button
-                          onClick={() => setShowRowMenuId(showRowMenuId === u.id ? null : u.id)}
-                          className="p-1 text-slate-400 hover:text-slate-800 rounded-md hover:bg-slate-100 transition-colors"
-                        >
-                          <MoreVertical size={16} />
-                        </button>
-                        {showRowMenuId === u.id && (
-                          <>
-                            <div className="fixed inset-0 z-20" onClick={() => setShowRowMenuId(null)} />
-                            <div className="absolute right-4 top-9 w-52 bg-white border border-slate-200 rounded-xl shadow-xl z-30 py-1 text-left">
-                              <button onClick={() => openEditModal(u)} className="w-full px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                                <KeyRound size={13} /> Edit
-                              </button>
-                              {u.id !== currentUser?.id && (
-                                <button
-                                  onClick={() => toggleActive(u)}
-                                  className={`w-full px-3 py-1.5 text-xs font-semibold hover:bg-slate-50 flex items-center gap-2 ${u.is_active ? 'text-rose-600' : 'text-emerald-600'}`}
-                                >
-                                  {u.is_active ? <><UserX size={13} /> Deactivate</> : <><UserCheck size={13} /> Reactivate</>}
-                                </button>
-                              )}
-                            </div>
-                          </>
-                        )}
+                        <DropdownMenu open={showRowMenuId === u.id} onOpenChange={(open) => setShowRowMenuId(open ? u.id : null)}>
+                          <DropdownMenuTrigger asChild>
+                            <button className="p-1 text-slate-400 hover:text-slate-800 rounded-md hover:bg-slate-100 transition-colors">
+                              <MoreVertical size={16} />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-52 rounded-xl shadow-xl py-1">
+                            <DropdownMenuItem onClick={() => openEditModal(u)} className="px-3 py-1.5 text-xs font-semibold text-slate-700 gap-2 cursor-pointer">
+                              <KeyRound size={13} /> Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => { setPasswordTarget(u); setPasswordError(''); setShowRowMenuId(null); }} className="px-3 py-1.5 text-xs font-semibold text-slate-700 gap-2 cursor-pointer">
+                              <Lock size={13} /> Set Password
+                            </DropdownMenuItem>
+                            {u.is_locked && (
+                              <DropdownMenuItem onClick={() => unlockMutation.mutate(u.id)} className="px-3 py-1.5 text-xs font-semibold text-emerald-600 gap-2 cursor-pointer">
+                                <LockOpen size={13} /> Unlock
+                              </DropdownMenuItem>
+                            )}
+                            {u.id !== currentUser?.id && (
+                              <DropdownMenuItem
+                                onClick={() => toggleActive(u)}
+                                className={`px-3 py-1.5 text-xs font-semibold gap-2 cursor-pointer ${u.is_active ? 'text-rose-600' : 'text-emerald-600'}`}
+                              >
+                                {u.is_active ? <><UserX size={13} /> Deactivate</> : <><UserCheck size={13} /> Reactivate</>}
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </td>
                     </tr>
                   ))
@@ -395,6 +485,14 @@ export default function Users() {
           )}
         </div>
       </div>
+
+      <SetPasswordDialog
+        user={passwordTarget}
+        onClose={() => { setPasswordTarget(null); setPasswordError(''); }}
+        onSubmit={(password) => setPasswordMutation.mutate({ id: passwordTarget!.id, password })}
+        isPending={setPasswordMutation.isPending}
+        error={passwordError}
+      />
 
       {/* Single add / edit modal */}
       {isModalOpen && (

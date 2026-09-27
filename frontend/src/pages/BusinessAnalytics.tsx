@@ -13,6 +13,7 @@ import { KpiCard } from '@/components/KpiCard';
 import { ExportButton } from '@/components/ExportButton';
 import { exportXlsx } from '@/lib/exportXlsx';
 import { DateRangeControl, CompareModeSelect, TIMEFRAME_LABELS, fmtShortDate } from '@/components/AnalyticsFilterBar';
+import { CompanyPicker, type PickedCompany } from '@/components/CompanyPicker';
 
 /** Revenue-tier quick filter (client-side only) — distinct from the canonical account
  * SEGMENTS list in AnalyticsFilterBar, hence not reusing that name here. */
@@ -105,12 +106,11 @@ export default function BusinessAnalytics() {
 
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
-  const [searchInput, setSearchInput] = useState('');
+  const [selectedCompany, setSelectedCompany] = useState<PickedCompany | null>(null);
   const [icrisInput, setIcrisInput] = useState('');
   const [showAllCountries, setShowAllCountries] = useState(false);
   const [showAllAEs, setShowAllAEs] = useState(false);
-  
-  const debouncedSearch = useDebounce(searchInput, 400);
+
   const debouncedIcris = useDebounce(icrisInput, 400);
 
   const [filters, setFilters] = useState({
@@ -130,7 +130,7 @@ export default function BusinessAnalytics() {
 
   const updateFilter = (key: string, value: any) => setFilters(f => ({ ...f, [key]: value }));
   const resetFilters = () => {
-    setSearchInput('');
+    setSelectedCompany(null);
     setIcrisInput('');
     setFilters({
       timeframe: 'this_month',
@@ -142,7 +142,7 @@ export default function BusinessAnalytics() {
 
   const activeFilterCount = (filters.revenueTier !== 'all' ? 1 : 0) + (filters.customerStatus !== 'all' ? 1 : 0)
     + (filters.ae ? 1 : 0) + (filters.country ? 1 : 0) + (filters.minRevenue !== '' ? 1 : 0) + (filters.maxRevenue !== '' ? 1 : 0)
-    + (filters.growthTrend !== 'all' ? 1 : 0) + (debouncedSearch ? 1 : 0) + (debouncedIcris ? 1 : 0);
+    + (filters.growthTrend !== 'all' ? 1 : 0) + (selectedCompany ? 1 : 0) + (debouncedIcris ? 1 : 0);
 
   const { data: d, isLoading, isFetching } = useQuery({
     queryKey: ['analytics', filters.timeframe, filters.dateFrom, filters.dateTo, filters.compareMode],
@@ -170,10 +170,7 @@ export default function BusinessAnalytics() {
       };
     });
 
-    if (debouncedSearch) {
-      const q = debouncedSearch.toLowerCase();
-      base = base.filter((c: any) => c.company_name?.toLowerCase().includes(q) || c.icris_number?.toLowerCase().includes(q));
-    }
+    if (selectedCompany) base = base.filter((c: any) => c.company_id === selectedCompany.id);
     if (debouncedIcris) base = base.filter((c: any) => c.icris_number?.toLowerCase().includes(debouncedIcris.toLowerCase()));
     if (filters.customerStatus !== 'all') base = base.filter((c: any) => c.status.toLowerCase() === filters.customerStatus.toLowerCase());
     if (filters.revenueTier !== 'all') {
@@ -246,7 +243,7 @@ export default function BusinessAnalytics() {
     const confirmedCount = base.filter((c: any) => !c.is_provisional).length;
 
     return { base, revTotal, shipTotal, weightTotal, countries, aes, concentrationData, statuses, confirmedCount, growingCount, decliningCount };
-  }, [d, filters, debouncedSearch, debouncedIcris]);
+  }, [d, filters, selectedCompany, debouncedIcris]);
 
   const uniqueCountries = useMemo(() => {
     if (!d?.revenue_analytics?.all_customers) return [];
@@ -306,7 +303,7 @@ export default function BusinessAnalytics() {
         : (TIMEFRAME_LABELS[filters.timeframe] || filters.timeframe);
       chips.push({ key: 'timeframe', label: `Period: ${timeLabel}` });
     }
-    if (debouncedSearch) chips.push({ key: 'customerSearch', label: `Customer: ${debouncedSearch}` });
+    if (selectedCompany) chips.push({ key: 'customerSearch', label: `Customer: ${selectedCompany.company_name}` });
     if (debouncedIcris) chips.push({ key: 'icrisSearch', label: `ICRIS: ${debouncedIcris}` });
     if (filters.revenueTier !== 'all') chips.push({ key: 'revenueTier', label: `Segment: ${SEGMENTS.find(t => t.id === filters.revenueTier)?.label}` });
     if (filters.customerStatus !== 'all') chips.push({ key: 'customerStatus', label: `Status: ${filters.customerStatus}` });
@@ -322,7 +319,7 @@ export default function BusinessAnalytics() {
   };
 
   const activeChips = getActiveFilterChips();
-  const hasNarrowingFilter = !!debouncedSearch || !!debouncedIcris || filters.revenueTier !== 'all' || filters.customerStatus !== 'all'
+  const hasNarrowingFilter = !!selectedCompany || !!debouncedIcris || filters.revenueTier !== 'all' || filters.customerStatus !== 'all'
     || !!filters.ae || !!filters.country || filters.minRevenue !== '' || filters.maxRevenue !== '' || filters.growthTrend !== 'all';
   const prefix = hasNarrowingFilter ? 'Filtered' : 'Total';
 
@@ -363,10 +360,7 @@ export default function BusinessAnalytics() {
               {/* CUSTOMERS */}
               <CollapsibleSection title="Customers" icon={Users}>
                 <FilterGroup label="Search Company">
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
-                    <input type="text" placeholder="Name or ICRIS..." value={searchInput} onChange={(e) => setSearchInput(e.target.value)} className={`${inputCls} pl-8`} />
-                  </div>
+                  <CompanyPicker value={selectedCompany} onChange={setSelectedCompany} />
                 </FilterGroup>
 
                 <FilterGroup label="Customer Status">
@@ -510,18 +504,12 @@ export default function BusinessAnalytics() {
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         
         {/* PAGE HEADER SECTION */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div className="min-w-0">
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Revenue Analytics</h1>
-            <p className="mt-1 text-xs sm:text-sm text-slate-500 font-medium">
-              Showing <span className="font-bold text-slate-900">{base.length}</span> Customers · <span className="font-bold text-slate-900">{shipTotal}</span> Shipments · <span className="font-bold text-slate-900">{fmt$(revTotal)}</span> Revenue
-              {d.bounds?.c_start && d.bounds?.c_end && (
-                <> · <span className="font-bold text-slate-900">{fmtShortDate(d.bounds.c_start)} – {fmtShortDate(d.bounds.c_end)}</span></>
-              )}
-            </p>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
             <DateRangeControl
               timeframe={filters.timeframe}
               dateFrom={filters.dateFrom}
@@ -556,7 +544,7 @@ export default function BusinessAnalytics() {
                 {chip.label}
                 <button
                   onClick={() => {
-                    if (chip.key === 'customerSearch') setSearchInput('');
+                    if (chip.key === 'customerSearch') setSelectedCompany(null);
                     else if (chip.key === 'icrisSearch') setIcrisInput('');
                     else if (chip.key === 'timeframe') { updateFilter('timeframe', 'this_month'); updateFilter('dateFrom', ''); updateFilter('dateTo', ''); }
                     else if (chip.key === 'ae' || chip.key === 'country') updateFilter(chip.key, '');
