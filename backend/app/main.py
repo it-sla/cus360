@@ -19,7 +19,7 @@ from .crm_sync import rematch,upsert_pnl,upsert_ups_detail,run_active_pipeline_s
 from .ae_imports import AeWorkbookError, analyze as analyze_ae_workbook, import_ae_assignments, parse_workbook as parse_ae_workbook, _reassign_company as reassign_company
 from .ae_targets import AeTargetWorkbookError, import_ae_targets
 from .crm_backfills import cancel_backfill,create_backfill,create_incremental,customer_master_ready,earliest_state,incremental_range,pause_backfill,resume_backfill,watermark_state,activate_next_chunk
-from .customer_segments import recompute_customer_segments
+from .customer_segments import recompute_customer_segments, KEY_ACCOUNT_AE_CODES
 from .tier_alerts import get_tier_shipping_gap_breaches
 from .email_notifications import send_tier_alert_digests, send_weekly_report
 from .models import *
@@ -1889,12 +1889,15 @@ def territory_performance(
     ae_scope:str|None=Depends(get_ae_scope),
 ):
     """Same shape as ae-performance but grouped by AccountExecutive.territory_name
-    instead of by individual AE. Only AEs with a territory_name are included (SLR/AJ/RT
-    are unclassified for now — see migration 20260923_0001); their shipments are excluded
-    rather than dumped into a misleading catch-all bucket."""
+    instead of by individual AE. Only AEs with a territory_name are included, except
+    KEY_ACCOUNT_AE_CODES (AJ/RT) which are grouped into a synthetic 'Key Accounts'
+    row so they aren't invisible on this page. SLR remains unclassified for now
+    (see migration 20260923_0001) and its shipments are excluded rather than dumped
+    into a misleading catch-all bucket."""
     c_start,c_end,p_start,p_end=get_timeframe_bounds(timeframe,date_from,date_to,year_from,year_to,compare_mode)
 
     territory_by_ae={a.ae_code:a.territory_name for a in db.scalars(select(AccountExecutive)).all() if a.territory_name}
+    territory_by_ae|={code:'Key Accounts' for code in KEY_ACCOUNT_AE_CODES}
 
     ae_filter=' AND s.ae_code = :ae_scope' if ae_scope else ''
     period_sql=f"""

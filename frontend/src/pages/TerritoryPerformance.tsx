@@ -118,12 +118,12 @@ export default function TerritoryPerformance() {
 
       <div className="bg-white rounded-[16px] border border-[#E2E8F0] shadow-[0_2px_4px_rgba(15,23,42,0.04)] dark:bg-zinc-900 dark:border-zinc-800 overflow-hidden">
         <div className="p-5 pb-2 flex items-center justify-between">
-          <h3 className="text-sm font-bold text-slate-900 tracking-tight dark:text-white">Territories</h3>
+          <h3 className="text-sm font-bold text-slate-900 tracking-tight dark:text-white">Regional Performance</h3>
           <ExportButton
             disabled={items.length === 0}
             onExport={() => exportXlsx(`territory-performance-${data.bounds.c_start}_${data.bounds.c_end}`, [
               {
-                name: 'Territories',
+                name: 'Regional Performance',
                 rows: items.map(i => ({
                   Territory: i.territory, Revenue: i.revenue, 'Prev Revenue': i.prev_revenue, 'Growth %': i.revenue_growth_pct / 100,
                   'Share %': i.revenue_share_pct / 100, Shipments: i.shipments, Customers: i.companies, 'Weight (kg)': i.weight,
