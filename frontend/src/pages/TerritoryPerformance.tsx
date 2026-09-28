@@ -54,7 +54,7 @@ export default function TerritoryPerformance() {
 
   const revenueBarOption = {
     tooltip: {
-      trigger: 'axis', backgroundColor: '#fff', borderColor: '#e2e8f0', textStyle: { color: '#0f172a' },
+      trigger: 'axis', confine: true, backgroundColor: '#fff', borderColor: '#e2e8f0', textStyle: { color: '#0f172a' },
       formatter: (params: any) => {
         const p = params[0];
         return `${items[p.dataIndex].territory}<br/>${fmt$(p.value)}`;
@@ -68,7 +68,7 @@ export default function TerritoryPerformance() {
 
   const sharePieOption = {
     tooltip: {
-      trigger: 'item',
+      trigger: 'item', confine: true,
       formatter: (params: any) => `${items[params.dataIndex].territory}<br/>${fmt$(params.value)} (${params.percent}%)`,
     },
     legend: { bottom: 0, icon: 'circle', textStyle: { fontSize: 11, fontWeight: 'bold' }, data: items.map(i => shortLabel(i.territory)) },
