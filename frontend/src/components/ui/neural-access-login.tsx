@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ShieldCheck, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Sparkles } from 'lucide-react';
 
 export interface NeuralAccessLoginProps {
     onSubmit: (credentials: { email: string; password: string }) => Promise<void>;
@@ -8,10 +9,7 @@ export interface NeuralAccessLoginProps {
     defaultEmail?: string;
 }
 
-export function NeuralAccessLogin({ onSubmit, loading = false, error = null, defaultEmail = '' }: NeuralAccessLoginProps) {
-    const [email, setEmail] = useState(defaultEmail);
-    const [password, setPassword] = useState('');
-
+export function NeuralAccessShell({ subtitle, children }: { subtitle?: string; children?: React.ReactNode }) {
     const blobsData = useMemo(() => {
         return Array.from({ length: 6 }).map(() => ({
             size: Math.random() * 180 + 140,
@@ -43,11 +41,6 @@ export function NeuralAccessLogin({ onSubmit, loading = false, error = null, def
         document.addEventListener('mousemove', handleMouseMove);
         return () => document.removeEventListener('mousemove', handleMouseMove);
     }, []);
-
-    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        await onSubmit({ email, password });
-    };
 
     return (
         <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top,rgba(148,163,184,0.18),transparent_38%),linear-gradient(180deg,#050505_0%,#09090b_100%)] text-white">
@@ -235,6 +228,50 @@ export function NeuralAccessLogin({ onSubmit, loading = false, error = null, def
         .footer-nav a:hover {
           color: #fff;
         }
+
+        .auth-divider {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          margin-top: 24px;
+          color: rgba(255, 255, 255, 0.4);
+          font-family: 'Space Mono', monospace;
+          font-size: 10px;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+        }
+
+        .auth-divider::before,
+        .auth-divider::after {
+          content: '';
+          flex: 1;
+          height: 1px;
+          background: rgba(255, 255, 255, 0.14);
+        }
+
+        .btn-secondary {
+          margin-top: 24px;
+          background: transparent;
+          color: #fff;
+          border: 1px solid rgba(255, 255, 255, 0.3);
+          padding: 16px 40px;
+          font-size: 14px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 2px;
+          cursor: pointer;
+          width: 100%;
+          display: block;
+          text-align: center;
+          text-decoration: none;
+          border-radius: 50px;
+          transition: background 0.3s, border-color 0.3s;
+        }
+
+        .btn-secondary:hover {
+          background: rgba(255, 255, 255, 0.08);
+          border-color: rgba(255, 255, 255, 0.6);
+        }
       `}</style>
 
             <svg className="absolute h-0 w-0" aria-hidden="true">
@@ -274,27 +311,38 @@ export function NeuralAccessLogin({ onSubmit, loading = false, error = null, def
 
             <main className="neural-access-shell auth-container">
                 <header className="mb-14 text-left">
-                    <span className="brand-id">
-                        <ShieldCheck size={13} />
-                        System Node: 0x992
-                    </span>
                     <h1 className="title">
                         Shangrila
                         <br />
                         Intelligence
                     </h1>
-                    <p className="subtitle">
-                        Sign in to access the Customer 360 workspace. Administration and data integration routes remain hidden unless your account is marked as admin.
-                    </p>
+                    {subtitle && <p className="subtitle">{subtitle}</p>}
                 </header>
 
+                {children}
+            </main>
+        </div>
+    );
+}
+
+export function NeuralAccessLogin({ onSubmit, loading = false, error = null, defaultEmail = '' }: NeuralAccessLoginProps) {
+    const [email, setEmail] = useState(defaultEmail);
+    const [password, setPassword] = useState('');
+
+    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        await onSubmit({ email, password });
+    };
+
+    return (
+        <NeuralAccessShell>
                 <form autoComplete="off" onSubmit={handleSubmit}>
                     <div className="form-group">
-                        <label htmlFor="email">User Identity</label>
+                        <label htmlFor="email">Email</label>
                         <input
                             id="email"
                             type="email"
-                            placeholder="admin@company.com"
+                            placeholder="you@email.com"
                             value={email}
                             onChange={(event) => setEmail(event.target.value)}
                             required
@@ -303,7 +351,7 @@ export function NeuralAccessLogin({ onSubmit, loading = false, error = null, def
                     </div>
 
                     <div className="form-group">
-                        <label htmlFor="password">Sequence Key</label>
+                        <label htmlFor="password">Password</label>
                         <input
                             id="password"
                             type="password"
@@ -324,24 +372,23 @@ export function NeuralAccessLogin({ onSubmit, loading = false, error = null, def
                     <div className="submit-wrap">
                         <div className="mercury-drop" />
                         <button type="submit" className="btn-base" disabled={loading}>
-                            {loading ? 'Authenticating…' : 'Initialize Stream'}
+                            {loading ? 'Logging in…' : 'Log In'}
                         </button>
                     </div>
                 </form>
 
-                <footer className="footer-nav">
-                    <a href="#encrypted" onClick={(event) => event.preventDefault()}>
+                <div className="auth-divider">or</div>
+                <Link to="/register" className="btn-secondary">Create New Account</Link>
+
+                <footer className="footer-nav" style={{ justifyContent: 'center' }}>
+                    <Link to="/forgot-password">
                         <span className="inline-flex items-center gap-1">
                             <Sparkles size={10} />
-                            ENCRYPTED RECOVERY
+                            Forgot Password?
                         </span>
-                    </a>
-                    <a href="#archive" onClick={(event) => event.preventDefault()}>
-                        NEW ARCHIVE
-                    </a>
+                    </Link>
                 </footer>
-            </main>
-        </div>
+        </NeuralAccessShell>
     );
 }
 

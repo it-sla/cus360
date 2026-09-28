@@ -1,12 +1,12 @@
 # Graph Report - customer360  (2026-09-28)
 
 ## Corpus Check
-- 1395 files · ~656,886 words
+- 1393 files · ~656,271 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 7808 nodes · 11339 edges · 1397 communities (1296 shown, 101 thin omitted)
-- Extraction: 96% EXTRACTED · 4% INFERRED · 0% AMBIGUOUS · INFERRED: 497 edges (avg confidence: 0.51)
+- 7795 nodes · 11283 edges · 1392 communities (1289 shown, 103 thin omitted)
+- Extraction: 96% EXTRACTED · 4% INFERRED · 0% AMBIGUOUS · INFERRED: 480 edges (avg confidence: 0.51)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
@@ -16,11 +16,11 @@
 
 ## Community Hubs (Navigation)
 - sheet.tsx
-- y-domain-utils.ts
+- area-chart.tsx
 - crm_parser.py
 - gray
-- test_tier_alerts_email.py
-- search
+- gray
+- BM25
 - search
 - .agents/skills/design-system/scripts/slide_search_core.py
 - test_crm_reliability.py
@@ -42,7 +42,7 @@
 - models.py
 - spacing
 - DesignSystemGenerator
-- useChartStable
+- RuntimeError
 - components.json
 - Customer360.tsx
 - .agents/skills/design-system/scripts/generate-slide.py
@@ -96,10 +96,10 @@
 - search
 - .opencode/skills/brand/scripts/inject-brand-context.cjs
 - .opencode/skills/design-system/scripts/embed-tokens.cjs
-- duration
+- primitive
 - patch
 - .opencode/skills/ui-styling/scripts/tests/test_tailwind_config_gen.py
-- main.py
+- Session
 - .agents/skills/design/scripts/logo/generate.py
 - .agents/skills/design-system/scripts/generate-tokens.cjs
 - chart-context.tsx
@@ -115,23 +115,23 @@
 - _run
 - dependencies
 - DesignSystemGenerator
-- BM25
-- DataQualityIssue
+- UniversalSearch.tsx
+- $type
 - test_rbac.py
 - .opencode/skills/brand/scripts/sync-brand-to-tokens.cjs
 - _run
 - remote-compose.sh
 - button
 - time-series-chart-shell.tsx
-- gray
+- color
 - input
 - radius
 - .opencode/skills/design-system/templates/design-tokens-starter.json
 - navigation-menu.tsx
 - series-markers.tsx
-- Session
+- main.py
 - MasterAirWaybills.tsx
-- Alerts.tsx
+- Users.tsx
 - Tailwind CSS Utility Reference
 - OperationalAnalytics.tsx
 - Brand Guidelines v1.0
@@ -144,11 +144,11 @@
 - Canvas Design System
 - xl
 - value_error
-- use-animated-series-path.ts
+- test_exports.py
 - .agents/skills/ui-ux-pro-max/scripts/validate_data.py
 - 1. Light/Dark Theme Toggle — DONE, committed, pushed
 - normalize_icris
-- Leaderboard.tsx
+- CustomerDirectory.tsx
 - AeTargets.tsx
 - lg
 - .opencode/skills/ui-ux-pro-max/scripts/validate_data.py
@@ -168,11 +168,11 @@
 - .__init__
 - .temp_project
 - .test_get_installed_components_empty
-- test_crm_sync.py
+- test_mawbs_pnl_sort.py
 - tsconfig.json
 - .opencode/skills/brand/scripts/tests/test_sync_brand_to_tokens.py
 - main
-- test_company_master_import.py
+- DataQualityIssue
 - Tailwind CSS Responsive Design
 - Typography Specifications
 - Typography Specifications
@@ -227,7 +227,7 @@
 - radius
 - none
 - Data Rules
-- dialog.tsx
+- GeographyAnalytics.tsx
 - CIP Deliverable Guide
 - zod
 - .opencode/skills/ui-styling/scripts/tests/test_shadcn_add.py
@@ -327,7 +327,7 @@
 - Slide Strategies
 - Component Tokens
 - Slide Strategies
-- UploadFile
+- upload_document
 - frontend/package.json
 - Brand
 - Slide Strategies
@@ -361,7 +361,7 @@
 - 5. CONTEXT-AWARE PROACTIVITY
 - 8. DARK MODE PROTOCOL
 - Courier Intelligence Dashboard Design Reference
-- db.py
+- test_executive_dashboard_filters.py
 - React + TypeScript + Vite
 - test_ae_targets.py
 - AEPerformance.tsx
@@ -376,10 +376,10 @@
 - Core entities
 - Settings
 - app-shell.tsx
-- detect_domain
+- test_kpi_correctness.py
 - $type
 - radius
-- lg
+- 50
 - destructive
 - destructive-foreground
 - muted
@@ -396,7 +396,7 @@
 - .test_default_content_paths_react
 - .test_add_colors
 - Session Handover — Customer 360
-- sm
+- .agents/skills/design/scripts/cip/generate.py
 - .opencode/skills/design/references/slides-create.md
 - .opencode/skills/slides/references/create.md
 - 1. Company-master import — LIVE
@@ -406,13 +406,13 @@
 - Session Handover — Customer 360
 - 1. Local Docker Workflow (Windows/Mac)
 - loading-sweep.tsx
-- key_insights
+- 800
 - Session Handover — Customer 360
 - test_document_type_analytics.py
 - Frontend
 - Database
 - Data Inspection Report — 2026-09-17
-- auth.tsx
+- Alerts.tsx
 - Session Handoff — 2026-08-07 to 2026-08-10
 - primary-foreground
 - Architecture
@@ -420,21 +420,21 @@
 - BLOCKERS
 - ring
 - secondary-foreground
-- badge.tsx
+- leaderboard-rankings.tsx
 - Profitability.tsx
-- TerritoryPerformance.tsx
+- sm
 - class-variance-authority
-- xl
+- 1. THE THREE DIALS (Core Configuration)
 - Customer 360 — Documentation
 - AlertBanner.tsx
 - f4a7c9e2b810_add_normalized_company_name_to_call_logs.py
 - Pipeline.tsx
 - padding-y
-- none
-- 16
+- 0
+- 12
 - @base-ui/react
 - @carbon/icons-react
-- 1
+- 6
 - d3-array
 - d3-shape
 - framer-motion
@@ -454,11 +454,6 @@
 - @visx/group
 - @visx/responsive
 - @visx/scale
-- 3
-- 16
-- 1
-- 3
-- 8
 - clsx
 - 8
 - destructive
@@ -479,15 +474,15 @@
 - @visx/grid
 
 ## God Nodes (most connected - your core abstractions)
-1. `User` - 154 edges
-2. `react` - 116 edges
-3. `CrmSessionManager` - 69 edges
-4. `commit()` - 69 edges
+1. `User` - 153 edges
+2. `react` - 115 edges
+3. `CrmSessionManager` - 68 edges
+4. `commit()` - 68 edges
 5. `TailwindConfigGenerator` - 60 edges
 6. `Shipment` - 58 edges
 7. `TailwindConfigGenerator` - 56 edges
-8. `CrmParseError` - 56 edges
-9. `now()` - 56 edges
+8. `now()` - 56 edges
+9. `CrmParseError` - 55 edges
 10. `Company` - 52 edges
 
 ## Surprising Connections (you probably didn't know these)
@@ -505,31 +500,31 @@
 ## Import Cycles
 - None detected.
 
-## Communities (1397 total, 101 thin omitted)
+## Communities (1392 total, 103 thin omitted)
 
 ### Community 0 - "sheet.tsx"
 Cohesion: 0.22
 Nodes (6): SheetContent, SheetContentProps, SheetDescription, SheetOverlay, SheetTitle, sheetVariants
 
-### Community 1 - "y-domain-utils.ts"
-Cohesion: 0.10
-Nodes (32): isChartClipPassthrough(), extractProjectionLineConfigs(), getChildComponentName(), isProjectionLineElement(), mergeProjectionXDomainMax(), mergeProjectionYDomain(), normalizeProjectionData(), ProjectionLineConfig (+24 more)
+### Community 1 - "area-chart.tsx"
+Cohesion: 0.12
+Nodes (30): AreaChart(), AreaChartProps, ChartInner(), ChartInnerProps, DEFAULT_MARGIN, extractAreaConfigs(), AreaChartLoading(), AreaChartLoadingProps (+22 more)
 
 ### Community 2 - "crm_parser.py"
 Cohesion: 0.07
-Nodes (60): cells(), _checksum(), _customer_id(), _data_rows_from_table(), document(), find_table(), labels(), _manifest_id() (+52 more)
+Nodes (59): cells(), _customer_id(), _data_rows_from_table(), document(), find_table(), labels(), _manifest_id(), normalize_header() (+51 more)
 
 ### Community 3 - "gray"
 Cohesion: 0.05
 Nodes (53): $type, $value, $type, $value, $type, $value, $type, $value (+45 more)
 
-### Community 4 - "test_tier_alerts_email.py"
-Cohesion: 0.15
-Nodes (19): _cleanup(), _immediate_notified_state_query(), _mk_breach(), _mk_company(), With enabled=True but zero breaches, must not send anything (no empty-inbox…, Mocks smtplib regardless of whether real SMTP credentials are configured in…, Immediate-breach notified state is a single shared CrmSyncState row (real DB,…, tier_alert_email_enabled=False must never touch smtplib.SMTP -- forced False… (+11 more)
+### Community 4 - "gray"
+Cohesion: 0.11
+Nodes (19): $type, $value, $type, $value, $type, $value, $type, $value (+11 more)
 
-### Community 5 - "search"
-Cohesion: 0.08
-Nodes (37): detect_domain(), get_cip_brief(), _load_csv(), Load CSV and return list of dicts, Core search function using BM25, Auto-detect the most relevant domain from query, Main search function with auto-domain detection, Search across all domains and combine results (+29 more)
+### Community 5 - "BM25"
+Cohesion: 0.09
+Nodes (29): BM25, detect_domain(), get_cip_brief(), _load_csv(), Load CSV and return list of dicts, Core search function using BM25, Auto-detect the most relevant domain from query, Main search function with auto-domain detection (+21 more)
 
 ### Community 6 - "search"
 Cohesion: 0.07
@@ -541,7 +536,7 @@ Nodes (36): format_context(), format_result(), main(), Format a single search re
 
 ### Community 8 - "test_crm_reliability.py"
 Cohesion: 0.08
-Nodes (51): DuplicateTrackingConflict, EmptyManifestError, ManifestDetail, parse_manifest_detail(), normalized_tracking(), _prediction(), upsert_detail(), retry_delay() (+43 more)
+Nodes (52): RetryableConnectorError, _checksum(), DuplicateTrackingConflict, ManifestDetail, parse_manifest_detail(), upsert_detail(), retry_delay(), FastCrmSession (+44 more)
 
 ### Community 9 - ".opencode/skills/design-system/scripts/slide_search_core.py"
 Cohesion: 0.09
@@ -553,11 +548,11 @@ Nodes (23): autoprefixer, devDependencies, autoprefixer, oxlint, postcss, tailwi
 
 ### Community 11 - "react"
 Cohesion: 0.03
-Nodes (35): HighlightSegment(), HighlightSegmentProps, SeriesHighlightLayerProps, PickedCompany, ExecutiveLayoutProps, ExportButtonProps, VARIANT_CLASS, KpiCardProps (+27 more)
+Nodes (33): PickedCompany, ExecutiveLayoutProps, ExportButtonProps, VARIANT_CLASS, KpiCardProps, LucideIcon, Avatar, AvatarFallback (+25 more)
 
 ### Community 12 - "spacing"
-Cohesion: 0.09
-Nodes (22): $type, $value, $type, $value, $type, $value, $type, $value (+14 more)
+Cohesion: 0.06
+Nodes (34): $type, $value, $type, $value, $type, $value, $type, $value (+26 more)
 
 ### Community 13 - "TestTailwindConfigGenerator"
 Cohesion: 0.07
@@ -576,12 +571,12 @@ Cohesion: 0.07
 Nodes (15): Test adding colors multiple times., Test adding full color palette., Test adding custom breakpoints., Test TailwindConfigGenerator class., Test that adding same plugin twice doesn't duplicate., Test plugin recommendations for Next.js., Test generating config with plugins., Test validating valid configuration. (+7 more)
 
 ### Community 17 - "api"
-Cohesion: 0.10
-Nodes (19): api, SearchResultItem, Shipment, CrmSync(), fmtDate(), CustomerAnalytics(), fmt$(), fmtAxisDate() (+11 more)
+Cohesion: 0.12
+Nodes (12): api, LeaderboardEntry, Shipment, CrmSync(), fmtDate(), CustomerAnalytics(), fmt$(), fmtAxisDate() (+4 more)
 
 ### Community 18 - "crm_worker.py"
 Cohesion: 0.13
-Nodes (47): Insert new CRM_DairyAEList ('Daily Call Logs') rows, skipping ones already…, sync_daily_call_logs(), check_auto_schedule(), check_daily_call_logs_auto_schedule(), check_immediate_tier_breach_schedule(), check_pipeline_auto_schedule(), check_pnl_auto_schedule(), check_reconcile_schedule() (+39 more)
+Nodes (47): EmptyManifestError, Insert new CRM_DairyAEList ('Daily Call Logs') rows, skipping ones already…, sync_daily_call_logs(), check_auto_schedule(), check_daily_call_logs_auto_schedule(), check_immediate_tier_breach_schedule(), check_pipeline_auto_schedule(), check_pnl_auto_schedule() (+39 more)
 
 ### Community 19 - "compilerOptions"
 Cohesion: 0.07
@@ -604,8 +599,8 @@ Cohesion: 0.12
 Nodes (19): BM25, detect_domain(), _load_csv(), Load CSV and return list of dicts, Core search function using BM25, Auto-detect the most relevant domain from query, Main search function with auto-domain detection, Search across all domains and combine results (+11 more)
 
 ### Community 24 - "models.py"
-Cohesion: 0.07
-Nodes (47): cell_text(), clean_text(), Transactional, grouped import for the authoritative ICRIS company master., _diff_pipeline(), Full before/after diff of one Active Pipeline sync, for the…, AccountExecutive, AeImportBatch, AeImportRow (+39 more)
+Cohesion: 0.05
+Nodes (44): _diff_pipeline(), Full before/after diff of one Active Pipeline sync, for the…, AccountExecutive, AeImportBatch, AeImportRow, AeReassignmentLog, AeTarget, Base (+36 more)
 
 ### Community 25 - "spacing"
 Cohesion: 0.09
@@ -615,25 +610,25 @@ Nodes (22): $type, $value, $type, $value, $type, $value, $type, $value (+14 more
 Cohesion: 0.13
 Nodes (12): DesignSystemGenerator, Find matching reasoning rule for a category., Apply reasoning rules to search results., Select best matching result based on priority keywords., Extract results list from search result dict., Generate complete design system recommendation. variance/motion/density are…, Bucket a 1-10 dial value into its tier config. Returns None if value is None., Generates design system recommendations from aggregated searches. (+4 more)
 
-### Community 27 - "useChartStable"
-Cohesion: 0.17
-Nodes (17): useChartStable(), useYScale(), Grid(), GridProps, hideEdgeTicks(), resolveRowTickValues(), computeSegmentBounds(), CurveFactory (+9 more)
+### Community 27 - "RuntimeError"
+Cohesion: 0.08
+Nodes (9): downgrade(), downgrade(), downgrade(), downgrade(), downgrade(), downgrade(), downgrade(), downgrade() (+1 more)
 
 ### Community 28 - "components.json"
 Cohesion: 0.09
 Nodes (22): aliases, components, hooks, lib, ui, utils, iconLibrary, menuAccent (+14 more)
 
 ### Community 29 - "Customer360.tsx"
-Cohesion: 0.07
-Nodes (25): react, ActivityLog, CallLog, CompanyDetail, CompanyShipment, CalendarDayButton(), ContainerScroll(), Settings() (+17 more)
+Cohesion: 0.10
+Nodes (20): ActivityLog, CallLog, CompanyDetail, CompanyShipment, Settings(), ActivityTab(), AnalyticsTab(), CallLogsTab() (+12 more)
 
 ### Community 30 - ".agents/skills/design-system/scripts/generate-slide.py"
 Cohesion: 0.15
 Nodes (19): _e(), generate_chart_slide(), generate_cta_slide(), generate_deck(), generate_metrics_slide(), generate_problem_slide(), generate_solution_slide(), generate_testimonial_slide() (+11 more)
 
 ### Community 31 - "api.ts"
-Cohesion: 0.03
-Nodes (65): AccountExecutive, adminApi, AdminUser, AdminUserPatch, AeImportBatch, AeImportRow, AEPerformanceResponse, AeReassignmentLogEntry (+57 more)
+Cohesion: 0.04
+Nodes (51): AccountExecutive, AdminUserPatch, AeImportBatch, AeImportRow, AEPerformanceResponse, AeReassignmentLogEntry, AeTargetInput, AnalyticsFilterParams (+43 more)
 
 ### Community 32 - "compilerOptions"
 Cohesion: 0.10
@@ -644,8 +639,8 @@ Cohesion: 0.15
 Nodes (19): _e(), generate_chart_slide(), generate_cta_slide(), generate_deck(), generate_metrics_slide(), generate_problem_slide(), generate_solution_slide(), generate_testimonial_slide() (+11 more)
 
 ### Community 34 - "test_user_security.py"
-Cohesion: 0.13
-Nodes (35): _sign(), main(), _forgot_password(), Self-service password reset. Always the same generic response, regardless of…, test_link_actually_resets_the_password(), test_pending_and_inactive_accounts_get_no_link(), test_response_is_always_generic(), _pending_id() (+27 more)
+Cohesion: 0.16
+Nodes (29): _sign(), _pending_id(), TestClient, Self-service registration → pending → super admin approves (picks role) or…, _register(), test_approve_and_reject_require_super_admin(), test_approve_sets_role_and_allows_login(), test_duplicate_and_short_password_rejected() (+21 more)
 
 ### Community 35 - "color"
 Cohesion: 0.11
@@ -672,16 +667,16 @@ Cohesion: 0.11
 Nodes (10): Generate Tailwind CSS configuration files., Add full color palette (50-950 shades) for a base color. Args: name: Color name…, TailwindConfigGenerator, Test adding custom fonts., Test adding custom spacing., Test plugin recommendations., Test validating config with empty theme extensions., Test initialization for JavaScript config. (+2 more)
 
 ### Community 41 - "BM25"
-Cohesion: 0.13
-Nodes (16): BM25, _domain_keywords(), _get_bm25(), _load_csv(), _load_product_keywords(), _normalize(), Apply synonym substitution before tokenizing., BM25 ranking algorithm for text search (+8 more)
+Cohesion: 0.10
+Nodes (21): BM25, _domain_keywords(), _get_bm25(), _load_csv(), _load_product_keywords(), _normalize(), Apply synonym substitution before tokenizing., BM25 ranking algorithm for text search (+13 more)
 
 ### Community 42 - "BusinessAnalytics.tsx"
-Cohesion: 0.29
-Nodes (3): BusinessAnalytics(), SEGMENTS, useDebounce()
+Cohesion: 0.12
+Nodes (8): react, CalendarDayButton(), ContainerScroll(), BusinessAnalytics(), SEGMENTS, useDebounce(), DocumentsTab(), react
 
 ### Community 43 - "search"
-Cohesion: 0.24
-Nodes (6): Main search function with auto-domain detection, search(), format_output(), Format results for Claude consumption (token-optimized), Known query -> expected top-domain sanity checks (not exact-row pinning, since…, TestSearchDomains
+Cohesion: 0.10
+Nodes (21): detect_domain(), _domain_keywords(), _get_bm25(), _load_csv(), _load_product_keywords(), Load CSV and return list of dicts, with mtime-based caching., Fitted BM25 index for this file+columns, with mtime-based caching., Core search function using BM25. Returns (results, bm25_or_none). (+13 more)
 
 ### Community 44 - ".opencode/skills/ui-ux-pro-max/scripts/design_system.py"
 Cohesion: 0.10
@@ -712,8 +707,8 @@ Cohesion: 0.20
 Nodes (15): apply_color(), apply_viewbox_size(), extract_svgs(), generate_batch(), generate_icon(), generate_sizes(), load_env(), main() (+7 more)
 
 ### Community 51 - "fontSize"
-Cohesion: 0.12
-Nodes (16): $type, $value, $type, $value, $type, $value, $type, $value (+8 more)
+Cohesion: 0.11
+Nodes (20): $type, $value, $type, $value, $type, $value, $type, $value (+12 more)
 
 ### Community 52 - "ShadcnInstaller"
 Cohesion: 0.23
@@ -729,7 +724,7 @@ Nodes (9): Test adding components that are already installed., Test adding compo
 
 ### Community 55 - "radius"
 Cohesion: 0.18
-Nodes (15): $type, $value, sm, $type, $value, primitive, radius, shadow (+7 more)
+Nodes (15): $type, $value, lg, $type, $value, $type, $value, primitive (+7 more)
 
 ### Community 56 - "TestShadcnInstaller"
 Cohesion: 0.12
@@ -753,7 +748,7 @@ Nodes (36): ChartStatFlow(), ChartStatFlowFormat, ChartStatFlowProps, defaultCha
 
 ### Community 61 - "chart-tooltip.tsx"
 Cohesion: 0.09
-Nodes (38): ChartConfigContext, ChartConfigProviderProps, ChartConfigValue, DEFAULT_CHART_CONFIG, resolveTooltipBoxMotion(), SpringConfig, useChartConfig(), chartCssVars (+30 more)
+Nodes (39): ChartConfigContext, ChartConfigProviderProps, ChartConfigValue, DEFAULT_CHART_CONFIG, resolveTooltipBoxMotion(), SpringConfig, useChartConfig(), chartCssVars (+31 more)
 
 ### Community 62 - ".opencode/skills/brand/scripts/extract-colors.cjs"
 Cohesion: 0.22
@@ -765,19 +760,19 @@ Nodes (13): checkManifest(), formatBytes(), formatOutput(), fs, main(), parseFil
 
 ### Community 64 - "test_pipeline_sync.py"
 Cohesion: 0.14
-Nodes (35): _detect_pushed_followups(), Session, Flags deals that were overdue and unresolved in the previous snapshot but…, Run-tracked wrapper around sync_active_pipeline — the single path both the…, Replace the pipeline_items table with the current CRM Active Pipeline snapshot.…, run_active_pipeline_sync(), sync_active_pipeline(), date_events_for() (+27 more)
+Nodes (36): _detect_pushed_followups(), Flags deals that were overdue and unresolved in the previous snapshot but…, Run-tracked wrapper around sync_active_pipeline — the single path both the…, Replace the pipeline_items table with the current CRM Active Pipeline snapshot.…, run_active_pipeline_sync(), sync_active_pipeline(), PipelineDateEvent, Append-only log of Expected Date changes detected between two consecutive… (+28 more)
 
 ### Community 65 - "CrmSessionManager"
-Cohesion: 0.08
-Nodes (77): downgrade(), downgrade(), downgrade(), downgrade(), downgrade(), downgrade(), downgrade(), downgrade() (+69 more)
+Cohesion: 0.13
+Nodes (65): AeWorkbookError, ValueError, AeTargetWorkbookError, ValueError, LoginRequest, BaseModel, CompanyWorkbookError, ValueError (+57 more)
 
 ### Community 66 - ".agents/skills/design-system/templates/design-tokens-starter.json"
 Cohesion: 0.15
 Nodes (12): component, $type, $value, dark, semantic, $schema, $type, $value (+4 more)
 
 ### Community 67 - "BM25"
-Cohesion: 0.10
-Nodes (21): BM25, _domain_keywords(), _get_bm25(), _load_csv(), _load_product_keywords(), _normalize(), Apply synonym substitution before tokenizing., BM25 ranking algorithm for text search (+13 more)
+Cohesion: 0.15
+Nodes (9): BM25, _normalize(), Apply synonym substitution before tokenizing., BM25 ranking algorithm for text search, Lowercase, normalize synonyms, split, remove punctuation, filter stopwords, Build BM25 index from documents, Score all documents against query, All indexed terms, for suggestion/typo-recovery purposes. (+1 more)
 
 ### Community 68 - ".agents/skills/design-system/scripts/validate-tokens.cjs"
 Cohesion: 0.24
@@ -820,8 +815,8 @@ Cohesion: 0.22
 Nodes (8): parametrize, Tests for tailwind_config_gen.py, Reduce a generated TS/JS config to a bare assignable object so it can be handed…, Regression guard for the missing-comma bug between the ``theme`` block and…, The property preceding ``plugins`` must end with a comma (pure-Python check, so…, The emitted config parses as valid JS via ``node --check``., _strip_to_object(), TestGeneratedConfigIsValidJs
 
 ### Community 78 - "search"
-Cohesion: 0.14
-Nodes (11): All indexed terms, for suggestion/typo-recovery purposes., Nearest known vocabulary terms for a query that returned 0 hits, so the caller…, Main search function with auto-domain detection, Search stack-specific guidelines, search(), search_stack(), _suggest_terms(), format_output() (+3 more)
+Cohesion: 0.15
+Nodes (9): detect_domain(), Auto-detect the most relevant domain from query. Matches are weighted by…, Main search function with auto-domain detection, search(), format_output(), Format results for Claude consumption (token-optimized), Known query -> expected top-domain sanity checks (not exact-row pinning, since…, TestDomainDetection (+1 more)
 
 ### Community 79 - ".opencode/skills/brand/scripts/inject-brand-context.cjs"
 Cohesion: 0.31
@@ -831,9 +826,9 @@ Nodes (10): extractColorsFromTable(), extractCoreAttributes(), extractHexColors(
 Cohesion: 0.18
 Nodes (8): args, fs, minimal, MINIMAL_TOKENS, path, projectRoot, tokensPath, wrapStyle
 
-### Community 81 - "duration"
-Cohesion: 0.20
-Nodes (10): fast, normal, slow, $type, $value, $type, $value, duration (+2 more)
+### Community 81 - "primitive"
+Cohesion: 0.18
+Nodes (11): fast, normal, slow, $type, $value, $type, $value, primitive (+3 more)
 
 ### Community 82 - "patch"
 Cohesion: 0.18
@@ -843,9 +838,9 @@ Nodes (6): patch, Test adding components with overwrite flag., Test successful c
 Cohesion: 0.22
 Nodes (8): parametrize, Tests for tailwind_config_gen.py, Reduce a generated TS/JS config to a bare assignable object so it can be handed…, Regression guard for the missing-comma bug between the ``theme`` block and…, The property preceding ``plugins`` must end with a comma (pure-Python check, so…, The emitted config parses as valid JS via ``node --check``., _strip_to_object(), TestGeneratedConfigIsValidJs
 
-### Community 84 - "main.py"
-Cohesion: 0.08
-Nodes (72): add_alias(), ae_import_batch(), ae_import_rows(), aliases(), archive_document(), assign_ae(), backfill_cancel(), backfill_detail() (+64 more)
+### Community 84 - "Session"
+Cohesion: 0.07
+Nodes (76): customer_master_ready(), add_alias(), ae_import_batch(), ae_import_batches(), ae_import_rows(), aliases(), archive_document(), backfill_cancel() (+68 more)
 
 ### Community 85 - ".agents/skills/design/scripts/logo/generate.py"
 Cohesion: 0.29
@@ -856,8 +851,8 @@ Cohesion: 0.36
 Nodes (9): flattenTokens(), fs, generateCSS(), generateTailwind(), main(), parseArgs(), path, resolveReference() (+1 more)
 
 ### Community 87 - "chart-context.tsx"
-Cohesion: 0.09
-Nodes (37): AreaChart(), AreaChartProps, ChartInner(), ChartInnerProps, DEFAULT_MARGIN, extractAreaConfigs(), AreaChartLoadingProps, ChartContextValue (+29 more)
+Cohesion: 0.07
+Nodes (38): ChartHoverContext, ChartHoverContextValue, ChartProvider(), ChartStableContext, ChartStableContextValue, ScaleBand, ScaleLinear, ScaleTime (+30 more)
 
 ### Community 88 - "duration"
 Cohesion: 0.20
@@ -907,13 +902,13 @@ Nodes (33): axios, cmdk, date-fns, dependencies, axios, cmdk, date-fns, @hookfor
 Cohesion: 0.12
 Nodes (12): DesignSystemGenerator, Find matching reasoning rule for a category., Apply reasoning rules to search results., Select best matching result based on priority keywords., Extract results list from search result dict., Generate complete design system recommendation. variance/motion/density are…, Bucket a 1-10 dial value into its tier config. Returns None if value is None., Generates design system recommendations from aggregated searches. (+4 more)
 
-### Community 101 - "BM25"
-Cohesion: 0.17
-Nodes (8): BM25, BM25 ranking algorithm for text search, Lowercase, split, remove punctuation, filter short words, Build BM25 index from documents, Score all documents against query, detect_domain(), Auto-detect the most relevant domain from query. Matches are weighted by…, TestDomainDetection
+### Community 101 - "UniversalSearch.tsx"
+Cohesion: 0.38
+Nodes (6): SearchResultItem, FILTER_CHIPS, fmt$(), PRESET_RECENTS, UniversalSearch(), useDebounce()
 
-### Community 102 - "DataQualityIssue"
-Cohesion: 0.36
-Nodes (12): DataQualityIssue, _cleanup(), The 30-day buffer must cover crm_invalid_icris too, not just crm_blank_icris —…, crm_icris_not_in_master is a different situation entirely (waiting on a…, _seed_icris_issue(), test_buffer_applies_to_both_blank_and_invalid_icris(), test_icris_not_in_master_is_excluded_from_the_buffer(), test_manual_resolve_records_admin_as_resolved_by() (+4 more)
+### Community 102 - "$type"
+Cohesion: 0.53
+Nodes (6): $type, $value, 600, 600, 600, 600
 
 ### Community 103 - "test_rbac.py"
 Cohesion: 0.09
@@ -937,19 +932,19 @@ Nodes (10): fg, font-size, hover-bg, button, $type, $value, $type, $value (+2 mo
 
 ### Community 108 - "time-series-chart-shell.tsx"
 Cohesion: 0.06
-Nodes (39): AreaChartLoading(), CHART_CLIP_PASSTHROUGH, CLIP_EXCLUDED_COMPONENT_NAMES, isClipExcludedComponent(), isPostOverlayComponent(), isUnderlayComponent(), resolveChartChildElement(), UNDERLAY_COMPONENT_NAMES (+31 more)
+Nodes (38): collectChartDefsChildren(), getChartChildComponentName(), isChartDefsComponent(), isGradientDefComponent(), isPatternDefComponent(), partitionChartDefNodes(), VISX_PATTERN_COMPONENT_NAMES, decimateTimeSeries() (+30 more)
 
-### Community 109 - "gray"
-Cohesion: 0.05
-Nodes (53): $type, $value, $type, $value, $type, $value, $type, $value (+45 more)
+### Community 109 - "color"
+Cohesion: 0.15
+Nodes (20): $type, $value, $type, $value, 500, 700, blue, green (+12 more)
 
 ### Community 110 - "input"
 Cohesion: 0.29
 Nodes (8): padding-x, input, $type, $value, focus-ring, padding-x, $type, $value
 
 ### Community 111 - "radius"
-Cohesion: 0.19
-Nodes (14): $type, $value, $type, $value, $type, $value, primitive, radius (+6 more)
+Cohesion: 0.13
+Nodes (22): $type, $value, sm, $type, $value, $type, $value, $type (+14 more)
 
 ### Community 112 - ".opencode/skills/design-system/templates/design-tokens-starter.json"
 Cohesion: 0.15
@@ -961,19 +956,19 @@ Nodes (7): NavigationMenu, NavigationMenuContent, NavigationMenuIndicator, Navig
 
 ### Community 114 - "series-markers.tsx"
 Cohesion: 0.08
-Nodes (29): clipRevealTransition(), DEFAULT_CHART_ENTER_TRANSITION, defaultScatterColors, useChart(), useChartHover(), ChartLegendHoverContext, ChartLegendHoverContextValue, useChartLegendHover() (+21 more)
+Nodes (28): clipRevealTransition(), DEFAULT_CHART_ENTER_TRANSITION, defaultScatterColors, useChartHover(), ChartLegendHoverContext, ChartLegendHoverContextValue, useChartLegendHover(), ChartRevealClip() (+20 more)
 
-### Community 115 - "Session"
+### Community 115 - "main.py"
 Cohesion: 0.07
-Nodes (75): admin_audit_logs(), ae_import_batches(), ae_performance(), analytics_customers(), analytics_dashboard(), backfills(), bill_types(), calc_pop() (+67 more)
+Nodes (78): require_role(), get_db(), admin_audit_logs(), admin_list_users(), ae_performance(), analytics_customers(), analytics_dashboard(), auth_logout() (+70 more)
 
 ### Community 116 - "MasterAirWaybills.tsx"
 Cohesion: 0.16
 Nodes (17): AirWaybills(), fmt$(), fmtDate(), fmtWeight(), ShipmentDetailDrawer(), shipmentWeight(), useDebounce(), AIRLINES (+9 more)
 
-### Community 117 - "Alerts.tsx"
-Cohesion: 0.20
-Nodes (11): Alert, Alerts(), CATEGORIES, getIcon(), metricLabel(), SEVERITY_BAR, SEVERITY_DOT, SEVERITY_LABEL (+3 more)
+### Community 117 - "Users.tsx"
+Cohesion: 0.09
+Nodes (14): adminApi, AdminUser, AuthRole, BulkCreateUserResult, NewUserRow, ACTION_STYLE, AeOption, emptyRow() (+6 more)
 
 ### Community 118 - "Tailwind CSS Utility Reference"
 Cohesion: 0.05
@@ -989,11 +984,11 @@ Nodes (37): 1. Color Palette, 2. Typography, 3. Logo Usage, 4. Voice & Tone, 5. 
 
 ### Community 121 - "area.tsx"
 Cohesion: 0.12
-Nodes (27): Area(), AreaProps, CurveFactory, AreaGradientDefs(), AreaGradientDefsProps, useAreaLoadingPulseState(), DashTailStroke(), DashTailStrokeProps (+19 more)
+Nodes (28): Area(), AreaProps, CurveFactory, AreaGradientDefs(), AreaGradientDefsProps, useAreaLoadingPulseState(), LoadingStyle, DashTailStroke() (+20 more)
 
 ### Community 122 - "email_notifications.py"
-Cohesion: 0.11
-Nodes (39): _ae_codes_with_email(), _due_warnings_html(), _due_warnings_text(), _fmt_currency(), _format_admin_summary(), _format_ae_digest(), _format_immediate_breach_group(), _format_weekly_admin() (+31 more)
+Cohesion: 0.07
+Nodes (56): _ae_codes_with_email(), _due_warnings_html(), _due_warnings_text(), _fmt_currency(), _format_admin_summary(), _format_ae_digest(), _format_immediate_breach_group(), _format_weekly_admin() (+48 more)
 
 ### Community 123 - "Brand Guidelines v1.0"
 Cohesion: 0.05
@@ -1008,8 +1003,8 @@ Cohesion: 0.25
 Nodes (7): SelectContent, SelectItem, SelectLabel, SelectScrollDownButton, SelectScrollUpButton, SelectSeparator, SelectTrigger
 
 ### Community 126 - "mawb_detail"
-Cohesion: 0.38
-Nodes (7): mawb_by_number(), mawb_detail(), mawb_summary(), Profitability (Shipment/MasterAirWaybill pnl_* columns) is a role-gated view,…, An ae only sees a MAWB that carries at least one of their own shipments — same…, scoped_mawbs(), strip_pnl()
+Cohesion: 0.36
+Nodes (8): mawb_by_number(), mawb_detail(), mawb_summary(), mawbs(), Profitability (Shipment/MasterAirWaybill pnl_* columns) is a role-gated view,…, An ae only sees a MAWB that carries at least one of their own shipments — same…, scoped_mawbs(), strip_pnl()
 
 ### Community 127 - "Canvas Design System"
 Cohesion: 0.06
@@ -1023,9 +1018,9 @@ Nodes (4): xl, xl, $type, $value
 Cohesion: 0.50
 Nodes (4): Request, ValueError, value_error(), exception_handler
 
-### Community 130 - "use-animated-series-path.ts"
-Cohesion: 0.35
-Nodes (9): computeSeriesPathPoints(), CurveFactory, interpolateSeriesPathPoints(), seriesPathFromPoints(), SeriesPathPoint, seriesPathTransitionSignature(), CurveFactory, useAnimatedSeriesPath() (+1 more)
+### Community 130 - "test_exports.py"
+Cohesion: 0.57
+Nodes (5): _cleanup(), _seed(), _sheet_rows(), test_shipments_export_matches_list_total_and_filters(), test_shipments_export_respects_ae_scope()
 
 ### Community 131 - ".agents/skills/ui-ux-pro-max/scripts/validate_data.py"
 Cohesion: 0.83
@@ -1037,11 +1032,11 @@ Nodes (14): 1. Light/Dark Theme Toggle — DONE, committed, pushed, 2. Profitabi
 
 ### Community 133 - "normalize_icris"
 Cohesion: 0.10
-Nodes (34): AeImportBatch, analyze(), cell_text(), clean_header(), clean_text(), import_ae_assignments(), normalize_ae_value(), parse_workbook() (+26 more)
+Nodes (35): AeImportBatch, analyze(), cell_text(), clean_header(), clean_text(), import_ae_assignments(), normalize_ae_value(), parse_workbook() (+27 more)
 
-### Community 134 - "Leaderboard.tsx"
-Cohesion: 0.33
-Nodes (4): LeaderboardEntry, Metric, METRIC_META, WinsDetailModal()
+### Community 134 - "CustomerDirectory.tsx"
+Cohesion: 0.43
+Nodes (5): CustomerDirectory(), fmt$(), fmtWeight(), STATUS_BADGES, useDebounce()
 
 ### Community 135 - "AeTargets.tsx"
 Cohesion: 0.47
@@ -1060,8 +1055,8 @@ Cohesion: 0.50
 Nodes (3): devDependencies, playwright, playwright
 
 ### Community 141 - "User"
-Cohesion: 0.05
-Nodes (100): create_session_token(), hash_password(), The token carries the session_version it was issued under (default 0, so a call…, Invalidates every session token issued for this user before now — call after a…, revoke_sessions(), serialize_user(), verify_password(), customer_master_ready() (+92 more)
+Cohesion: 0.09
+Nodes (57): assign_ae(), auth_register(), bulk_assign_ae(), bulk_patch_quality(), bulk_set_category(), cancel_crm_run(), commit(), create_account_executive() (+49 more)
 
 ### Community 142 - "Design"
 Cohesion: 0.06
@@ -1072,8 +1067,8 @@ Cohesion: 0.06
 Nodes (35): 1. Visual Communication First, 2. Minimal Text Integration, 3. Expert Craftsmanship, 4. Systematic Patterns, Analog Meditation, Approach, Canvas Boundaries, Canvas Design System (+27 more)
 
 ### Community 144 - "auth.py"
-Cohesion: 0.11
-Nodes (23): upgrade(), access_guard(), AuthUserOut, find_user_by_setup_token(), generate_setup_token(), get_ae_scope(), get_current_user(), _hash_token() (+15 more)
+Cohesion: 0.06
+Nodes (55): upgrade(), access_guard(), AuthUserOut, create_session_token(), find_user_by_setup_token(), generate_setup_token(), get_ae_scope(), get_current_user() (+47 more)
 
 ### Community 145 - "Prerequisites"
 Cohesion: 0.06
@@ -1092,20 +1087,20 @@ Cohesion: 0.06
 Nodes (32): 1. Mobile-First Design, 2. Consistent Breakpoint Usage, 3. Test at Breakpoint Boundaries, 4. Use Container for Content Width, 5. Progressive Enhancement, 6. Avoid Too Many Breakpoints, Best Practices, Breakpoint System (+24 more)
 
 ### Community 149 - "x-axis.tsx"
-Cohesion: 0.13
-Nodes (20): hmsTimeFmt, shortDateFmt, weekdayDateFmt, allIndexLayouts(), AxisTick, binomial(), buildDataAlignedTicks(), composePositiveSum() (+12 more)
+Cohesion: 0.11
+Nodes (22): useChart(), hmsTimeFmt, shortDateFmt, weekdayDateFmt, allIndexLayouts(), AxisTick, binomial(), buildDataAlignedTicks() (+14 more)
 
 ### Community 150 - "Form & Input Components"
 Cohesion: 0.06
 Nodes (32): Accordion, Alert, Alert Dialog, Avatar, Badge, Button, Card, Checkbox (+24 more)
 
-### Community 154 - "test_crm_sync.py"
-Cohesion: 0.17
-Nodes (18): Match each P&L row onto an existing MasterAirWaybill by mawb_number (never…, Write per-shipment UPS profit/loss from S_MenifestPrevUPS onto existing…, upsert_pnl(), upsert_ups_detail(), MasterAirWaybill, test_pnl_ambiguous_mawb_number_across_two_manifest_dates_is_not_guessed(), test_pnl_dry_run_writes_nothing(), test_pnl_matches_existing_mawb_by_number_and_updates_fields() (+10 more)
+### Community 154 - "test_mawbs_pnl_sort.py"
+Cohesion: 0.39
+Nodes (6): _cleanup(), _mk_mawb(), Regression: the frontend used to only re-sort the current (date-ordered) page…, A MAWB with pnl_bill_amount=0 must not blow up the ORDER BY with a SQL…, test_mawbs_sort_by_margin_does_not_error_on_zero_bill_amount(), test_mawbs_sort_by_margin_orders_across_full_result_set_not_just_one_page()
 
-### Community 158 - "test_company_master_import.py"
-Cohesion: 0.31
-Nodes (16): analyze(), clean_header(), import_companies(), parse_workbook(), Session, _sheet(), test_api_mapping_preview_and_manual_entry(), test_headers_blank_column_pivot_and_normalization() (+8 more)
+### Community 158 - "DataQualityIssue"
+Cohesion: 0.15
+Nodes (32): analyze(), cell_text(), clean_header(), clean_text(), import_companies(), parse_workbook(), Session, Transactional, grouped import for the authoritative ICRIS company master. (+24 more)
 
 ### Community 159 - "Tailwind CSS Responsive Design"
 Cohesion: 0.06
@@ -1165,7 +1160,7 @@ Nodes (24): Accessibility Requirements, Brand Compliance Validation, Checking Co
 
 ### Community 187 - "Shipment"
 Cohesion: 0.04
-Nodes (67): _add_alias(), backfill_1z_icris_extraction(), _call_log_hash(), _counter(), exact_company(), invalid_icris_reason(), issue(), link_icris() (+59 more)
+Nodes (80): _add_alias(), backfill_1z_icris_extraction(), _call_log_hash(), _counter(), exact_company(), invalid_icris_reason(), issue(), link_icris() (+72 more)
 
 ### Community 188 - "md"
 Cohesion: 0.67
@@ -1181,7 +1176,7 @@ Nodes (24): Apparel, Business Card, Car/Sedan, CIP Deliverable Guide, Core Ident
 
 ### Community 192 - "App.tsx"
 Cohesion: 0.07
-Nodes (16): CUSTOMER_TYPE_OPTIONS, EMPTY_FORM, FormState, STATUS_OPTIONS, DocumentTypeAnalytics(), fmt$(), fmtNum(), ExecutiveOverview() (+8 more)
+Nodes (15): CUSTOMER_TYPE_OPTIONS, EMPTY_FORM, FormState, STATUS_OPTIONS, DocumentTypeAnalytics(), fmt$(), fmtNum(), ExecutiveOverview() (+7 more)
 
 ### Community 193 - "States and Variants"
 Cohesion: 0.08
@@ -1235,9 +1230,9 @@ Nodes (4): $type, $value, none, none
 Cohesion: 0.10
 Nodes (21): 10. CRM integration is read-only, 11. Deletion is archival, 12. Source spellings are preserved exactly, 13. Structure changes fail loudly, never silently, 14. Transactions and schema, 1. ICRIS is the customer identity, 2. Fuzzy matching is suggestion-only and is never auto-applied, 3. Manual links are never overwritten (+13 more)
 
-### Community 214 - "dialog.tsx"
-Cohesion: 0.29
-Nodes (4): DialogContent, DialogDescription, DialogOverlay, DialogTitle
+### Community 214 - "GeographyAnalytics.tsx"
+Cohesion: 0.83
+Nodes (3): fmt$(), fmtNum(), GeographyAnalytics()
 
 ### Community 215 - "CIP Deliverable Guide"
 Cohesion: 0.08
@@ -1396,8 +1391,8 @@ Cohesion: 0.13
 Nodes (14): AIDA (Attention-Interest-Desire-Action), Before-After-Bridge, Contrast Patterns, Copywriting Formulas, Core Formulas, Cost of Inaction, FAB (Features-Advantages-Benefits), Formula-to-Slide Mapping (+6 more)
 
 ### Community 285 - "tasteskill: Anti-Slop Frontend Skill"
-Cohesion: 0.13
-Nodes (15): 0.A Read these signals first, 0.B Output a one-line "Design Read" before generating, 0. BRIEF INFERENCE (Read the Room Before Anything Else), 0.C If the brief is ambiguous, ask one question, do not guess, 0.D Anti-Default Discipline, 13. OUT OF SCOPE, 14. FINAL PRE-FLIGHT CHECK, 1.A Dial Inference (design read → dial values) (+7 more)
+Cohesion: 0.18
+Nodes (11): 0.A Read these signals first, 0.B Output a one-line "Design Read" before generating, 0. BRIEF INFERENCE (Read the Room Before Anything Else), 0.C If the brief is ambiguous, ask one question, do not guess, 0.D Anti-Default Discipline, 13. OUT OF SCOPE, 14. FINAL PRE-FLIGHT CHECK, 2.A When to reach for a real design system (use official packages) (+3 more)
 
 ### Community 286 - "Appendix B - Canonical Sources (read these before reinventing)"
 Cohesion: 0.13
@@ -1531,9 +1526,9 @@ Nodes (9): Alert Tokens, Badge Tokens, Button Tokens, Card Tokens, Component Tok
 Cohesion: 0.20
 Nodes (9): Common Structures, Duarte Sparkline Pattern, Matching Strategy to Context, Product Demo (6 slides), Sales Pitch (9 slides), Search Commands, Slide Strategies, Strategy Selection (+1 more)
 
-### Community 319 - "UploadFile"
-Cohesion: 0.33
-Nodes (10): ae_import_commit(), ae_import_preview(), ae_targets_import(), company_import(), company_mapping(), company_preview(), read_ae_target_workbook(), read_ae_workbook() (+2 more)
+### Community 319 - "upload_document"
+Cohesion: 0.22
+Nodes (14): ae_import_commit(), ae_import_preview(), ae_targets_import(), company_import(), company_mapping(), company_preview(), optimize_image_bytes(), Compresses PNG/JPG images if resizing/quality optimization saves space. (+6 more)
 
 ### Community 320 - "frontend/package.json"
 Cohesion: 0.18
@@ -1636,8 +1631,8 @@ Cohesion: 0.20
 Nodes (8): CustomerMetric, DEFAULT_RANK_STYLE, fmt$(), fmtNum(), METRIC_OPTIONS, RANK_STYLE, Rankings(), Tab
 
 ### Community 346 - "sidebar-component.tsx"
-Cohesion: 0.08
-Nodes (10): InputGroupAddon(), inputGroupAddonVariants, InputGroupButton(), inputGroupButtonVariants, DetailSidebar(), getSidebarContent(), MenuItemT, MenuSectionT (+2 more)
+Cohesion: 0.11
+Nodes (6): DetailSidebar(), getSidebarContent(), MenuItemT, MenuSectionT, SidebarContent, svgPaths
 
 ### Community 347 - "Customer 360 System Memory Bank & Architecture Specification"
 Cohesion: 0.40
@@ -1667,10 +1662,6 @@ Nodes (5): 8.A Token Strategy (pick one, stick to it), 8.B Do Not Prescribe Spec
 Cohesion: 0.40
 Nodes (4): Color Palette, Courier Intelligence Dashboard Design Reference, Layout Structure, Overview
 
-### Community 354 - "db.py"
-Cohesion: 0.10
-Nodes (6): One-time backfill: apply the blank-Pay-Term inference to shipments that were…, One-time backfill: raise a `crm_missing_pay_term` DataQualityIssue for every…, One-time backfill: raise DataQualityIssue rows for two historical gaps…, QA probe: exercises Key data rules against the live schema inside a transaction…, QA probe: pins executive-dashboard filter correctness against independent…, QA probe: pins dashboard KPI endpoints against independent ground-truth SQL,…
-
 ### Community 355 - "React + TypeScript + Vite"
 Cohesion: 0.50
 Nodes (3): Expanding the Oxlint configuration, React Compiler, React + TypeScript + Vite
@@ -1684,8 +1675,8 @@ Cohesion: 0.16
 Nodes (15): AECustomer, AEPerformanceItem, AeTarget, AEPerformance(), attainmentTone(), DATE_PRESET_GROUPS, DateRangeControl(), fmt$() (+7 more)
 
 ### Community 358 - "projection-utils.ts"
-Cohesion: 0.20
-Nodes (16): buildAutoFutureValues(), buildProjectionPath(), BuildProjectionPathOptions, buildTargetPath(), computeProjectionAnchorTangentSlope(), intervalFromAdjacentRows(), intervalFromSeriesSpan(), linearRegressionSlope() (+8 more)
+Cohesion: 0.08
+Nodes (35): CHART_CLIP_PASSTHROUGH, CLIP_EXCLUDED_COMPONENT_NAMES, isChartClipPassthrough(), isClipExcludedComponent(), isPostOverlayComponent(), isUnderlayComponent(), resolveChartChildElement(), UNDERLAY_COMPONENT_NAMES (+27 more)
 
 ### Community 359 - "7. DIAL DEFINITIONS (Technical Reference)"
 Cohesion: 0.50
@@ -1727,10 +1718,6 @@ Nodes (7): Settings, configured(), test_allowed_hosts_are_trimmed_and_casefolded
 Cohesion: 0.22
 Nodes (14): activeGroupFor(), AppShell(), bucketLabel(), cleanInsightDescription(), daysAgo(), GROUP_ORDER, INSIGHT_CATEGORY_ICON, insightIcon() (+6 more)
 
-### Community 369 - "detect_domain"
-Cohesion: 0.43
-Nodes (3): detect_domain(), Auto-detect the most relevant domain from query. Matches are weighted by…, TestDomainDetection
-
 ### Community 370 - "$type"
 Cohesion: 0.60
 Nodes (5): $type, $value, border, border, border
@@ -1739,9 +1726,9 @@ Nodes (5): $type, $value, border, border, border
 Cohesion: 0.60
 Nodes (5): radius, radius, radius, $type, $value
 
-### Community 372 - "lg"
-Cohesion: 0.60
-Nodes (5): lg, $type, $value, lg, lg
+### Community 372 - "50"
+Cohesion: 0.67
+Nodes (4): $type, $value, 50, 50
 
 ### Community 374 - "destructive"
 Cohesion: 0.67
@@ -1759,9 +1746,9 @@ Nodes (3): muted, $type, $value
 Cohesion: 0.13
 Nodes (14): 1. What's actually deployed vs. not, 2. AWB / MAWB page work, 3. Password setup / bulk user creation (deployed), 4. Leaderboard feature (deployed), 5. Local dev environment fix, 6. The `customer360.shangrilatours.com.np` subdomain (blocked, not done), 7. Data Quality — the big one this session, 8. Where to pick up (+6 more)
 
-### Community 390 - "sm"
-Cohesion: 0.60
-Nodes (5): sm, sm, sm, $type, $value
+### Community 390 - ".agents/skills/design/scripts/cip/generate.py"
+Cohesion: 0.23
+Nodes (13): build_cip_prompt(), check_logo_required(), generate_cip_set(), generate_with_nano_banana(), load_env(), load_logo_image(), main(), Generate image using Gemini Nano Banana (native image generation) Supports two… (+5 more)
 
 ### Community 1291 - "1. Company-master import — LIVE"
 Cohesion: 0.14
@@ -1788,20 +1775,20 @@ Cohesion: 0.15
 Nodes (12): 1. Local Docker Workflow (Windows/Mac), 2. Remote Development Workflow (Primary), Accessing the Services, Forwarding Ports to your Laptop, Initial Setup, Initial Setup (One-time), Prerequisites, Running Customer 360 (+4 more)
 
 ### Community 1297 - "loading-sweep.tsx"
-Cohesion: 0.13
-Nodes (17): ChartLoadingLabel(), ChartLoadingLabelProps, LINE_LOADING_PULSE_EASE, BarLoadingSkeleton(), BarLoadingSkeletonProps, CurveFactory, generateEasedGradientStops(), getSkeletonHeights() (+9 more)
+Cohesion: 0.09
+Nodes (26): ChartLoadingLabel(), ChartLoadingLabelProps, LINE_LOADING_PULSE_EASE, BarLoadingSkeleton(), BarLoadingSkeletonProps, CurveFactory, generateEasedGradientStops(), getSkeletonHeights() (+18 more)
 
-### Community 1298 - "key_insights"
-Cohesion: 0.50
-Nodes (4): key_insights(), _prune_notification_state(), Drops seen/snoozed entries for ids no longer live, so a resolved-then-recurring…, The notification-bell feed — high-severity alerts only (the full Alerts page…
+### Community 1298 - "800"
+Cohesion: 0.67
+Nodes (4): $type, $value, 800, 800
 
 ### Community 1299 - "Session Handover — Customer 360"
 Cohesion: 0.20
 Nodes (9): 1. Territory Performance page (new), 2. Bulk manual AE reassignment (new), 3. Collapsed sidebar hid sub-navigation (bug fix), 4. Customer Tier Distribution donut — color collision (bug fix), 5. Executive Overview: shipments trend + live sync indicator, Key facts to carry forward, Session Handover — Customer 360, Verification done this session (+1 more)
 
 ### Community 1300 - "test_document_type_analytics.py"
-Cohesion: 0.21
-Nodes (9): _doc_type_bucket(), One shipment per bill_type case, each PP-billed 100 so revenue is unambiguous., Document + Letter -> doc, Non-Doc -> non_doc, blank/NULL -> unclassified.…, Revenue split must follow the same PP/FC/FD-only convention as every other…, Each destination row must carry its own doc/non_doc counts so 'which…, _seed_doc_type_shipments(), test_document_letter_bucket_into_doc_non_doc_stays_separate_blank_is_unclassified(), test_document_type_by_destination_split() (+1 more)
+Cohesion: 0.20
+Nodes (8): One shipment per bill_type case, each PP-billed 100 so revenue is unambiguous., Document + Letter -> doc, Non-Doc -> non_doc, blank/NULL -> unclassified.…, Revenue split must follow the same PP/FC/FD-only convention as every other…, Each destination row must carry its own doc/non_doc counts so 'which…, _seed_doc_type_shipments(), test_document_letter_bucket_into_doc_non_doc_stays_separate_blank_is_unclassified(), test_document_type_by_destination_split(), test_document_type_revenue_uses_shared_revenue_expression()
 
 ### Community 1301 - "Frontend"
 Cohesion: 0.18
@@ -1815,9 +1802,9 @@ Nodes (10): Accuracy [verified 2026-08-06], Backup and restore, Database, Direct
 Cohesion: 0.20
 Nodes (9): 1. Missing bill_amounts on 88 shipments, 2. Revenue gap was ~$10K before fix, Data Inspection Report — 2026-09-17, Monthly (September 2026) — CRM vs Customer 360, Pending, Probes, Root causes found and fixed, Summary (+1 more)
 
-### Community 1304 - "auth.tsx"
-Cohesion: 0.14
-Nodes (11): App(), AuthContext, AuthContextValue, AuthProvider(), AuthStatus, queryClient, getInitialTheme(), Theme (+3 more)
+### Community 1304 - "Alerts.tsx"
+Cohesion: 0.06
+Nodes (26): App(), AuthContext, AuthContextValue, AuthProvider(), AuthStatus, InputGroupAddon(), inputGroupAddonVariants, InputGroupButton() (+18 more)
 
 ### Community 1305 - "Session Handoff — 2026-08-07 to 2026-08-10"
 Cohesion: 0.20
@@ -1847,21 +1834,21 @@ Nodes (3): ring, $type, $value
 Cohesion: 0.67
 Nodes (3): secondary-foreground, $type, $value
 
-### Community 1312 - "badge.tsx"
-Cohesion: 0.67
-Nodes (3): Badge(), BadgeProps, badgeVariants
+### Community 1312 - "leaderboard-rankings.tsx"
+Cohesion: 0.25
+Nodes (6): crownColorMap, LeaderboardRankingItem, LeaderboardRankings, LeaderboardRankingsProps, LeaderboardRow, pageSizeOptions
 
 ### Community 1313 - "Profitability.tsx"
 Cohesion: 0.46
 Nodes (7): addDays(), daysBetween(), fmt$(), fmt$Compact(), fmtDate(), pctChange(), Profitability()
 
-### Community 1314 - "TerritoryPerformance.tsx"
-Cohesion: 0.83
-Nodes (3): fmt$(), fmtNum(), TerritoryPerformance()
+### Community 1314 - "sm"
+Cohesion: 0.60
+Nodes (5): sm, sm, sm, $type, $value
 
-### Community 1316 - "xl"
-Cohesion: 0.67
-Nodes (4): xl, xl, $type, $value
+### Community 1316 - "1. THE THREE DIALS (Core Configuration)"
+Cohesion: 0.50
+Nodes (4): 1.A Dial Inference (design read → dial values), 1.B Use-Case Presets, 1.C How the Dials Drive Output, 1. THE THREE DIALS (Core Configuration)
 
 ### Community 1317 - "Customer 360 — Documentation"
 Cohesion: 0.40
@@ -1879,37 +1866,17 @@ Nodes (5): formatDate(), formatMoney(), hoursAgo(), Pipeline(), relativeSyncTime
 Cohesion: 0.67
 Nodes (4): padding-y, padding-y, $type, $value
 
-### Community 1324 - "none"
+### Community 1324 - "0"
 Cohesion: 0.67
-Nodes (4): $type, $value, none, none
+Nodes (3): $type, $value, 0
 
-### Community 1338 - "16"
+### Community 1338 - "12"
 Cohesion: 0.67
-Nodes (3): $type, $value, 16
+Nodes (3): $type, $value, 12
 
-### Community 1341 - "1"
+### Community 1341 - "6"
 Cohesion: 0.67
-Nodes (3): $type, $value, 1
-
-### Community 1361 - "3"
-Cohesion: 0.67
-Nodes (3): $type, $value, 3
-
-### Community 1370 - "16"
-Cohesion: 0.67
-Nodes (3): $type, $value, 16
-
-### Community 1371 - "1"
-Cohesion: 0.67
-Nodes (3): $type, $value, 1
-
-### Community 1372 - "3"
-Cohesion: 0.67
-Nodes (3): $type, $value, 3
-
-### Community 1373 - "8"
-Cohesion: 0.67
-Nodes (3): $type, $value, 8
+Nodes (3): $type, $value, 6
 
 ### Community 1375 - "8"
 Cohesion: 0.67
@@ -1954,22 +1921,22 @@ Nodes (6): Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle
 ## Knowledge Gaps
 - **2753 isolated node(s):** `fs`, `path`, `fs`, `path`, `fs` (+2748 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **101 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **103 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `react` connect `react` to `sheet.tsx`, `y-domain-utils.ts`, `use-animated-series-path.ts`, `Leaderboard.tsx`, `AeTargets.tsx`, `AnalyticsFilterBar.tsx`, `loading-sweep.tsx`, `api`, `x-axis.tsx`, `auth.tsx`, `useChartStable`, `Customer360.tsx`, `api.ts`, `badge.tsx`, `Profitability.tsx`, `TerritoryPerformance.tsx`, `BusinessAnalytics.tsx`, `Pipeline.tsx`, `pie-context.tsx`, `chart-tooltip.tsx`, `App.tsx`, `plugins`, `DataQuality.tsx`, `dialog.tsx`, `chart-context.tsx`, `Rankings.tsx`, `sidebar-component.tsx`, `command.tsx`, `dropdown-menu.tsx`, `AEPerformance.tsx`, `table.tsx`, `card.tsx`, `time-series-chart-shell.tsx`, `app-shell.tsx`, `navigation-menu.tsx`, `series-markers.tsx`, `MasterAirWaybills.tsx`, `Alerts.tsx`, `OperationalAnalytics.tsx`, `area.tsx`, `select.tsx`?**
-  _High betweenness centrality (0.014) - this node is a cross-community bridge._
-- **Why does `dependencies` connect `dependencies` to `Customer360.tsx`, `class-variance-authority`, `@base-ui/react`, `@carbon/icons-react`, `d3-array`, `echarts-for-react`, `frontend/package.json`, `framer-motion`, `html2canvas`, `jspdf`, `lucide-react`, `maplibre-gl`, `motion`, `@radix-ui/react-avatar`, `@radix-ui/react-collapsible`, `@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-hover-card`, `@radix-ui/react-popover`, `@radix-ui/react-select`, `@radix-ui/react-separator`, `react-map-gl`, `@tanstack/react-query`, `@tanstack/react-table`, `@visx/curve`, `@visx/event`, `@visx/gradient`, `@visx/group`, `@visx/responsive`, `@visx/scale`, `zod`, `clsx`, `exportXlsx.ts`, `d3-shape`, `echarts`, `geist`, `@radix-ui/react-tabs`, `react-day-picker`, `react-router-dom`, `@visx/grid`?**
+- **Why does `react` connect `react` to `sheet.tsx`, `area-chart.tsx`, `CustomerDirectory.tsx`, `AeTargets.tsx`, `AnalyticsFilterBar.tsx`, `loading-sweep.tsx`, `api`, `x-axis.tsx`, `Alerts.tsx`, `Customer360.tsx`, `leaderboard-rankings.tsx`, `Profitability.tsx`, `BusinessAnalytics.tsx`, `Pipeline.tsx`, `pie-context.tsx`, `chart-tooltip.tsx`, `App.tsx`, `plugins`, `DataQuality.tsx`, `GeographyAnalytics.tsx`, `chart-context.tsx`, `Rankings.tsx`, `sidebar-component.tsx`, `command.tsx`, `dropdown-menu.tsx`, `AEPerformance.tsx`, `projection-utils.ts`, `table.tsx`, `card.tsx`, `UniversalSearch.tsx`, `time-series-chart-shell.tsx`, `app-shell.tsx`, `navigation-menu.tsx`, `series-markers.tsx`, `MasterAirWaybills.tsx`, `Users.tsx`, `OperationalAnalytics.tsx`, `area.tsx`, `select.tsx`?**
+  _High betweenness centrality (0.013) - this node is a cross-community bridge._
+- **Why does `dependencies` connect `dependencies` to `class-variance-authority`, `BusinessAnalytics.tsx`, `@base-ui/react`, `@carbon/icons-react`, `d3-array`, `echarts-for-react`, `frontend/package.json`, `framer-motion`, `html2canvas`, `jspdf`, `lucide-react`, `maplibre-gl`, `motion`, `@radix-ui/react-avatar`, `@radix-ui/react-collapsible`, `@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-hover-card`, `@radix-ui/react-popover`, `@radix-ui/react-select`, `@radix-ui/react-separator`, `react-map-gl`, `@tanstack/react-query`, `@tanstack/react-table`, `@visx/curve`, `@visx/event`, `@visx/gradient`, `@visx/group`, `@visx/responsive`, `@visx/scale`, `zod`, `clsx`, `exportXlsx.ts`, `d3-shape`, `echarts`, `geist`, `@radix-ui/react-tabs`, `react-day-picker`, `react-router-dom`, `@visx/grid`?**
   _High betweenness centrality (0.009) - this node is a cross-community bridge._
-- **Why does `react` connect `Customer360.tsx` to `App.tsx`, `BusinessAnalytics.tsx`, `dependencies`, `AEPerformance.tsx`?**
+- **Why does `react` connect `BusinessAnalytics.tsx` to `App.tsx`, `dependencies`, `AEPerformance.tsx`?**
   _High betweenness centrality (0.008) - this node is a cross-community bridge._
 - **Are the 2 inferred relationships involving `User` (e.g. with `AuthUserOut` and `LoginRequest`) actually correct?**
   _`User` has 2 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `fs`, `path`, `fs` to the rest of the system?**
   _2753 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `y-domain-utils.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.10099573257467995 - nodes in this community are weakly interconnected._
+- **Should `area-chart.tsx` be split into smaller, more focused modules?**
+  _Cohesion score 0.12012012012012012 - nodes in this community are weakly interconnected._
 - **Should `crm_parser.py` be split into smaller, more focused modules?**
-  _Cohesion score 0.06905370843989769 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.07067603160667252 - nodes in this community are weakly interconnected._

@@ -63,6 +63,14 @@ export const authApi = {
     const response = await apiClient.post('/auth/change-password', { current_password: currentPassword, new_password: newPassword });
     return normalizeAuthUser(response.data);
   },
+
+  register: async (body: { email: string; display_name: string; password: string }): Promise<void> => {
+    await apiClient.post('/auth/register', body);
+  },
+
+  forgotPassword: async (email: string): Promise<void> => {
+    await apiClient.post('/auth/forgot-password', { email });
+  },
 };
 
 export interface KpiCardData {
@@ -1498,6 +1506,7 @@ export interface AdminUser {
   email_alerts_enabled: boolean;
   last_login_at: string | null;
   is_locked: boolean;
+  pending_approval: boolean;
   created_at: string;
   updated_at: string;
   setup_link?: string;
@@ -1527,7 +1536,7 @@ export interface BulkCreateUserResult {
 }
 
 export const adminApi = {
-  getUsers: async (params?: { q?: string; role?: string; is_active?: boolean; limit?: number; offset?: number }): Promise<{ items: AdminUser[]; total: number; limit: number; offset: number }> => {
+  getUsers: async (params?: { q?: string; role?: string; is_active?: boolean; pending?: boolean; limit?: number; offset?: number }): Promise<{ items: AdminUser[]; total: number; limit: number; offset: number }> => {
     const { data } = await apiClient.get('/admin/users', { params });
     return data;
   },
@@ -1560,6 +1569,15 @@ export const adminApi = {
   unlockUser: async (userId: string): Promise<AdminUser> => {
     const { data } = await apiClient.post(`/admin/users/${userId}/unlock`);
     return data;
+  },
+
+  approveUser: async (userId: string, body: { role: AuthRole; ae_code?: string | null }): Promise<AdminUser> => {
+    const { data } = await apiClient.post(`/admin/users/${userId}/approve`, body);
+    return data;
+  },
+
+  rejectRegistration: async (userId: string): Promise<void> => {
+    await apiClient.delete(`/admin/users/${userId}/registration`);
   },
 
   getAuditLogs: async (params?: { entity_type?: string; action?: string; q?: string; date_from?: string; date_to?: string; limit?: number; offset?: number }): Promise<{ items: ActivityLog[]; total: number; limit: number; offset: number }> => {

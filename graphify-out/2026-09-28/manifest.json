@@ -440,8 +440,8 @@
     "semantic_hash": "9a89afd96b48d51a8ac0aecc2b037209"
   },
   "backend/app/main.py": {
-    "mtime": 1790578927.013375,
-    "ast_hash": "8b512aec81e7b5db8d1b7996cecd5751",
+    "mtime": 1790574768.5598838,
+    "ast_hash": "a0d6977f53622b973d645dc310aed2a0",
     "semantic_hash": ""
   },
   "backend/app/models.py": {
@@ -540,13 +540,13 @@
     "semantic_hash": "c1ee9ce6a4fe04105dbf8e619390df5e"
   },
   "frontend/src/App.tsx": {
-    "mtime": 1790579007.3429835,
-    "ast_hash": "53efbe62309a48dc7e7d2bfe2dd54619",
+    "mtime": 1790574839.2662466,
+    "ast_hash": "9bdff9b877afc86df982a07b80c338fa",
     "semantic_hash": ""
   },
   "frontend/src/api.ts": {
-    "mtime": 1790578993.5483003,
-    "ast_hash": "348f9895cda4162ef97a14f37702d885",
+    "mtime": 1790574817.7578354,
+    "ast_hash": "dc5d9114fd3e65df686e35d96093e121",
     "semantic_hash": ""
   },
   "frontend/src/components/AlertBanner.tsx": {
@@ -6300,8 +6300,8 @@
     "semantic_hash": ""
   },
   "backend/app/auth.py": {
-    "mtime": 1790578934.2749343,
-    "ast_hash": "5c4e198a90a24b55dde075530d8fd9b3",
+    "mtime": 1790574742.940994,
+    "ast_hash": "7ea1aaea2b13699e5c88bb5f0527f818",
     "semantic_hash": ""
   },
   "backend/app/customer_clean_import.py": {
@@ -6315,8 +6315,8 @@
     "semantic_hash": ""
   },
   "backend/app/email_notifications.py": {
-    "mtime": 1790578917.9411166,
-    "ast_hash": "b41fbd64e4b48e7e5014107f87471562",
+    "mtime": 1789722005.0,
+    "ast_hash": "0957c5053370f3a9171d52dc9d1f5f59",
     "semantic_hash": ""
   },
   "backend/app/tier_alerts.py": {
@@ -6775,8 +6775,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ui/neural-access-login.tsx": {
-    "mtime": 1790579012.7668293,
-    "ast_hash": "4f1a015f4889615a91e33c88a1d6190b",
+    "mtime": 1790575355.6749122,
+    "ast_hash": "be58c27b9e1cbb35b893fd44938374a9",
     "semantic_hash": ""
   },
   "frontend/src/components/ui/sidebar-component.tsx": {
@@ -6860,8 +6860,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/SetPassword.tsx": {
-    "mtime": 1790577499.8465612,
-    "ast_hash": "38dec215f5b3f207e29da5c57e4aace2",
+    "mtime": 1787809315.7305017,
+    "ast_hash": "df6fe8df6b4dd7c39c5f74b801ccb6ce",
     "semantic_hash": ""
   },
   "frontend/src/pages/admin/AuditLogs.tsx": {
@@ -7245,18 +7245,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/Register.tsx": {
-    "mtime": 1790578688.2849362,
-    "ast_hash": "16c6ae00d642b8a1f764b4b51bd65b31",
-    "semantic_hash": ""
-  },
-  "backend/tests/test_forgot_password.py": {
-    "mtime": 1790578970.3624854,
-    "ast_hash": "eb5dbce9f8087248da3d758fa547ff7f",
-    "semantic_hash": ""
-  },
-  "frontend/src/pages/ForgotPassword.tsx": {
-    "mtime": 1790579001.989924,
-    "ast_hash": "c166329c2082256350e95630bd0f210f",
+    "mtime": 1790575366.9714196,
+    "ast_hash": "ebc2e44878dfee5a37c4357393f7aa25",
     "semantic_hash": ""
   }
 }

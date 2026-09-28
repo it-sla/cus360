@@ -176,7 +176,7 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
 
     user = db.get(User, user_id)
-    if not user or not user.is_active:
+    if not user or not user.is_active or user.pending_approval:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
     if token_version != user.session_version:
@@ -201,7 +201,7 @@ def require_role(roles: str | list[str]) -> Callable:
     return dependency
 
 
-PUBLIC_PATHS = {"/health", "/api/v1/auth/login", "/api/v1/auth/logout", "/api/v1/auth/set-password", "/docs", "/redoc", "/openapi.json", "/docs/oauth2-redirect"}
+PUBLIC_PATHS = {"/health", "/api/v1/auth/login", "/api/v1/auth/logout", "/api/v1/auth/set-password", "/api/v1/auth/register", "/api/v1/auth/forgot-password", "/docs", "/redoc", "/openapi.json", "/docs/oauth2-redirect"}
 READ_METHODS = {"GET", "HEAD", "OPTIONS"}
 
 

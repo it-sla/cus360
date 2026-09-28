@@ -150,6 +150,99 @@ function SetPasswordDialog({ user, onClose, onSubmit, isPending, error }: { user
   );
 }
 
+type AeOption = { ae_code: string; display_name?: string | null };
+
+function PendingRow({ u, aeList }: { u: AdminUser; aeList: AeOption[] }) {
+  const queryClient = useQueryClient();
+  const [role, setRole] = useState<AuthRole>('user');
+  const [aeCode, setAeCode] = useState('');
+  const [error, setError] = useState('');
+  const done = () => queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+  const onError = (err: any) => setError(err?.response?.data?.detail || 'Request failed');
+
+  const approve = useMutation({ mutationFn: () => adminApi.approveUser(u.id, { role, ae_code: role === 'ae' ? aeCode : null }), onSuccess: done, onError });
+  const reject = useMutation({ mutationFn: () => adminApi.rejectRegistration(u.id), onSuccess: done, onError });
+  const busy = approve.isPending || reject.isPending;
+  const selectClass = 'h-8 px-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none focus:border-primary';
+
+  return (
+    <tr className="align-top">
+      <td className="px-4 py-3 font-semibold text-slate-900">{u.display_name}</td>
+      <td className="px-4 py-3 text-slate-600">{u.email}</td>
+      <td className="px-4 py-3 text-slate-500">{fmtLastLogin(u.created_at)}</td>
+      <td className="px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <select value={role} onChange={e => { setRole(e.target.value as AuthRole); setError(''); }} className={selectClass}>
+            {Object.entries(ROLE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+          {role === 'ae' && (
+            <select value={aeCode} onChange={e => { setAeCode(e.target.value); setError(''); }} className={selectClass}>
+              <option value="">Select an AE…</option>
+              {aeList.map(ae => <option key={ae.ae_code} value={ae.ae_code}>{ae.ae_code}{ae.display_name ? ` — ${ae.display_name}` : ''}</option>)}
+            </select>
+          )}
+        </div>
+        {error && <div className="text-[11px] font-semibold text-rose-600 mt-1">{error}</div>}
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex justify-end gap-2">
+          <button
+            disabled={busy}
+            onClick={() => {
+              if (role === 'ae' && !aeCode) return setError('AE role requires an AE code.');
+              approve.mutate();
+            }}
+            className="h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"
+          >
+            <UserCheck size={13} /> Approve
+          </button>
+          <button
+            disabled={busy}
+            onClick={() => { if (confirm(`Reject and delete the registration from ${u.email}?`)) reject.mutate(); }}
+            className="h-8 px-3 rounded-lg bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"
+          >
+            <UserX size={13} /> Reject
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function PendingApprovals({ aeList }: { aeList: AeOption[] }) {
+  const { data } = useQuery({
+    queryKey: ['admin-users', 'pending'],
+    queryFn: () => adminApi.getUsers({ pending: true, limit: 200 }),
+  });
+  const pending = data?.items || [];
+  if (!pending.length) return null;
+
+  return (
+    <div className="bg-white rounded-[16px] border border-amber-200 dark:border-amber-500/30 shadow-[0_2px_4px_rgba(15,23,42,0.04)] overflow-hidden">
+      <div className="px-4 py-3 border-b border-amber-100 dark:border-amber-500/20 bg-amber-50/60 dark:bg-amber-500/10">
+        <h2 className="text-sm font-bold text-slate-900">Pending Approval ({pending.length})</h2>
+        <p className="text-[11px] text-slate-500 mt-0.5">Self-registered accounts. Choose a role and approve, or reject to delete the request. They cannot sign in until approved.</p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs">
+          <thead className="bg-slate-50/90 border-b border-slate-200">
+            <tr className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+              <th className="px-4 py-2.5">Name</th>
+              <th className="px-4 py-2.5">Email</th>
+              <th className="px-4 py-2.5">Requested</th>
+              <th className="px-4 py-2.5">Role</th>
+              <th className="px-4 py-2.5 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {pending.map(u => <PendingRow key={u.id} u={u} aeList={aeList} />)}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function Users() {
   const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
@@ -187,6 +280,7 @@ export default function Users() {
       q: searchQuery || undefined,
       role: roleFilter || undefined,
       is_active: statusFilter ? statusFilter === 'active' : undefined,
+      pending: false,
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
     }),
@@ -344,6 +438,8 @@ export default function Users() {
             </button>
           </div>
         </div>
+
+        <PendingApprovals aeList={aeList || []} />
 
         <div className="bg-white rounded-[16px] border border-[#E2E8F0] p-4 shadow-[0_2px_4px_rgba(15,23,42,0.04)] space-y-3">
           <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">

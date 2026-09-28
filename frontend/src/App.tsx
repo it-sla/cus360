@@ -9,6 +9,8 @@ import { useAuth } from '@/auth';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/Login';
 import SetPasswordPage from './pages/SetPassword';
+import RegisterPage from './pages/Register';
+import ForgotPasswordPage from './pages/ForgotPassword';
 import ExecutiveOverview from './pages/ExecutiveOverview';
 import BusinessAnalytics from './pages/BusinessAnalytics';
 import CustomerAnalytics from './pages/CustomerAnalytics';
@@ -88,6 +90,8 @@ export default function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/set-password" element={<SetPasswordPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
           {/* CRM APP SHELL */}
           <Route

@@ -36,6 +36,8 @@ class User(UUIDPK, Timestamps, Base):
     last_login_at: Mapped[datetime|None] = mapped_column(DateTime(timezone=True))
     failed_login_count: Mapped[int] = mapped_column(Integer, default=0)
     locked_until: Mapped[datetime|None] = mapped_column(DateTime(timezone=True))
+    # Self-registered, awaiting a super admin to pick a role. Must never be able to log in.
+    pending_approval: Mapped[bool] = mapped_column(Boolean, default=False)
 
 class UserNotificationState(Base):
     """One row per user, tracking which key-insight alert ids they've already seen —

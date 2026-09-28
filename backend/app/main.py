@@ -21,7 +21,7 @@ from .ae_targets import AeTargetWorkbookError, import_ae_targets
 from .crm_backfills import cancel_backfill,create_backfill,create_incremental,customer_master_ready,earliest_state,incremental_range,pause_backfill,resume_backfill,watermark_state,activate_next_chunk
 from .customer_segments import recompute_customer_segments, KEY_ACCOUNT_AE_CODES
 from .tier_alerts import get_tier_shipping_gap_breaches
-from .email_notifications import send_tier_alert_digests, send_weekly_report
+from .email_notifications import send_tier_alert_digests, send_weekly_report, send_password_reset_email
 from .models import *
 from .utils import clean, escape_like, jsonable, normalize_icris, normalize_name
 
@@ -109,6 +109,12 @@ class ChangePasswordIn(BaseModel):
     current_password:str; new_password:str=Field(min_length=8)
 class AdminSetPasswordIn(BaseModel):
     password:str=Field(min_length=8)
+class RegisterIn(BaseModel):
+    email:str; display_name:str; password:str=Field(min_length=8)
+class ForgotPasswordIn(BaseModel):
+    email:str
+class ApproveUserIn(BaseModel):
+    role:Literal['super_admin','admin','sales_lead','ae','user']; ae_code:str|None=None
 class AuthUserOut(BaseModel):
     id:str; email:str; display_name:str; role:str; ae_code:str|None=None; must_change_password:bool=False
 def serialize(obj,extra=None):
@@ -166,6 +172,9 @@ def auth_login(body: LoginRequest, response: Response, db: Session = Depends(get
         if locked_until > datetime.now(timezone.utc):
             minutes_left = max(1, int((locked_until - datetime.now(timezone.utc)).total_seconds() // 60) + 1)
             raise HTTPException(status_code=423, detail=f'Too many failed attempts — try again in {minutes_left} minute(s).')
+    # Only after the password checks out, so the pending state never leaks to a guesser.
+    if user and user.pending_approval and verify_password(body.password, user.password_hash):
+        raise HTTPException(status_code=403, detail='Your registration is awaiting admin approval.')
     if not user or not user.is_active or not verify_password(body.password, user.password_hash):
         if user and user.is_active:
             user.failed_login_count += 1
@@ -196,6 +205,36 @@ def auth_me(user: User = Depends(get_current_user)):
 @app.post('/api/v1/auth/logout')
 def auth_logout(response: Response):
     response.delete_cookie(AUTH_COOKIE_NAME, path='/')
+    return {'status': 'ok'}
+
+@app.post('/api/v1/auth/register', status_code=201)
+def auth_register(body: RegisterIn, db: Session = Depends(get_db)):
+    """Public. Creates an inactive, pending account with no usable role — a super admin
+    picks the role on approval. No session is issued: role='user' is unscoped, so a
+    pending account must not be able to do anything until approved."""
+    email = body.email.strip().lower()
+    if not email or '@' not in email: raise HTTPException(422, 'A valid email is required')
+    if not body.display_name.strip(): raise HTTPException(422, 'Full name is required')
+    if db.scalar(select(User).where(User.email == email)): raise HTTPException(409, 'An account with this email already exists')
+    u = User(email=email, display_name=body.display_name.strip(), role='user', password_hash=hash_password(body.password),
+             is_active=False, pending_approval=True, must_change_password=False)
+    db.add(u); db.flush()
+    log_activity(db, 'user', u.id, 'registered', f'{email} requested access', source='self')
+    commit(db)
+    return {'status': 'pending'}
+
+@app.post('/api/v1/auth/forgot-password')
+def auth_forgot_password(body: ForgotPasswordIn, db: Session = Depends(get_db)):
+    """Public. Always returns the same generic response — never reveals whether the
+    email exists, is pending approval, or is deactivated. Reuses the same one-time
+    setup-token link an admin can issue by hand (issue_setup_link)."""
+    email = body.email.strip().lower()
+    user = db.scalar(select(User).where(User.email == email))
+    if user and user.is_active and not user.pending_approval:
+        link = issue_setup_link(user)
+        log_activity(db, 'user', user.id, 'password_reset_requested', f'{user.email} requested a password reset link', source='self')
+        commit(db)
+        send_password_reset_email(user.email, link)
     return {'status': 'ok'}
 
 @app.post('/api/v1/auth/set-password', response_model=AuthUserOut)
@@ -258,7 +297,7 @@ def is_locked(u:User)->bool:
     return locked_until>datetime.now(timezone.utc)
 
 def serialize_admin_user(u:User,setup_link:str|None=None)->dict:
-    d={'id':str(u.id),'email':u.email,'display_name':u.display_name,'role':u.role,'ae_code':u.ae_code,'is_active':u.is_active,'has_password':bool(u.password_hash),'must_change_password':u.must_change_password,'email_alerts_enabled':u.email_alerts_enabled,'last_login_at':u.last_login_at,'is_locked':is_locked(u),'created_at':u.created_at,'updated_at':u.updated_at}
+    d={'id':str(u.id),'email':u.email,'display_name':u.display_name,'role':u.role,'ae_code':u.ae_code,'is_active':u.is_active,'has_password':bool(u.password_hash),'must_change_password':u.must_change_password,'email_alerts_enabled':u.email_alerts_enabled,'last_login_at':u.last_login_at,'is_locked':is_locked(u),'pending_approval':u.pending_approval,'created_at':u.created_at,'updated_at':u.updated_at}
     if setup_link:d['setup_link']=setup_link
     return d
 
@@ -273,13 +312,14 @@ def issue_setup_link(user:User)->str:
     return f'{origin}/set-password?token={token}'
 
 @app.get('/api/v1/admin/users')
-def admin_list_users(q:str|None=None,role:str|None=None,is_active:bool|None=None,limit:int=Query(50,le=200),offset:int=0,db:Session=Depends(get_db),_:User=Depends(require_role('super_admin'))):
+def admin_list_users(q:str|None=None,role:str|None=None,is_active:bool|None=None,pending:bool|None=None,limit:int=Query(50,le=200),offset:int=0,db:Session=Depends(get_db),_:User=Depends(require_role('super_admin'))):
     stmt=select(User)
     if q and q.strip():
         term=f'%{escape_like(q.strip())}%'
         stmt=stmt.where(or_(User.email.ilike(term,escape='\\'),User.display_name.ilike(term,escape='\\')))
     if role:stmt=stmt.where(User.role==role)
     if is_active is not None:stmt=stmt.where(User.is_active==is_active)
+    if pending is not None:stmt=stmt.where(User.pending_approval==pending)
     total=db.scalar(select(func.count()).select_from(stmt.subquery()))
     items=db.scalars(stmt.order_by(User.display_name).limit(limit).offset(offset)).all()
     return {'items':[serialize_admin_user(u) for u in items],'total':total,'limit':limit,'offset':offset}
@@ -350,6 +390,8 @@ def admin_issue_setup_link(user_id:uuid.UUID,db:Session=Depends(get_db),admin:Us
 def admin_update_user(user_id:uuid.UUID,body:UserPatch,db:Session=Depends(get_db),admin:User=Depends(require_role('super_admin'))):
     u=one(db,User,user_id)
     changes=body.model_dump(exclude_unset=True)
+    if u.pending_approval and changes.get('is_active'):
+        raise HTTPException(422,'This registration is pending — use Approve to choose a role and activate it')
     if (changes.get('is_active') is False or ('role' in changes and changes.get('role')!='super_admin')) and u.id==admin.id:
         raise HTTPException(422,'You cannot deactivate or demote your own account')
     demoting_super_admin=u.role=='super_admin' and ('role' in changes and changes.get('role')!='super_admin')
@@ -390,6 +432,28 @@ def admin_unlock_user(user_id:uuid.UUID,db:Session=Depends(get_db),admin:User=De
     u.locked_until=None
     log_activity(db,'user',u.id,'unlocked',f'{admin.email} unlocked {u.email}')
     commit(db);return serialize_admin_user(u)
+
+def pending_registration(db:Session,user_id:uuid.UUID)->User:
+    u=one(db,User,user_id)
+    if not u.pending_approval:raise HTTPException(404,'No pending registration for this user')
+    return u
+
+@app.post('/api/v1/admin/users/{user_id}/approve')
+def admin_approve_user(user_id:uuid.UUID,body:ApproveUserIn,db:Session=Depends(get_db),admin:User=Depends(require_role('super_admin'))):
+    u=pending_registration(db,user_id)
+    u.ae_code=validate_ae_code(db,body.role,body.ae_code)
+    u.role=body.role
+    u.is_active=True
+    u.pending_approval=False
+    log_activity(db,'user',u.id,'approved',f'{admin.email} approved {u.email} as {u.role}')
+    commit(db);return serialize_admin_user(u)
+
+@app.delete('/api/v1/admin/users/{user_id}/registration')
+def admin_reject_registration(user_id:uuid.UUID,db:Session=Depends(get_db),admin:User=Depends(require_role('super_admin'))):
+    u=pending_registration(db,user_id)
+    log_activity(db,'user',u.id,'registration_rejected',f'{admin.email} rejected the registration of {u.email}')
+    db.delete(u)
+    commit(db);return {'status':'deleted'}
 
 @app.get('/api/v1/admin/audit-logs')
 def admin_audit_logs(entity_type:str|None=None,action:str|None=None,q:str|None=None,date_from:date|None=None,date_to:date|None=None,limit:int=Query(50,le=200),offset:int=0,db:Session=Depends(get_db),_:User=Depends(require_role('super_admin'))):

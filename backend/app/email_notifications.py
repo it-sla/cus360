@@ -41,6 +41,27 @@ def _smtp_configured() -> bool:
     return bool(settings.smtp_username and settings.smtp_password.get_secret_value())
 
 
+def send_password_reset_email(to_email: str, reset_link: str) -> bool:
+    """Same setup-token link an admin can also issue by hand — 7-day TTL, one-time
+    use (auth.SETUP_TOKEN_TTL_DAYS / generate_setup_token). Silent no-op if SMTP
+    isn't configured, same as every other sender in this module."""
+    if not _smtp_configured():
+        log.info('smtp_not_configured; skipping password reset email to=%s', to_email)
+        return False
+    subject = 'Reset your Customer 360 password'
+    text_body = (
+        'We received a request to reset your Customer 360 password.\n\n'
+        f'Use this link to set a new password (valid for 7 days, one-time use):\n{reset_link}\n\n'
+        "If you didn't request this, you can ignore this email."
+    )
+    html_body = (
+        '<p>We received a request to reset your Customer 360 password.</p>'
+        f'<p><a href="{escape(reset_link)}">Click here to set a new password</a> (valid for 7 days, one-time use).</p>'
+        "<p>If you didn't request this, you can ignore this email.</p>"
+    )
+    return _send_email(to_email, subject, text_body, html_body)
+
+
 def _send_email(to: str, subject: str, text_body: str, html_body: str) -> bool:
     msg = MIMEMultipart('alternative')
     msg['Subject'] = subject
