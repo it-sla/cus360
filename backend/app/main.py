@@ -1920,7 +1920,13 @@ def territory_performance(
         e['revenue']+=r['revenue']; e['shipments']+=r['shipments']
         if r['company_id']: e['companies'].add(r['company_id'])
 
-    territory_map={}
+    if ae_scope:
+        visible_territories={territory_by_ae[ae_scope.strip().upper()]} if ae_scope.strip().upper() in territory_by_ae else set()
+    else:
+        visible_territories=set(territory_by_ae.values())
+    territory_map={t:{'territory':t,'revenue':0.0,'shipments':0,'weight':0.0,
+                       'companies':set(),'ae_breakdown':{},'customers':[]}
+                   for t in visible_territories}
     for r in cur_rows:
         ae=r['ae'].strip().upper()
         territory=territory_by_ae.get(ae)

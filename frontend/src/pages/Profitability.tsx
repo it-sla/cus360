@@ -130,23 +130,23 @@ export default function Profitability() {
         name: 'MAWB P&L',
         rows: mawbPages.items.map((m) => ({
           MAWB: m.mawb_number, Date: m.manifest_date, 'Bill Amount': m.pnl_bill_amount, 'UPS Bill Amt': m.pnl_ups_bill_amount,
-          'Profit / Loss': m.pnl_profit_loss, Margin: margin(m.pnl_bill_amount, m.pnl_profit_loss),
+          'GP/GL': m.pnl_profit_loss, 'GP Margin': margin(m.pnl_bill_amount, m.pnl_profit_loss),
         })),
-        formats: { 'Bill Amount': 'currency', 'UPS Bill Amt': 'currency', 'Profit / Loss': 'currency', Margin: 'percent' },
+        formats: { 'Bill Amount': 'currency', 'UPS Bill Amt': 'currency', 'GP/GL': 'currency', 'GP Margin': 'percent' },
       },
       {
         name: 'Routes',
-        rows: allRoutes.map((r) => ({ Route: r.route, MAWBs: r.mawb_count, 'Bill Amount': r.bill_amount, 'Profit / Loss': r.profit_loss })),
-        formats: { 'Bill Amount': 'currency', 'Profit / Loss': 'currency' },
+        rows: allRoutes.map((r) => ({ Route: r.route, MAWBs: r.mawb_count, 'Bill Amount': r.bill_amount, 'GP/GL': r.profit_loss })),
+        formats: { 'Bill Amount': 'currency', 'GP/GL': 'currency' },
       },
       {
         name: 'Top 100 Customers',
         rows: topCustomers.items.map((c) => ({
           Customer: c.company_name, ICRIS: c.icris_number ?? '', Segment: c.segment ?? '', Shipments: c.shipments,
-          'Bill Amount': c.bill_amount, 'UPS Bill Amt': c.ups_bill_amount, 'Profit / Loss': c.profit_loss,
-          Margin: c.margin_percent != null ? c.margin_percent / 100 : null, 'Awaiting Cost (shipments)': c.awaiting_cost_shipments,
+          'Bill Amount': c.bill_amount, 'UPS Bill Amt': c.ups_bill_amount, 'GP/GL': c.profit_loss,
+          'GP Margin': c.margin_percent != null ? c.margin_percent / 100 : null, 'Awaiting Cost (shipments)': c.awaiting_cost_shipments,
         })),
-        formats: { 'Bill Amount': 'currency', 'UPS Bill Amt': 'currency', 'Profit / Loss': 'currency', Margin: 'percent' },
+        formats: { 'Bill Amount': 'currency', 'UPS Bill Amt': 'currency', 'GP/GL': 'currency', 'GP Margin': 'percent' },
       },
     ]);
     warnIfTruncated(mawbPages.truncated, mawbPages.items.length);
@@ -163,7 +163,7 @@ export default function Profitability() {
       backgroundColor: chartPalette.bg, borderColor: chartPalette.border, textStyle: { color: chartPalette.text, fontSize: 11 },
       valueFormatter: (v: any) => fmt$(Number(v)),
     },
-    legend: { data: ['Bill Amount', 'UPS Bill Amount', 'Profit / Loss'], bottom: 0, icon: 'circle', itemWidth: 8, itemHeight: 8, textStyle: { fontSize: 11, color: chartPalette.legend } },
+    legend: { data: ['Bill Amount', 'UPS Bill Amount', 'GP/GL'], bottom: 0, icon: 'circle', itemWidth: 8, itemHeight: 8, textStyle: { fontSize: 11, color: chartPalette.legend } },
     grid: { left: '2%', right: '3%', bottom: '15%', top: '8%', containLabel: true },
     xAxis: { type: 'category', boundaryGap: false, data: trend.map((d) => d.period), axisLabel: { fontSize: 10, color: chartPalette.axisLabel }, axisLine: { lineStyle: { color: chartPalette.axisLine } } },
     yAxis: { type: 'value', axisLabel: { fontSize: 10, color: chartPalette.axisLabel, formatter: (v: number) => fmt$Compact(v) }, splitLine: { lineStyle: { type: 'dashed', color: chartPalette.splitLine } } },
@@ -171,7 +171,7 @@ export default function Profitability() {
       { name: 'Bill Amount', type: 'line', smooth: true, symbol: 'none', data: trend.map((d) => d.bill_amount), itemStyle: { color: COLOR_BILL }, lineStyle: { width: 2 } },
       { name: 'UPS Bill Amount', type: 'line', smooth: true, symbol: 'none', data: trend.map((d) => d.ups_bill_amount), itemStyle: { color: COLOR_UPS }, lineStyle: { width: 2 } },
       {
-        name: 'Profit / Loss', type: 'line', smooth: true, symbol: 'none', data: trend.map((d) => d.profit_loss),
+        name: 'GP/GL', type: 'line', smooth: true, symbol: 'none', data: trend.map((d) => d.profit_loss),
         itemStyle: { color: COLOR_PROFIT }, lineStyle: { width: 2.5 },
         areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(16,185,129,0.18)' }, { offset: 1, color: 'rgba(16,185,129,0.02)' }] } },
       },
@@ -227,12 +227,12 @@ export default function Profitability() {
             ? <TrendingUp size={40} className="text-emerald-500 shrink-0" />
             : <TrendingDown size={40} className="text-red-500 shrink-0" />}
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Profit / Loss</div>
+            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">GP/GL</div>
             <div className={`text-4xl font-black leading-tight ${profitPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
               {summaryQuery.isLoading ? '—' : fmt$Compact(summary?.profit_loss ?? 0)}
             </div>
             <div className="flex items-center gap-3 mt-1 text-sm font-semibold text-slate-600 dark:text-slate-300">
-              <span>{summary?.avg_margin_percent ?? 0}% margin</span>
+              <span>{summary?.avg_margin_percent ?? 0}% GP margin</span>
               {profitTrend !== undefined && (
                 <span className={profitTrend >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>
                   {profitTrend >= 0 ? '+' : ''}{profitTrend}% vs prior
@@ -285,7 +285,7 @@ export default function Profitability() {
           <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">MAWB Detail</h3>
           <div className="flex gap-1 text-[10px] font-bold">
             <button onClick={() => setSortKey('manifest_date')} className={`px-2 py-1 rounded ${sortKey === 'manifest_date' ? 'bg-primary text-white' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>By Date</button>
-            <button onClick={() => setSortKey('margin')} className={`px-2 py-1 rounded ${sortKey === 'margin' ? 'bg-primary text-white' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>By Margin</button>
+            <button onClick={() => setSortKey('margin')} className={`px-2 py-1 rounded ${sortKey === 'margin' ? 'bg-primary text-white' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>By GP Margin</button>
           </div>
         </div>
         <table className="w-full text-left border-collapse">
@@ -295,8 +295,8 @@ export default function Profitability() {
               <th className="px-4 py-2.5 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Date</th>
               <th className="px-4 py-2.5 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Bill Amount</th>
               <th className="px-4 py-2.5 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">UPS Bill Amt</th>
-              <th className="px-4 py-2.5 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Profit / Loss</th>
-              <th className="px-4 py-2.5 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Margin</th>
+              <th className="px-4 py-2.5 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">GP/GL</th>
+              <th className="px-4 py-2.5 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">GP Margin</th>
               <th className="px-2 py-2.5"></th>
             </tr>
           </thead>
