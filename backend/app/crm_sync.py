@@ -404,6 +404,19 @@ def sync_daily_call_logs(db:Session,rows,dry_run=False):
     stats['inserted_count']=inserted
     return stats
 
+def sync_wins(db:Session,rows):
+    """Full replace of crm_wins with the CRM win register (the whole history is ~200 rows,
+    fetched in one request). An empty fetch leaves the table alone rather than wiping it."""
+    stats={'total_rows':len(rows),'inserted_count':0}
+    if not rows:return stats
+    db.execute(CrmWin.__table__.delete())
+    stamp=now()
+    for row in rows:
+        company_name=row['Company Name'].strip()
+        db.add(CrmWin(win_date=row['win_date'],company_name=company_name,normalized_company_name=normalize_name(company_name),crm_customer_id=row['crm_customer_id'] or None,ae_code=row['AE'].strip() or None,weight_kg=row['weight_kg'],revenue_usd=row['revenue_usd'],pieces=row['pieces'],category=row['Category'].strip() or None,phone=row['Phone No'].strip() or None,remarks=row['Remarks'].strip() or None,scraped_at=stamp))
+    stats['inserted_count']=len(rows)
+    return stats
+
 UPS_FIELD_MAP={'Bill Amount':'pnl_bill_amount','UPS Discount%':'pnl_ups_discount_percent','UPS BillAmt':'pnl_ups_bill_amount','Profit/Loss':'pnl_profit_loss'}
 def upsert_ups_detail(db:Session,detail,mawb_number,manifest_date,crm_record_id=None,dry_run=False):
     """Write per-shipment UPS profit/loss from S_MenifestPrevUPS onto existing shipments.

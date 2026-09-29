@@ -166,6 +166,28 @@ class CrmSessionManager:
         response_text=self.request('POST',url,data=payload).text
         self._snapshot_list('daily_call_logs',response_text)
         return response_text
+    def wins_list(self,date_from,date_to):
+        """CRM_Win.aspx — the CRM's win register. Same date-field names as
+        daily_call_logs, but the button is btnShow; the AE dropdown is left at
+        '[SELECT AE]' (value 0), which returns every AE."""
+        if not settings.crm_win_url:raise ConnectorError('CRM Win URL is not configured')
+        url=settings.crm_win_url
+        self._validate(url)
+        html=self.request('GET',url).text
+        fields={'ctl00$MainContent$txt_dateFrom':f'{date_from.month}/{date_from.day}/{date_from.year}','ctl00$MainContent$txt_DateTo':f'{date_to.month}/{date_to.day}/{date_to.year}','ctl00$MainContent$btnShow':'Show'}
+        payload=webforms_payload(html,fields)
+        response_text=self.request('POST',url,data=payload).text
+        self._snapshot_list('wins',response_text)
+        return response_text
+    def supervisor_dashboard(self):
+        """T_MainBoardSupervisor.aspx — default view is the current Daily/Weekly/Monthly/
+        Yearly period, so a plain GET is enough; no postback needed."""
+        if not settings.crm_supervisor_url:raise ConnectorError('CRM Supervisor URL is not configured')
+        url=settings.crm_supervisor_url
+        self._validate(url)
+        response_text=self.request('GET',url).text
+        self._snapshot_list('supervisor',response_text)
+        return response_text
     def ups_detail(self,record_id):
         template=settings.crm_ups_detail_url_template
         if not template:raise ConnectorError('CRM UPS detail URL is not configured')

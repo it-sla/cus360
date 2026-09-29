@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     crm_ups_detail_url_template: str = ""
     crm_active_pipeline_url: str = ""
     crm_daily_call_logs_url: str = ""
+    crm_win_url: str = ""
+    crm_supervisor_url: str = ""
     crm_pipeline_lookahead_days: int = 180
     crm_pipeline_lookback_days: int = 90
     crm_pipeline_schedule_cron: str = "15 6,12,18 * * *"
@@ -36,6 +38,8 @@ class Settings(BaseSettings):
     crm_pnl_schedule_lookback_days: int = 31
     crm_daily_call_logs_schedule_cron: str = "45 6,12,18 * * *"
     crm_daily_call_logs_schedule_lookback_days: int = 7
+    crm_win_schedule_cron: str = "50 6,12,18 * * *"
+    crm_targets_schedule_cron: str = "55 * * * *"
     crm_username: SecretStr = SecretStr("")
     crm_password: SecretStr = SecretStr("")
     crm_allowed_hosts: str = ""

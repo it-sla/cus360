@@ -186,6 +186,21 @@ export interface DashboardResponse {
     biggest_decline: any;
     summary_narrative: string;
   };
+  crm_targets: CrmTargetSnapshot | null;
+}
+
+// CRM's own Target vs Actual (T_MainBoardSupervisor.aspx), only ever the current
+// daily/weekly/monthly/yearly period — null when the selected timeframe has no CRM
+// equivalent (e.g. last_month, a custom range).
+export interface CrmTargetFigures {
+  pcs_exp: number | null; vol_exp: number | null; rev_exp: number | null;
+  pcs_imp: number | null; vol_imp: number | null; rev_imp: number | null;
+}
+export interface CrmTargetSnapshot {
+  period: 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom';
+  fetched_at: string | null;
+  actual: CrmTargetFigures;
+  target: CrmTargetFigures;
 }
 
 export interface SearchResponse {

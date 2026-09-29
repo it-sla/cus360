@@ -3,7 +3,7 @@ from decimal import Decimal
 import uuid
 
 from app.db import SessionLocal
-from app.models import AccountExecutive, DailyCallLog, Shipment, User
+from app.models import AccountExecutive, CrmWin, DailyCallLog, Shipment, User
 
 
 def _seed_ae_shipment(db, ae_code, revenue, weight, shipment_date=None, pay_term='PP'):
@@ -19,6 +19,10 @@ def _seed_call_log(db, ae_code, stage, call_date=None):
         call_date=call_date or date.today(), company_name=f'Test Co {uuid.uuid4().hex[:6]}',
         ae_code=ae_code, stage=stage, source_row_hash=uuid.uuid4().hex,
     ))
+
+
+def _seed_win(db, ae_code, win_date=None):
+    db.add(CrmWin(win_date=win_date or date.today(), company_name=f'Won Co {uuid.uuid4().hex[:6]}', ae_code=ae_code))
 
 
 def test_leaderboard_ranks_by_revenue_shipments_and_weight(client):
@@ -97,20 +101,17 @@ def test_leaderboard_ignores_shipments_outside_current_month(client):
         db.close()
 
 
-def test_leaderboard_wins_counts_win_stage_only(client):
-    """Wins come from Daily Call Log stage, not pipeline_items.win_loss — that field
-    is always blank in practice since pipeline_items only ever holds the CRM's
-    still-open (never-closed) pipeline. 'Win' must match exactly; other stages don't count."""
+def test_leaderboard_wins_come_from_crm_win_register_not_call_logs(client):
+    """Wins come from crm_wins (CRM_Win.aspx), not daily_call_logs.stage='Win' — call
+    logs are notes AEs re-log freely and overcounted wins ~4x."""
     db = SessionLocal()
     try:
         tag = uuid.uuid4().hex[:6].upper()
         ae = f'WIN{tag}'
         db.add(AccountExecutive(ae_code=ae, display_name='Closer'))
-        _seed_call_log(db, ae, 'Win')          # counts
-        _seed_call_log(db, ae, 'Win')          # counts
-        _seed_call_log(db, ae, 'Loss')         # does not count
-        _seed_call_log(db, ae, 'Prospect')     # does not count
-        _seed_call_log(db, ae, None)           # does not count
+        _seed_win(db, ae)                      # counts
+        _seed_win(db, ae)                      # counts
+        _seed_call_log(db, ae, 'Win')          # does not count
         db.commit()
 
         res = client.get('/api/v1/leaderboard')
@@ -122,13 +123,13 @@ def test_leaderboard_wins_counts_win_stage_only(client):
         db.close()
 
 
-def test_leaderboard_wins_ignores_call_logs_outside_current_month(client):
+def test_leaderboard_wins_ignores_wins_outside_current_month(client):
     db = SessionLocal()
     try:
         tag = uuid.uuid4().hex[:6].upper()
         ae = f'OLDWIN{tag}'
         db.add(AccountExecutive(ae_code=ae, display_name='Old News'))
-        _seed_call_log(db, ae, 'Win', call_date=date(2020, 1, 15))
+        _seed_win(db, ae, win_date=date(2020, 1, 15))
         db.commit()
 
         res = client.get('/api/v1/leaderboard')
@@ -148,7 +149,7 @@ def test_leaderboard_includes_ae_with_wins_but_no_shipments_this_month(client):
         tag = uuid.uuid4().hex[:6].upper()
         ae = f'PUREWIN{tag}'
         db.add(AccountExecutive(ae_code=ae, display_name='Deal Closer'))
-        _seed_call_log(db, ae, 'Win')
+        _seed_win(db, ae)
         db.commit()
 
         res = client.get('/api/v1/leaderboard')
