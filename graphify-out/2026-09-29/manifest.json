@@ -560,8 +560,8 @@
     "semantic_hash": "d35f2d059b1823963c282ff315081de5"
   },
   "frontend/src/components/KpiCard.tsx": {
-    "mtime": 1790670042.7113168,
-    "ast_hash": "a199ee664461f82db498742f975fad0b",
+    "mtime": 1790658584.8285573,
+    "ast_hash": "9e327c013b5141e740340cf243aa072f",
     "semantic_hash": ""
   },
   "frontend/src/components/Sidebar.tsx": {
@@ -725,8 +725,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/ExecutiveOverview.tsx": {
-    "mtime": 1790669768.915643,
-    "ast_hash": "abd539056fd5aeb1055f159626eef7c6",
+    "mtime": 1790663590.0492876,
+    "ast_hash": "c41f77ebba6c5e12b8b1b94d1964237a",
     "semantic_hash": ""
   },
   "frontend/src/pages/MasterAirWaybills.tsx": {

@@ -338,6 +338,22 @@ class DailyCallLog(UUIDPK, Base):
     source_row_hash: Mapped[str]=mapped_column(String,unique=True,index=True)
     scraped_at: Mapped[datetime]=mapped_column(DateTime(timezone=True),default=now)
 
+class CrmWin(UUIDPK, Base):
+    """Mirror of the CRM win register (CRM_Win.aspx). Fully replaced on each sync."""
+    __tablename__="crm_wins"
+    win_date: Mapped[date]=mapped_column(Date,index=True)
+    company_name: Mapped[str]=mapped_column(String)
+    normalized_company_name: Mapped[str|None]=mapped_column(String,index=True)
+    crm_customer_id: Mapped[str|None]=mapped_column(String,index=True)
+    ae_code: Mapped[str|None]=mapped_column(String,index=True)
+    weight_kg: Mapped[Decimal|None]=mapped_column(Numeric(14,3))
+    revenue_usd: Mapped[Decimal|None]=mapped_column(Numeric(16,2))
+    pieces: Mapped[int|None]=mapped_column(Integer)
+    category: Mapped[str|None]=mapped_column(String)
+    phone: Mapped[str|None]=mapped_column(String)
+    remarks: Mapped[str|None]=mapped_column(Text)
+    scraped_at: Mapped[datetime]=mapped_column(DateTime(timezone=True),default=now)
+
 class ActivityLog(UUIDPK, Base):
     __tablename__="activity_logs"
     entity_type: Mapped[str]=mapped_column(String,index=True); entity_id: Mapped[uuid.UUID]=mapped_column(UUID(as_uuid=True),index=True); action: Mapped[str]=mapped_column(String); description: Mapped[str]=mapped_column(Text); source: Mapped[str]=mapped_column(String); metadata_json: Mapped[dict[str,Any]|None]=mapped_column(JSONB); created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True),default=now)

@@ -176,7 +176,7 @@ def run_once():
     if run_id:discover_run(run_id);return True
     item_id=claim_item()
     if item_id:process_item(item_id);finalize_runs();return True
-    finalize_runs();recover_backfill_orchestration();check_auto_schedule();check_reconcile_schedule();check_pipeline_auto_schedule();check_pnl_auto_schedule();check_daily_call_logs_auto_schedule();check_tier_alert_email_schedule();check_immediate_tier_breach_schedule();check_weekly_report_schedule();heartbeat();return False
+    finalize_runs();recover_backfill_orchestration();check_auto_schedule();check_reconcile_schedule();check_pipeline_auto_schedule();check_pnl_auto_schedule();check_daily_call_logs_auto_schedule();check_wins_auto_schedule();check_targets_auto_schedule();check_tier_alert_email_schedule();check_immediate_tier_breach_schedule();check_weekly_report_schedule();heartbeat();return False
 def recover_backfill_orchestration():
     db=SessionLocal()
     try:
@@ -440,6 +440,71 @@ def check_daily_call_logs_auto_schedule():
             emit('daily_call_logs_sync_scheduled',stage='daily_call_logs_schedule',result='synced',inserted=stats['inserted_count'],total_rows=stats['total_rows'])
         except (ConnectorError,CrmParseError) as exc:
             db.rollback();emit('daily_call_logs_sync_failed',stage='daily_call_logs_schedule',result=type(exc).__name__,error=str(exc)[:200])
+        finally:connector.close()
+    finally:db.close()
+def check_wins_auto_schedule():
+    """Periodic mirror of the CRM win register (CRM_Win.aspx). The whole history is small
+    (~200 rows) and comes back in one request, so every run fetches everything and
+    sync_wins fully replaces crm_wins — no lookback window, no watermark."""
+    if not settings.crm_scraper_enabled or not settings.crm_win_url or not settings.crm_win_schedule_cron:return
+    db=SessionLocal()
+    try:
+        state=db.scalar(select(CrmSyncState).where(CrmSyncState.entity_type=='wins_auto_schedule'))
+        last_run=(state.cursor_json or {}).get('last_run_at') if state else None
+        now_dt=datetime.utcnow()
+        if last_run:
+            try:last_dt=datetime.fromisoformat(last_run)
+            except(ValueError,TypeError):last_dt=None
+            if last_dt and (now_dt-last_dt).total_seconds()<300:return
+        if not _cron_matches(now_dt,settings.crm_win_schedule_cron):return
+        from datetime import date
+        from .crm_connector import CrmSessionManager,ConnectorError
+        from .crm_parser import parse_wins,CrmParseError
+        from .crm_sync import sync_wins
+        connector=CrmSessionManager()
+        try:
+            html=connector.wins_list(date(2000,1,1),date(date.today().year+1,12,31))
+            stats=sync_wins(db,parse_wins(html,settings.crm_win_url))
+            db.commit()
+            if not state:state=CrmSyncState(entity_type='wins_auto_schedule',cursor_json={});db.add(state)
+            state.cursor_json={'last_run_at':now_dt.isoformat(),'inserted':stats['inserted_count']};state.updated_at=now()
+            db.commit()
+            emit('wins_sync_scheduled',stage='wins_schedule',result='synced',inserted=stats['inserted_count'],total_rows=stats['total_rows'])
+        except (ConnectorError,CrmParseError) as exc:
+            db.rollback();emit('wins_sync_failed',stage='wins_schedule',result=type(exc).__name__,error=str(exc)[:200])
+        finally:connector.close()
+    finally:db.close()
+def check_targets_auto_schedule():
+    """Periodic snapshot of T_MainBoardSupervisor.aspx's Target/Actual block. The CRM only
+    ever shows the current Daily/Weekly/Monthly/Yearly period, so this keeps a single
+    overwritten snapshot in CrmSyncState rather than any history."""
+    if not settings.crm_scraper_enabled or not settings.crm_supervisor_url or not settings.crm_targets_schedule_cron:return
+    db=SessionLocal()
+    try:
+        state=db.scalar(select(CrmSyncState).where(CrmSyncState.entity_type=='supervisor_targets'))
+        last_run=(state.cursor_json or {}).get('last_run_at') if state else None
+        now_dt=datetime.utcnow()
+        if last_run:
+            try:last_dt=datetime.fromisoformat(last_run)
+            except(ValueError,TypeError):last_dt=None
+            if last_dt and (now_dt-last_dt).total_seconds()<300:return
+        if not _cron_matches(now_dt,settings.crm_targets_schedule_cron):return
+        from .crm_connector import CrmSessionManager,ConnectorError
+        from .crm_parser import parse_supervisor_targets,CrmParseError
+        connector=CrmSessionManager()
+        try:
+            html=connector.supervisor_dashboard()
+            periods=parse_supervisor_targets(html)
+            # cursor_json is JSONB — Decimal isn't natively serializable, so figures are
+            # floated here rather than in the parser (which keeps Decimal for callers that
+            # write to Numeric DB columns).
+            periods={p:{k:{f:(float(v) if v is not None else None) for f,v in fig.items()} for k,fig in kinds.items()} for p,kinds in periods.items()}
+            if not state:state=CrmSyncState(entity_type='supervisor_targets',cursor_json={});db.add(state)
+            state.cursor_json={'last_run_at':now_dt.isoformat(),'fetched_at':now_dt.isoformat(),'periods':periods};state.updated_at=now()
+            db.commit()
+            emit('targets_sync_scheduled',stage='targets_schedule',result='synced')
+        except (ConnectorError,CrmParseError) as exc:
+            db.rollback();emit('targets_sync_failed',stage='targets_schedule',result=type(exc).__name__,error=str(exc)[:200])
         finally:connector.close()
     finally:db.close()
 def main():

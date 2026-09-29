@@ -5,6 +5,13 @@ import { cn } from '@/lib/utils';
 
 type LucideIcon = React.ForwardRefExoticComponent<LucideProps & React.RefAttributes<SVGSVGElement>>;
 
+interface KpiCardTarget {
+  actual: number;
+  target: number;
+  label?: string; // defaults to 'CRM'
+  format?: (n: number) => string; // defaults to toLocaleString()
+}
+
 interface KpiCardProps {
   title: string;
   value: string | number;
@@ -13,6 +20,7 @@ interface KpiCardProps {
   trendLabel?: string;
   subValue?: string;
   sparkline?: React.ReactNode;
+  target?: KpiCardTarget | KpiCardTarget[]; // CRM Target vs Actual for the current period
   className?: string;
   onClick?: () => void;
 }
@@ -25,6 +33,7 @@ export function KpiCard({
   trendLabel,
   subValue,
   sparkline,
+  target,
   className,
   onClick
 }: KpiCardProps) {
@@ -60,6 +69,20 @@ export function KpiCard({
           <span className="text-xs font-semibold text-zinc-400">{subValue}</span>
         )}
       </div>
+
+      {/* Target attainment — a pill badge, same convention as the trend badge below and
+          AE Performance's attainment column, rather than a progress bar. */}
+      {target && (Array.isArray(target) ? target : [target]).filter(t => t.target > 0).map((t, i) => {
+        const fmt = t.format ?? ((n: number) => n.toLocaleString());
+        const pct = Math.round((t.actual / t.target) * 100);
+        const tone = pct >= 100 ? 'text-emerald-400 bg-emerald-400/10' : pct >= 70 ? 'text-amber-400 bg-amber-400/10' : 'text-rose-400 bg-rose-400/10';
+        return (
+          <div key={i} className="flex items-center justify-between gap-2 mb-2 relative z-10">
+            <span className="text-[10px] font-semibold text-zinc-400">{t.label ?? 'CRM'} {fmt(t.target)}</span>
+            <span className={cn('inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold shrink-0', tone)}>{pct}%</span>
+          </div>
+        );
+      })}
 
       <div className="mt-auto pt-3 border-t border-zinc-800/80 flex items-center justify-between relative z-10">
         {trend !== undefined ? (

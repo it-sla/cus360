@@ -16,7 +16,7 @@ import {
   Globe,
   Trophy,
   Repeat,
-  Layers
+  Weight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { KpiCard } from '@/components/KpiCard';
@@ -85,13 +85,34 @@ export default function ExecutiveOverview() {
     : 'No manifests yet';
 
   const arpu = kpi.avg_revenue_per_customer?.value || 0;
-  
+
   const formatMoney = (val: number | undefined | null) => {
     if (val === undefined || val === null || isNaN(val)) return '$0';
-    return val >= 1000000 
-      ? `$${(val / 1000000).toFixed(2)}M` 
+    return val >= 1000000
+      ? `$${(val / 1000000).toFixed(2)}M`
       : `$${val.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
   };
+
+  // CRM's own Target vs Actual (T_MainBoardSupervisor.aspx for the current period, or the
+  // ae_targets-sum fallback for any other period — see crm_targets_for_timeframe /
+  // ae_targets_sum_for_range in main.py). Shown as a progress bar inside the Gross Revenue
+  // card itself, labeled with whichever period this actually is.
+  const crmTargets = d.crm_targets;
+  const targetPeriodLabel: Record<string, string> = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly', custom: 'Period' };
+  const targetCardTitle = crmTargets ? `${targetPeriodLabel[crmTargets.period] ?? 'Period'} Target` : 'Target';
+  // "actual" here is this card's own Gross Revenue figure (rev.value), not the CRM's own
+  // actual (crmTargets.actual.rev_exp) — the two sources drift slightly apart (sync timing,
+  // manual overrides — see docs/03-data-rules.md) and showing two different "actuals" in one
+  // card reads as a bug. Only the target comes from crmTargets/ae_targets.
+  const revenueTarget = crmTargets && crmTargets.target.rev_exp
+    ? { actual: rev.value, target: crmTargets.target.rev_exp, label: targetCardTitle, format: formatMoney }
+    : undefined;
+  const packagesTarget = crmTargets && crmTargets.target.pcs_exp
+    ? { actual: d.operational_analytics?.total_packages || 0, target: crmTargets.target.pcs_exp, label: targetCardTitle, format: (n: number) => n.toLocaleString() }
+    : undefined;
+  const weightTarget = crmTargets && crmTargets.target.vol_exp
+    ? { actual: d.sp_manifest_report?.total_weight || 0, target: crmTargets.target.vol_exp, label: targetCardTitle, format: (n: number) => `${n.toLocaleString(undefined, { maximumFractionDigits: 0 })} kg` }
+    : undefined;
 
   // --- REAL DATA MAPPINGS ---
   
@@ -229,11 +250,12 @@ export default function ExecutiveOverview() {
 
       {/* 2 & 6. KPI ROW WITH TOP ACCENT BORDERS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
-        <KpiCard 
-          title="Gross Revenue" 
-          value={formatMoney(rev.value)} 
-          icon={DollarSign} 
-          trend={rev.pop_pct} 
+        <KpiCard
+          title="Gross Revenue"
+          value={formatMoney(rev.value)}
+          icon={DollarSign}
+          trend={rev.pop_pct}
+          target={revenueTarget}
           className="border-t-2 border-t-zinc-50"
           onClick={() => setSelectedKpi({ title: 'Gross Revenue', value: formatMoney(rev.value), data: { 'Top Revenue Driver': d.executive_insights?.top_revenue_driver?.company_name || 'N/A', 'Revenue per Shipment': formatMoney(d.operational_analytics?.revenue_per_shipment || 0), ...rev } })}
         />
@@ -284,21 +306,23 @@ export default function ExecutiveOverview() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
           
           {/* 1. Total Packages */}
-          <KpiCard 
+          <KpiCard
             title="Total Packages"
             value={d.operational_analytics?.total_packages?.toLocaleString() || 0}
             icon={Package}
+            target={packagesTarget}
             className="border-t-2 border-t-blue-500/80"
             onClick={() => setSelectedKpi({ title: 'Total Packages', value: d.operational_analytics?.total_packages?.toLocaleString() || '0', data: d.operational_analytics })}
           />
 
-          {/* 2. Avg Pkgs / Shipment */}
-          <KpiCard 
-            title="Avg Pkgs / Shipment"
-            value={d.operational_analytics?.avg_packages_per_shipment?.toFixed(1) || 0}
-            icon={Layers}
+          {/* 2. Total Weight */}
+          <KpiCard
+            title="Total Weight"
+            value={`${(d.sp_manifest_report?.total_weight || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} kg`}
+            icon={Weight}
+            target={weightTarget}
             className="border-t-2 border-t-indigo-500/80"
-            onClick={() => setSelectedKpi({ title: 'Avg Packages per Shipment', value: d.operational_analytics?.avg_packages_per_shipment?.toFixed(1) || '0', data: d.operational_analytics })}
+            onClick={() => setSelectedKpi({ title: 'Total Weight', value: `${(d.sp_manifest_report?.total_weight || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} kg`, data: d.sp_manifest_report })}
           />
 
           {/* 3. Countries Served */}
@@ -324,7 +348,7 @@ export default function ExecutiveOverview() {
           />
 
           {/* 5. Avg Rev / Shipment */}
-          <KpiCard 
+          <KpiCard
             title="Avg Rev / Shipment"
             value={formatMoney(d.operational_analytics?.revenue_per_shipment || 0)}
             icon={DollarSign}

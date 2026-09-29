@@ -1604,6 +1604,48 @@ def completeness(db:Session=Depends(get_db),_user:User=Depends(require_role(['ad
 @app.get('/api/v1/analytics/data-quality')
 def data_quality(db:Session=Depends(get_db),_user:User=Depends(require_role(['admin','sales_lead']))):return {'shipment_date_coverage':overview(db,_user)['shipment_date_coverage'],'match_status':rows(db,'SELECT match_status,count(*)::int count FROM shipments GROUP BY match_status')}
 
+_CRM_TARGET_PERIOD_BY_TIMEFRAME={'today':'daily','this_week':'weekly','this_month':'monthly','this_year':'yearly'}
+def crm_targets_for_timeframe(db:Session,timeframe:str):
+    """CRM_Win.aspx's sibling page, T_MainBoardSupervisor.aspx, only ever shows the
+    *current* Daily/Weekly/Monthly/Yearly period — there's no equivalent for 'last_month'
+    or a custom range, so this returns None for any timeframe it can't map."""
+    period=_CRM_TARGET_PERIOD_BY_TIMEFRAME.get(timeframe)
+    if not period:return None
+    state=db.scalar(select(CrmSyncState).where(CrmSyncState.entity_type=='supervisor_targets'))
+    figures=((state.cursor_json or {}).get('periods') or {}).get(period) if state else None
+    if not figures:return None
+    return {'period':period,'fetched_at':(state.cursor_json or {}).get('fetched_at'),**figures}
+
+def ae_targets_sum_for_range(db:Session,c_start:date,c_end:date):
+    """Fallback for whichever period crm_targets_for_timeframe can't cover — anything
+    but the current day/week/month/year, since the CRM only ever shows 'right now'.
+    ae_targets is stored per calendar month, so this sums every month the range touches,
+    same whole-month rule as monthsInRange() in AEPerformance.tsx. Returns None (never a
+    fabricated zero) when no AeTarget row falls in range, e.g. a year that was never
+    imported."""
+    if not c_start or not c_end:return None
+    months=set();y,m=c_start.year,c_start.month
+    while (y,m)<=(c_end.year,c_end.month):
+        months.add((y,m));m+=1
+        if m>12:m=1;y+=1
+    years={y for y,_ in months}
+    matched=[t for t in db.scalars(select(AeTarget).where(AeTarget.year.in_(years))).all() if (t.year,t.month) in months]
+    if not matched:return None
+    def total(attr):
+        vals=[getattr(t,attr) for t in matched if getattr(t,attr) is not None]
+        return float(sum(vals)) if vals else 0.0
+    return {'pcs_exp':total('piece_target'),'vol_exp':total('weight_target'),'rev_exp':total('revenue_target'),
+            'pcs_imp':total('piece_target_import'),'vol_imp':total('weight_target_import'),'rev_imp':total('revenue_target_import')}
+
+def _ae_targets_period_snapshot(db:Session,c_start:date,c_end:date,actual_pcs,actual_weight,actual_rev):
+    target=ae_targets_sum_for_range(db,c_start,c_end)
+    if not target:return None
+    period='yearly' if c_start==date(c_start.year,1,1) and c_end==date(c_start.year,12,31) \
+        else 'monthly' if (c_start.year,c_start.month)==(c_end.year,c_end.month) else 'custom'
+    return {'period':period,'fetched_at':None,
+            'actual':{'pcs_exp':actual_pcs,'vol_exp':actual_weight,'rev_exp':actual_rev,'pcs_imp':0,'vol_imp':0,'rev_imp':0},
+            'target':target}
+
 def get_timeframe_bounds(tf:str,d_from:date|None=None,d_to:date|None=None,y_from:int|None=None,y_to:int|None=None,compare_mode:str='pop'):
     import calendar
     from datetime import date as _date,timedelta
@@ -2073,21 +2115,15 @@ def leaderboard(timeframe:str|None=None,date_from:date|None=None,date_to:date|No
     """
     period_rows=rows(db,period_sql,{'start':c_start,'end':c_end})
 
-    # A "win" is a unique company (or CRM customer, when known) whose call log
-    # stage is 'Win' at least once in the range, per AE — NOT a raw row count.
-    # AEs frequently log the same won company multiple times (follow-ups, re-logs
-    # of the same closed deal), so COUNT(*) overcounts by 6-11 wins/AE/month in
-    # practice; COUNT(DISTINCT ...) counts each customer's win once. NOT
-    # pipeline_items.win_loss — that field is always blank in practice, because
-    # pipeline_items only ever holds the CRM's *active* (still-open) pipeline; a
-    # deal leaves that table once it closes. The stage the CRM actually records a
-    # closed-won call under is 'Win' on the call log itself (daily_call_logs.stage).
+    # Wins come from the CRM's own win register (CRM_Win.aspx, mirrored into
+    # crm_wins) — NOT daily_call_logs.stage='Win', which is a call note AEs re-log
+    # freely and overcounted ~4x. Distinct per customer, so a company won twice in
+    # the range counts once.
     wins_sql="""
-        SELECT COALESCE(NULLIF(TRIM(d.ae_code), ''), 'UNASSIGNED') AS ae,
-               COUNT(DISTINCT COALESCE(d.crm_customer_id, LOWER(TRIM(d.company_name))))::int AS wins
-        FROM daily_call_logs d
-        WHERE d.call_date >= :start AND d.call_date <= :end
-          AND d.stage = 'Win'
+        SELECT COALESCE(NULLIF(TRIM(w.ae_code), ''), 'UNASSIGNED') AS ae,
+               COUNT(DISTINCT COALESCE(w.crm_customer_id, LOWER(TRIM(w.company_name))))::int AS wins
+        FROM crm_wins w
+        WHERE w.win_date >= :start AND w.win_date <= :end
         GROUP BY 1
     """
     wins_rows=rows(db,wins_sql,{'start':c_start,'end':c_end})
@@ -2126,18 +2162,18 @@ def leaderboard(timeframe:str|None=None,date_from:date|None=None,date_to:date|No
 @app.get('/api/v1/leaderboard/wins-detail')
 def leaderboard_wins_detail(ae_code:str,date_from:date,date_to:date,db:Session=Depends(get_db),_role:User=Depends(require_role(['admin','sales_lead']))):
     """Drill-down for a single AE's win count — which distinct companies were logged
-    Win in the range, so admin can see e.g. why an AE has wins but no shipment revenue
-    yet (deal closed in the CRM call log, nothing has shipped)."""
+    won (CRM win register) in the range, so admin can see e.g. why an AE has wins but no shipment revenue
+    yet (deal won in the CRM, nothing has shipped)."""
     sql="""
-        SELECT COALESCE(d.crm_customer_id, LOWER(TRIM(d.company_name))) AS company_key,
-               MAX(d.company_name) AS company_name,
-               d.crm_customer_id,
-               MIN(d.call_date) AS first_win_date,
-               MAX(d.call_date) AS last_win_date,
+        SELECT COALESCE(w.crm_customer_id, LOWER(TRIM(w.company_name))) AS company_key,
+               MAX(w.company_name) AS company_name,
+               w.crm_customer_id,
+               MIN(w.win_date) AS first_win_date,
+               MAX(w.win_date) AS last_win_date,
                COUNT(*)::int AS log_count
-        FROM daily_call_logs d
-        WHERE d.ae_code = :ae_code AND d.stage = 'Win'
-          AND d.call_date >= :start AND d.call_date <= :end
+        FROM crm_wins w
+        WHERE w.ae_code = :ae_code
+          AND w.win_date >= :start AND w.win_date <= :end
         GROUP BY 1, 3
         ORDER BY first_win_date
     """
@@ -2169,6 +2205,7 @@ def executive_dashboard(
     if ae_scope:ae_code=ae_scope
     c_start,c_end,p_start,p_end=get_timeframe_bounds(timeframe,date_from,date_to,year_from,year_to,compare_mode)
     is_all_time=timeframe=='all_time'
+    crm_targets=crm_targets_for_timeframe(db,timeframe)
 
     cur_sql=f"""
         SELECT s.id shipment_id, s.company_id, c.company_name, c.icris_number, s.shipment_number, c.customer_type as segment, c.status as company_status,
@@ -2724,7 +2761,8 @@ def executive_dashboard(
             'top_revenue_driver': top_driver,
             'biggest_decline': biggest_decline_comp,
             'summary_narrative': exec_summary_text
-        }
+        },
+        'crm_targets': crm_targets or _ae_targets_period_snapshot(db,c_start,c_end,total_packages_period,cur_total_weight,cur_total_rev)
     }
 
 @app.get('/api/v1/companies/{company_id}/analytics')

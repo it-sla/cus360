@@ -53,12 +53,12 @@ def normalize_header(value):
     return re.sub(r'\s*([.])\s*',r'\1',value)
 
 class Tables(HTMLParser):
-    def __init__(self):super().__init__();self.tables=[];self.table=None;self.row=None;self.cell=None;self.title='';self.in_title=False;self.has_password=False
+    def __init__(self):super().__init__();self.tables=[];self.tables_by_id={};self.table=None;self._table_id=None;self.row=None;self.cell=None;self.title='';self.in_title=False;self.has_password=False
     def handle_starttag(self,tag,attrs):
         attrs=dict(attrs)
         if tag=='title':self.in_title=True
         if tag=='input' and attrs.get('type','').lower()=='password':self.has_password=True
-        if tag=='table':self.table=[]
+        if tag=='table':self.table=[];self._table_id=attrs.get('id')
         elif tag=='tr' and self.table is not None:self.row=[]
         elif tag in ('th','td') and self.row is not None:self.cell={'text':[],'href':None}
         elif tag=='a' and self.cell is not None:self.cell['href']=attrs.get('href','')
@@ -72,7 +72,10 @@ class Tables(HTMLParser):
         elif tag=='tr' and self.row is not None:
             if self.row:self.table.append(self.row)
             self.row=None
-        elif tag=='table' and self.table is not None:self.tables.append(self.table);self.table=None
+        elif tag=='table' and self.table is not None:
+            self.tables.append(self.table)
+            if self._table_id:self.tables_by_id[self._table_id]=self.table
+            self.table=None;self._table_id=None
 
 def document(html):
     if not html or len(html.strip())<80:raise PartialManifestError('CRM response is empty or truncated')
@@ -398,6 +401,31 @@ def _customer_id(ref):
     query=parse_qs(urlparse(ref).query)
     found=next((values[0] for key,values in query.items() if key.casefold()=='id2' and values),'')
     return found
+def _split_table_rows(doc,expected):
+    """Header row in its own table, data rows in a sibling table (MainContent_tbl_Header /
+    MainContent_tbl_Quotation) -> (column positions, data rows).
+
+    The header row isn't always row 0 of its table — CRM_Win.aspx's header table carries a
+    totals row above the header row — so every row of every table is checked, not just the
+    first."""
+    header_table=None;header_row_index=None;headers=None;wanted={normalize_header(x) for x in expected}
+    for table in doc.tables:
+        for i,row in enumerate(table):
+            normalized={normalize_header(x) for x in cells(row)}
+            if wanted<=normalized:header_table=table;header_row_index=i;headers=cells(row);break
+        if header_table is not None:break
+    if header_table is None:raise CrmParseError('Expected CRM table headers were not found')
+    pos=_positions(headers,expected)
+    # The header table's own remainder is sometimes just a single totals row (e.g.
+    # CRM_Win.aspx), which would otherwise be mistaken for the one data row, so the real
+    # data lives in a sibling table whenever one has more rows than the header table's own.
+    data_rows=_data_rows_from_table(header_table[header_row_index+1:],pos)
+    header_id=id(header_table)
+    for tbl in doc.tables:
+        if id(tbl)==header_id:continue
+        candidate=_data_rows_from_table(tbl,pos)
+        if len(candidate)>len(data_rows):data_rows=candidate
+    return pos,data_rows
 def parse_daily_call_logs(html,base_url=''):
     """CRM_DairyAEList.aspx ('Daily Call Logs') -> list of dicts, one per call-log row.
 
@@ -405,21 +433,7 @@ def parse_daily_call_logs(html,base_url=''):
     #MainContent_tbl_Header, the data rows in #MainContent_tbl_Quotation, so the header
     table's own body is empty and the fallback scan over sibling tables is what actually
     finds the rows. Rows with no Date or Company Name are dropped rather than raising."""
-    doc=document(html)
-    header_table=None;headers=None;wanted={normalize_header(x) for x in DAILY_CALL_LOG_HEADERS}
-    for table in doc.tables:
-        if not table:continue
-        normalized={normalize_header(x) for x in cells(table[0])}
-        if wanted<=normalized:header_table=table;headers=cells(table[0]);break
-    if header_table is None:raise CrmParseError('Expected CRM table headers were not found')
-    pos=_positions(headers,DAILY_CALL_LOG_HEADERS)
-    data_rows=_data_rows_from_table(header_table[1:],pos)
-    if not data_rows:
-        header_id=id(header_table)
-        for tbl in doc.tables:
-            if id(tbl)==header_id:continue
-            candidate=_data_rows_from_table(tbl,pos)
-            if candidate:data_rows=candidate;break
+    pos,data_rows=_split_table_rows(document(html),DAILY_CALL_LOG_HEADERS)
     out=[]
     for row in data_rows:
         values=cells(row)
@@ -435,6 +449,56 @@ def parse_daily_call_logs(html,base_url=''):
         ref=next((c['href'] for c in row if c['href']),'')
         item['crm_customer_id']=_customer_id(ref)
         item['detail_ref']=urljoin(base_url,ref) if base_url else ref
+        out.append(item)
+    return out
+
+SUPERVISOR_TABLE_IDS={
+    'daily':{'actual':'MainContent_atc_TourFile_TabPanel1_tbl_DayActual','target':'MainContent_atc_TourFile_TabPanel1_tbl_DayPlan'},
+    'weekly':{'actual':'MainContent_atc_TourFile_TabPanel1_tbl_Week','target':'MainContent_atc_TourFile_TabPanel1_tbl_WeekPlan'},
+    'monthly':{'actual':'MainContent_atc_TourFile_TabPanel1_tbl_month','target':'MainContent_atc_TourFile_TabPanel1_tbl_monthPlan'},
+    'yearly':{'actual':'MainContent_atc_TourFile_TabPanel1_tbl_yearly','target':'MainContent_atc_TourFile_TabPanel1_tbl_yearlyPlan'},
+}
+_SUPERVISOR_FIELDS=('pcs_exp','vol_exp','rev_exp','pcs_imp','vol_imp','rev_imp')
+def _supervisor_row(table):
+    """Last row whose first cell reads 'Actual' or 'Target' — the header row (if any)
+    and the label cell are skipped, leaving the 6 Pcs/Vol/Rev (Exp/Imp) figures."""
+    for row in reversed(table):
+        values=cells(row)
+        if values and values[0].strip().casefold() in ('actual','target'):return values[1:1+len(_SUPERVISOR_FIELDS)]
+    raise CrmParseError('Expected CRM Actual/Target row was not found')
+def parse_supervisor_targets(html):
+    """T_MainBoardSupervisor.aspx 'Target And Actual' block -> {period: {actual, target}}
+    for daily/weekly/monthly/yearly, each a dict of pcs/vol/rev exp/imp figures. Numbers
+    are comma-formatted in the source ('1,061.20'); number() strips the commas."""
+    doc=document(html)
+    out={}
+    for period,ids in SUPERVISOR_TABLE_IDS.items():
+        out[period]={}
+        for kind,table_id in ids.items():
+            table=doc.tables_by_id.get(table_id)
+            if not table:raise CrmParseError(f'Expected CRM table {table_id} was not found')
+            values=_supervisor_row(table)
+            out[period][kind]={field:(number(v,field).value if v is not None else None) for field,v in zip(_SUPERVISOR_FIELDS,values)}
+    return out
+
+WIN_HEADERS=['S.no.','Win Date','Company Name','Weight(kg)','Revenue($)','Volume(pcs)','Act Wt','Act Rev','Act Vol','Last field visit','Last phone call','Next follow up','Contact Creation','Current AE takeover','Ageing','Category','Phone No','AE','Remarks']
+def parse_wins(html,base_url=''):
+    """CRM_Win.aspx (win register) -> list of dicts, one per win. Same split-table layout
+    as the call logs; rows with no Win Date or Company Name are dropped."""
+    pos,data_rows=_split_table_rows(document(html),WIN_HEADERS)
+    out=[]
+    for row in data_rows:
+        values=cells(row)
+        if not any(values) or max(pos.values())>=len(values):continue
+        item={h:values[i] for h,i in pos.items()}
+        if not item['Win Date'].strip() or not item['Company Name'].strip():continue
+        try:item['win_date']=parse_date(item['Win Date'].strip())
+        except CrmParseError:continue
+        item['weight_kg']=number(item['Weight(kg)'],'Weight(kg)').value
+        item['revenue_usd']=number(item['Revenue($)'],'Revenue($)').value
+        pcs=number(item['Volume(pcs)'],'Volume(pcs)').value;item['pieces']=int(pcs) if pcs is not None else None
+        ref=next((c['href'] for c in row if c['href']),'')
+        item['crm_customer_id']=_customer_id(ref)
         out.append(item)
     return out
 
