@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import {
-  Package, Search, RefreshCw,
-  Truck, CheckCircle2, Clock, Hash, MapPin, Globe,
+  Package, Search,
+  Hash, MapPin, Globe,
   X, Building2,
-  MoreVertical, Copy, Printer, AlertTriangle, FileText, Plus, Weight
+  MoreVertical, Copy, Printer, FileText, Weight
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api';
@@ -18,41 +18,6 @@ function useDebounce<T>(value: T, delay: number): T {
     return () => clearTimeout(handler);
   }, [value, delay]);
   return debouncedValue;
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const norm = (status || 'unmatched').toLowerCase();
-
-  if (norm === 'matched' || norm === 'delivered') {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-        <CheckCircle2 size={11} />
-        Delivered / Matched
-      </span>
-    );
-  }
-  if (norm === 'suggested' || norm === 'in_transit') {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/30">
-        <Truck size={11} />
-        In Transit
-      </span>
-    );
-  }
-  if (norm === 'delayed') {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30">
-        <AlertTriangle size={11} />
-        Delayed
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
-      <Clock size={11} />
-      Pending / Unmatched
-    </span>
-  );
 }
 
 function fmtDate(d: string | null) {
@@ -137,7 +102,7 @@ export default function AirWaybills() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const { data: shipmentsData, isLoading: isLoadingShipments, refetch } = useQuery({
+  const { data: shipmentsData, isLoading: isLoadingShipments } = useQuery({
     queryKey: ['awb-shipments', queryParams],
     queryFn: () => api.getShipments(queryParams)
   });
@@ -160,18 +125,7 @@ export default function AirWaybills() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => refetch()}
-              className="flex items-center gap-1.5 px-3 py-2 bg-zinc-800 border border-zinc-700 text-xs font-bold text-zinc-300 hover:bg-zinc-700 rounded-lg transition-colors"
-            >
-              <RefreshCw size={14} className="text-zinc-500" />
-              <span>Refresh</span>
-            </button>
             <ExportButton variant="zinc" disabled={totalCount === 0} onExport={() => api.downloadShipmentsXlsx(queryParams)} />
-            <button className="h-9 px-4 rounded-lg bg-teal-600 text-white hover:bg-teal-500 transition-colors text-xs font-semibold flex items-center gap-2">
-              <Plus size={14} />
-              Create AWB
-            </button>
           </div>
         </div>
 
@@ -259,7 +213,6 @@ export default function AirWaybills() {
                   <th className="px-2.5 py-2.5 text-right">Pcs</th>
                   <th className="px-2.5 py-2.5 text-right">Weight</th>
                   <th className="px-2.5 py-2.5 text-right">Revenue</th>
-                  <th className="px-2.5 py-2.5 text-left">Status</th>
                   <th className="px-2.5 py-2.5 text-left">Date</th>
                   <th className="px-2.5 py-2.5 text-right w-10">Actions</th>
                 </tr>
@@ -274,15 +227,14 @@ export default function AirWaybills() {
                       <td className="px-2.5 py-2.5"><div className="h-4 bg-zinc-800 rounded w-16" /></td>
                       <td className="px-2.5 py-2.5"><div className="h-4 bg-zinc-800 rounded w-6 ml-auto" /></td>
                       <td className="px-2.5 py-2.5"><div className="h-4 bg-zinc-800 rounded w-12 ml-auto" /></td>
-                      <td className="px-2.5 py-2.5"><div className="h-4 bg-zinc-800 rounded w-14 ml-auto" /></td>
-                      <td className="px-2.5 py-2.5"><div className="h-4 bg-zinc-800 rounded w-20" /></td>
+                                            <td className="px-2.5 py-2.5"><div className="h-4 bg-zinc-800 rounded w-20" /></td>
                       <td className="px-2.5 py-2.5"><div className="h-4 bg-zinc-800 rounded w-16" /></td>
                       <td className="px-2.5 py-2.5"></td>
                     </tr>
                   ))
                 ) : filteredShipments.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="px-5 py-20 text-center">
+                    <td colSpan={8} className="px-5 py-20 text-center">
                       <div className="flex flex-col items-center justify-center text-zinc-500">
                         <Package size={36} className="mb-3 text-zinc-600" />
                         <p className="text-sm font-bold text-zinc-400 mb-1">No Air Waybills found</p>
@@ -337,10 +289,6 @@ export default function AirWaybills() {
 
                         <td className={`px-2.5 py-2.5 text-right font-black whitespace-nowrap ${revenue === 0 ? 'text-zinc-600' : 'text-zinc-50'}`}>
                           {fmt$(revenue)}
-                        </td>
-
-                        <td className="px-2.5 py-2.5">
-                          <StatusBadge status={s.match_status} />
                         </td>
 
                         <td className="px-2.5 py-2.5 text-zinc-500 font-medium whitespace-nowrap">
@@ -495,6 +443,13 @@ export function ShipmentDetailDrawer({
                     { label: 'Destination', value: shipment.import_country || 'United States (JFK)' },
                     { label: 'Date', value: shipment.shipment_date || '—' },
                     { label: 'Weight', value: fmtWeight(shipment) },
+                    {
+                      label: 'Bill Amount',
+                      // No currency symbol: CRM bill amounts have no assumed currency (data-rules rule 6).
+                      value: (shipment.bill_amount ?? shipment.declared_value) != null
+                        ? `${Number(shipment.bill_amount ?? shipment.declared_value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${shipment.pay_term ? ` (${shipment.pay_term})` : ''}`
+                        : '—',
+                    },
                     { label: 'Pieces', value: shipment.pieces ?? '—' },
                     { label: 'Bill Type', value: shipment.bill_type || '—' },
                     { label: 'Pay Term', value: shipment.pay_term || '—' },

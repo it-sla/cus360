@@ -361,6 +361,12 @@ function AnalyticsTab({ companyId }: { companyId: string }) {
 
 // ── Shipments Tab ────────────────────────────────────────────────────────
 
+// Same fallbacks as the AWB drawer / backend shipment_revenue(): weight from either column,
+// bill amount falling back to declared value. No currency symbol — CRM bill amounts have no
+// assumed currency (docs/03-data-rules.md rule 6).
+const shipmentWeightOf = (s: CompanyShipment) => s.shipment_weight ?? s.actual_weight;
+const shipmentBillOf = (s: CompanyShipment) => s.bill_amount ?? s.declared_value;
+
 function ShipmentsTab({ companyId }: { companyId: string }) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
@@ -416,20 +422,25 @@ function ShipmentsTab({ companyId }: { companyId: string }) {
               <th className="px-4 py-3">Origin</th>
               <th className="px-4 py-3">Destination</th>
               <th className="px-4 py-3 text-right">Weight</th>
+              <th className="px-4 py-3 text-right">Bill Amount</th>
               <th className="px-4 py-3 text-right">Pieces</th>
               <th className="px-4 py-3">Bill Type</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
             {paged.length === 0 ? (
-              <tr><td colSpan={7} className="py-12 text-center text-sm text-slate-400 dark:text-slate-400">No shipments found</td></tr>
+              <tr><td colSpan={8} className="py-12 text-center text-sm text-slate-400 dark:text-slate-400">No shipments found</td></tr>
             ) : paged.map((row: CompanyShipment) => (
               <tr key={row.id} className="transition-colors">
                 <td className="px-4 py-3 font-semibold text-slate-900 dark:text-slate-100 font-mono">{row.shipment_number}</td>
                 <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{fmtDate(row.shipment_date)}</td>
                 <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{row.export_country || '—'}</td>
                 <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{row.import_country || '—'}</td>
-                <td className="px-4 py-3 text-right text-slate-700 dark:text-slate-200 tabular-nums">{row.shipment_weight != null ? `${row.shipment_weight} ${row.weight_unit || 'kg'}` : '—'}</td>
+                <td className="px-4 py-3 text-right text-slate-700 dark:text-slate-200 tabular-nums">{shipmentWeightOf(row) != null ? `${shipmentWeightOf(row)} ${row.weight_unit || 'kg'}` : '—'}</td>
+                <td className="px-4 py-3 text-right text-slate-700 dark:text-slate-200 tabular-nums whitespace-nowrap">
+                  {shipmentBillOf(row) != null ? Number(shipmentBillOf(row)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+                  {row.pay_term && <span className="ml-1.5 text-[10px] font-bold text-slate-400">{row.pay_term}</span>}
+                </td>
                 <td className="px-4 py-3 text-right text-slate-700 dark:text-slate-200 tabular-nums">{row.pieces || '—'}</td>
                 <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{row.bill_type || '—'}</td>
               </tr>
@@ -907,10 +918,10 @@ export default function Customer360() {
         name: 'Shipments',
         rows: shipments.map((s) => ({
           'AWB #': s.shipment_number, 'Shipment Date': s.shipment_date ?? '', Origin: s.export_country ?? '', Destination: s.import_country ?? '',
-          Pieces: s.pieces, 'Weight (kg)': s.shipment_weight, Packages: s.package_count, 'Bill Type': s.bill_type ?? '',
+          Pieces: s.pieces, 'Weight (kg)': shipmentWeightOf(s), 'Bill Amount': shipmentBillOf(s), 'Pay Term': s.pay_term ?? '', Packages: s.package_count, 'Bill Type': s.bill_type ?? '',
           Shipper: s.shipper_name ?? '', Importer: s.importer_name ?? '', Goods: s.goods_description ?? '', 'Match Status': s.match_status,
         })),
-        formats: { 'Weight (kg)': 'decimal' },
+        formats: { 'Weight (kg)': 'decimal', 'Bill Amount': 'decimal' },
       },
       {
         name: 'Call Logs',

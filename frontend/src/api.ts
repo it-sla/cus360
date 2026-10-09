@@ -411,8 +411,12 @@ export interface CompanyShipment {
   shipment_date: string | null;
   pieces: number | null;
   shipment_weight: number | null;
+  actual_weight: number | null;
   weight_unit: string | null;
   bill_type: string | null;
+  bill_amount: number | null;
+  declared_value: number | null;
+  pay_term: string | null;
   import_country: string | null;
   export_country: string | null;
   shipper_name: string | null;
