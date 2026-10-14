@@ -95,6 +95,7 @@ case "$command" in
     remote sh -c "cd frontend && npm ci --prefer-offline && npm run build"
     compose up -d --build
     compose exec -T backend alembic upgrade head
+    compose ps  # every service should be Up; a missing/restarting one means trouble
     printf '==> Deployed %s\n' "$(remote git rev-parse --short HEAD)"
     ;;
   sync) sync_project ;;
